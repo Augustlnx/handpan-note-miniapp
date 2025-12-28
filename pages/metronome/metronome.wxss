@@ -1,0 +1,172 @@
+.metronome-container {
+  min-height: 100vh;
+  padding: 40rpx;
+  background-color: #ffffffcf;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 背景图片装饰 */
+.background-image {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 66.66%;
+  height: auto;
+  opacity: 0.3;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.metronome-card {
+  padding: 60rpx 40rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.page-title {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #314D63;
+  text-align: center;
+  margin-bottom: 60rpx;
+}
+
+/* 设置区域 */
+.setting-section {
+  margin-bottom: 50rpx;
+}
+
+.setting-label {
+  display: block;
+  font-size: 28rpx;
+  color: #8FB9AB;
+  margin-bottom: 20rpx;
+  font-weight: 500;
+}
+
+/* 速度控制 */
+.tempo-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30rpx;
+}
+
+.tempo-btn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.tempo-btn:active {
+  opacity: 1;
+}
+
+.btn-control {
+  width: 80rpx;
+  height: 80rpx;
+  min-width: 80rpx;
+  min-height: 80rpx;
+  background-color: #314D63;
+  color: white;
+  font-size: 40rpx;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  line-height: 80rpx;
+}
+
+.tempo-input {
+  width: 200rpx;
+  height: 80rpx;
+  background-color:  rgba(178, 232, 232, 0.2);
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 40rpx; 
+  font-weight: bold;
+  color: #314D63;
+}
+
+/* 拍号控制 */
+.time-signature-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+}
+
+.picker-display {
+  width: 120rpx;
+  height: 80rpx;
+  background-color: rgba(178, 232, 232, 0.2);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #314D63;
+}
+
+.slash {
+  font-size: 50rpx;
+  color: #314D63;
+  font-weight: bold;
+}
+
+/* 视觉指示器 */
+.visual-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 30rpx;
+  margin: 80rpx 0;
+  padding: 40rpx 0;
+  background-color: rgba(178, 232, 232, 0.2);
+  border-radius: 16rpx;
+}
+
+.beat-dot {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background-color: #8FB9AB;
+  transition: all 0.1s ease;
+}
+
+.beat-dot.active {
+  background-color: #F4D096;
+  transform: scale(1.5);
+  box-shadow: 0 0 20rpx rgba(244, 208, 150, 0.6);
+}
+
+/* 控制按钮 */
+.control-buttons {
+  margin: 60rpx 0;
+}
+
+.control-buttons button {
+  width: 100%;
+  padding: 30rpx;
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.control-buttons button.playing {
+  background-color: #8FB9AB;
+}
+
+/* 音量控制 */
+.volume-slider {
+  width: 90%;
+  margin: 10rpx auto 0;
+}

@@ -1,0 +1,203 @@
+<view class="settings-container">
+  <!-- 背景图片装饰 -->
+  <image class="background-image" src="/assets/img/bg2.png" mode="widthFix"></image>
+  
+  <view class="card">
+    <text class="page-title">设置</text>
+
+    <!-- 主标题颜色 -->
+    <view class="setting-item">
+      <text class="setting-title">主标题颜色</text>
+      <view class="color-setting">
+        
+        <view class="color-picker-wrapper">
+          <view class="color-preview" style="background-color: {{mainTitleColor}}"></view>
+          <input class="color-input" type="text" value="{{mainTitleColor}}" bindinput="onMainTitleColorInput" maxlength="7" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 副标题颜色 -->
+    <view class="setting-item">
+      <text class="setting-title">副标题颜色</text>
+      <view class="color-setting">
+        
+        <view class="color-picker-wrapper">
+          <view class="color-preview" style="background-color: {{subTitleColor}}"></view>
+          <input class="color-input" type="text" value="{{subTitleColor}}" bindinput="onSubTitleColorInput" maxlength="7" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 右手旋律颜色 -->
+    <view class="setting-item">
+      <text class="setting-title">右手旋律颜色（中轴线以上）</text>
+      <view class="color-setting">
+        
+        <view class="color-picker-wrapper">
+          <view class="color-preview" style="background-color: {{rightHandColor}}"></view>
+          <input class="color-input" type="text" value="{{rightHandColor}}" bindinput="onRightHandColorInput" maxlength="7" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 左手旋律颜色 -->
+    <view class="setting-item">
+      <text class="setting-title">左手旋律颜色（中轴线以下）</text>
+      <view class="color-setting">
+      
+        <view class="color-picker-wrapper">
+          <view class="color-preview" style="background-color: {{leftHandColor}}"></view>
+          <input class="color-input" type="text" value="{{leftHandColor}}" bindinput="onLeftHandColorInput" maxlength="7" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 背景图片透明度 -->
+    <view class="setting-item">
+      <text class="setting-title">背景图片透明度</text>
+      <view class="opacity-setting">
+        <text class="opacity-value">{{backgroundOpacity}}%</text>
+        <slider class="opacity-slider" value="{{backgroundOpacity}}" min="0" max="100" step="5" 
+          bindchange="onBackgroundOpacityChange" show-value="{{false}}" activeColor="#8FB9AB" backgroundColor="#E0E0E0" />
+      </view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="action-buttons">
+      <button class="btn-primary" bindtap="saveSettings">保存设置</button>
+      <button class="btn-secondary" bindtap="resetSettings">恢复默认</button>
+    </view>
+  </view>
+
+  <!-- 关于 -->
+  <view class="card about-section">
+    <text class="setting-title">关于</text>
+    <text class="about-text">Handpan Note v2.0</text>
+    <text class="about-text">手碟记谱工具</text>    <view class="about-links">
+      <view class="about-link" bindtap="showUserManual">
+        <image class="about-icon" src="/assets/icons/problem.png"></image>
+        <text>用户手册</text>
+      </view>
+      <view class="about-link" bindtap="showChangelog">
+        <image class="about-icon" src="/assets/icons/document.png"></image>
+        <text>更新日志</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 用户手册弹窗 -->
+  <view wx:if="{{showUserManual}}" class="modal-overlay" bindtap="closeUserManual">
+    <view class="modal-content manual-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">📖 用户手册</text>
+        <image class="modal-close" src="/assets/icons/delete.png" bindtap="closeUserManual"></image>
+      </view>
+      <scroll-view class="modal-body" scroll-y="true">
+        <view class="manual-content">
+          <view class="manual-section">
+            <text class="section-title">✨ 欢迎使用 Handpan Note</text>
+            <text class="section-text">这是一款专为手碗演奏者设计的记谱工具，帮助您轻松记录和整理音乐灵感。</text>
+          </view>
+
+          <view class="manual-section">
+            <text class="section-title">🎵 基础功能</text>
+            <text class="section-text">• <text class="highlight">音符输入</text>：点击任意音符位即可输入，支持上下双音符</text>
+            <text class="section-text">• <text class="highlight">模块管理</text>：支持多个谱面模块，点击“+”添加新模块</text>
+            <text class="section-text">• <text class="highlight">拍号设置</text>：支持 4/4、3/4 和自由设定拍号</text>
+            <text class="section-text">• <text class="highlight">横竖屏切换</text>：适应不同设备，横屏可显示更多内容</text>
+          </view>
+
+          <view class="manual-section">
+            <text class="section-title">🔧 高级功能</text>
+            <text class="section-text">• <text class="highlight">模块工具</text>：点击模块下的工具图标，可设置独立的行数和拍号</text>
+            <text class="section-text">• <text class="highlight">节拍器</text>：底部菜单栏点击节拍器，可显示悬浮节拍器辅助练习</text>
+            <text class="section-text">• <text class="highlight">导出功能</text>：支持导出为 PNG 图片</text>
+            <text class="section-text">• <text class="highlight">颜色自定义</text>：在设置页面可自定义标题和音符颜色</text>
+          </view>
+
+          <view class="manual-section">
+            <text class="section-title">💡 使用技巧</text>
+            <text class="section-text">• 标题页设置的是全局模版，可在模块页（如A-1）的设置页面设置单模块特殊格式</text>
+            <text class="section-text">• 利用横屏模式查看更多小节</text>
+            <text class="section-text">• 定期导出备份作品防止丢失</text>
+            <text class="section-text">• 使用自由设定拍号创作复杂节奏</text>
+          </view>
+
+          <view class="manual-section">
+            <text class="section-title">❓ 常见问题</text>
+            <text class="section-text"><text class="highlight">Q: 如何删除音符？</text></text>
+            <text class="section-text">A: 点击音符位后清空输入框即可</text>
+            <text class="section-text"><text class="highlight">Q: 如何切换拍号？</text></text>
+            <text class="section-text">A: 点击顶部“拍号”选项，选择所需拍号即可</text>
+            <text class="section-text"><text class="highlight">Q: 数据会丢失吗？</text></text>
+            <text class="section-text">A: 所有数据自动保存到本地，如果不进行微信卸载、缓存清理等操作，不会丢失谱面数据</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 更新日志弹窗 -->
+  <view wx:if="{{showChangelog}}" class="modal-overlay" bindtap="closeChangelog">
+    <view class="modal-content manual-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">📢 更新日志</text>
+        <image class="modal-close" src="/assets/icons/delete.png" bindtap="closeChangelog"></image>
+      </view>
+      <scroll-view class="modal-body" scroll-y="true">
+        <view class="manual-content">
+          <view class="changelog-item">
+            <text class="version-tag">v1.0.0</text>
+            <text class="version-date">2025-12-20</text>
+            <view class="changelog-content">
+              <text class="change-title">🎉 初始版本</text>
+              <text class="change-text">• 初创谱面设计和容器结构</text>
+              <text class="change-text">• 基础音符输入功能</text>
+              <text class="change-text">• 初步实现导出图片功能</text>
+              <text class="change-text">• 支持基本的谱面编辑</text>
+            </view>
+          </view>
+          <view class="changelog-item">
+            <text class="version-tag">v2.0.0</text>
+            <text class="version-date">2025-12-25</text>
+            <view class="changelog-content">
+              <text class="change-title">✨ 新功能</text>
+              <text class="change-text">• 支持多模块谱面管理</text>
+              <text class="change-text">• 支持 4/4、3/4 和自由拍号</text>
+              <text class="change-text">• 内嵌节拍器功能</text>
+              <text class="change-text">• 横竖屏自适应布局</text>
+              <text class="change-text">• PNG精细化分页导出功能</text>
+              <text class="change-text">• 代码识别自动导入谱面数据功能</text>
+              
+              <text class="change-title">🎨 个性化</text>
+              <text class="change-text">• 自定义标题和副标题颜色</text>
+              <text class="change-text">• 自定义左右手音符颜色</text>
+              <text class="change-text">• 可调节背景图片透明度</text>
+              
+              <text class="change-title">🔧 优化改进</text>
+              <text class="change-text">• 优化音符输入体验</text>
+              <text class="change-text">• 模块删除后自动重新编号</text>
+              <text class="change-text">• 横屏模式 UI 元素自动缩放</text>
+              <text class="change-text">• 模块工具支持独立拍号设置</text>
+            </view>
+          </view>
+          
+
+          <view class="changelog-item">
+            <text class="version-tag future">v2.1.0 （计划中）</text>
+            <view class="changelog-content">
+              <text class="change-title">🔮 可能推出</text>
+              <text class="change-text">• 云同步功能</text>
+              <text class="change-text">• 音频播放引擎</text>
+              <text class="change-text">• 更多导出格式</text>
+              <text class="change-text">• 模板库功能</text>
+              <text class="change-text">• 社区分享功能</text>
+              <text class="change-text">• 商城</text>
+            </view>
+            <text class="article-text">持续画饼中……</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>  </view>
+</view>

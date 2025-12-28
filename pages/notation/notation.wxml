@@ -1,0 +1,793 @@
+
+<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}}">
+  <!-- 背景图片装饰（固定右下角，半透明，层级低于菜单栏） -->
+  <image class="background-image" src="/assets/img/bg2.png" mode="widthFix" style="opacity: {{backgroundOpacity}}"></image>
+  
+  <!-- 分页容器：处理触摸事件 -->
+  <view id="notation-pages" class="notation-pages-wrapper {{pageTransitioning ? 'page-transition-out' : 'page-transition-in'}}" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd">
+    <!-- 标题区（仅在第一页显示） -->
+    <view class="header-section" wx:if="{{currentPage === 0}}">
+      <text class="main-title" bindtap="editTitle">{{mainTitle}}</text>
+      <text class="sub-title" bindtap="editSubTitle">{{subTitle}}</text>
+      
+      <!-- 速度设置 -->
+      <view class="header-action-row" bindtap="editGlobalTempo">
+        <image class="header-action-icon" src="/assets/icons/music.png"></image>
+        <text class="header-action-label">速度：</text>
+        <text class="header-action-value"> {{globalTempo}}</text>
+      </view>
+
+      <!-- 排版视角（旋转屏幕） -->
+      <view class="header-action-row" bindtap="openOrientationPicker">
+        <image class="header-action-icon" src="/assets/icons/rotation.png"></image>
+        <text class="header-action-label">视角：</text>
+        <text class="header-action-value">{{orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）'}}</text>
+        <view class="header-help-wrap" catchtap="showRotationHelp">
+          <image class="header-help-icon" src="/assets/icons/help.png"></image>
+        </view>
+      </view>
+
+      <!-- 拍号选择 -->
+      <view class="header-action-row" bindtap="openTimeSignaturePicker">
+        <image class="header-action-icon" src="/assets/icons/Tim_Signature.png"></image>
+        <text class="header-action-label">拍号：</text>
+        <text class="header-action-value">{{currentTimeSignatureType === 'custom' ? '自由设定' : timeSignatureBeats + '/' + timeSignatureBottom}}</text>
+        <view class="header-help-wrap" catchtap="showTimeSignatureHelp">
+          <image class="header-help-icon" src="/assets/icons/help.png"></image>
+        </view>
+      </view>
+    </view>
+
+    <!-- 谱面列表（仅显示当前页的modules） -->
+    <view class="notation-list">
+      <view wx:for="{{currentPageModules}}" wx:key="id" class="notation-sheet" wx:for-item="pageModule">
+        <!-- 使用 pageModule.index 访问原始 notations 数组中的数据 -->
+        <view wx:if="{{notations[pageModule.index]}}">
+          <!-- 定义引用以简化代码 -->
+          <block wx:key="id" wx:for-item="notation" wx:for-index="notationItemIdx" wx:for="{{[notations[pageModule.index]]}}">
+            <!-- 删除图标（右上角） -->
+            <image class="delete-icon" src="/assets/icons/delete.png" data-id="{{notation.id}}" bindtap="deleteNotation"></image>
+            
+            <!-- 谱面信息 -->
+            <view class="sheet-info">
+              <view class="sheet-label" bindtap="editLabel" data-id="{{notation.id}}">
+                <text>{{notation.label}}</text>
+              </view>
+            </view>
+
+            <!-- 谱面内容 -->
+            <view class="staff-container {{measuresPerRow > 1 ? 'multi-measure' : 'single-measure'}}">
+              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / measuresPerRow}}%;">
+                <!-- 小节编号（上方居中） -->
+                <view class="measure-index">{{(notation.measureOffset || 0) + measureIndex + 1}}</view>
+                <!-- 小节线（左侧） -->
+                <view class="bar-line bar-line-left"></view>
+
+                <!-- 拍子 -->
+                <view wx:for="{{measure.beats}}" wx:key="index" wx:for-item="beat" wx:for-index="beatIndex" class="beat">
+                  <!-- 拍子分隔线（左侧，跳过第一个拍子避免与小节线重合） -->
+                  <view wx:if="{{beatIndex > 0}}" class="beat-line beat-line-left"></view>
+
+                  <!-- 16分音符（4个细分） -->
+                  <view wx:for="{{beat.subdivisions}}" wx:key="index" wx:for-item="subdivision" wx:for-index="subdivisionIndex" class="subdivision">
+                    <!-- 16分音符分隔线（左侧） -->
+                    <view wx:if="{{subdivisionIndex > 0}}" class="subdivision-line subdivision-line-left"></view>
+
+                    <!-- 上下音符格 -->
+                    <view class="note-grid">
+                      <!-- 右手音符（上） -->
+                      <view class="note-box note-box-top">
+                        <view class="note-column">
+                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-right' : ''}}">
+                            <view wx:if="{{!(editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0)}}"
+                              class="slot-click-overlay"
+                              catchtap="onSlotTap"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="0"></view>
+                            <input wx:if="{{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0}}"
+                              class="note-input note-input-right" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
+                              maxlength="2"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="0"
+                              bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
+                            <block wx:else>
+                              <text wx:if="{{subdivision.rightHand[0]}}" class="note-number note-right-hand">{{subdivision.rightHand[0]}}</text>
+                              <text wx:else class="note-number placeholder">　</text>
+                            </block>
+                          </view>
+                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-right' : ''}}">
+                            <view wx:if="{{!(editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1)}}"
+                              class="slot-click-overlay"
+                              catchtap="onSlotTap"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="1"></view>
+                            <input wx:if="{{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1}}"
+                              class="note-input note-input-right" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
+                              maxlength="2"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="1"
+                              bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
+                            <block wx:else>
+                              <text wx:if="{{subdivision.rightHand[1]}}" class="note-number note-right-hand">{{subdivision.rightHand[1]}}</text>
+                              <text wx:else class="note-number placeholder">　</text>
+                            </block>
+                          </view>
+                        </view>
+                      </view>
+
+                      <!-- 左手音符（下） -->
+                      <view class="note-box note-box-bottom">
+                        <view class="note-column">
+                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-left' : ''}}">
+                            <view wx:if="{{!(editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0)}}"
+                              class="slot-click-overlay"
+                              catchtap="onSlotTap"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="0"></view>
+                            <input wx:if="{{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0}}"
+                              class="note-input note-input-left" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
+                              maxlength="2"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="0"
+                              bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
+                            <block wx:else>
+                              <text wx:if="{{subdivision.leftHand[0]}}" class="note-number note-left-hand">{{subdivision.leftHand[0]}}</text>
+                              <text wx:else class="note-number placeholder">　</text>
+                            </block>
+                          </view>
+                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-left' : ''}}">
+                            <view wx:if="{{!(editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1)}}"
+                              class="slot-click-overlay"
+                              catchtap="onSlotTap"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="1"></view>
+                            <input wx:if="{{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1}}"
+                              class="note-input note-input-left" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
+                              maxlength="2"
+                              data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="1"
+                              bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
+                            <block wx:else>
+                              <text wx:if="{{subdivision.leftHand[1]}}" class="note-number note-left-hand">{{subdivision.leftHand[1]}}</text>
+                              <text wx:else class="note-number placeholder">　</text>
+                            </block>
+                          </view>
+                        </view>
+                      </view>
+                    </view>
+                  </view>
+
+                  <!-- 拍子分隔线（右侧，跳过最后一个拍子且不与中间小节线重叠） -->
+                  <view wx:if="{{beatIndex < measure.beats.length - 1 && !beat.barLineAfter}}" class="beat-line beat-line-right"></view>
+
+                  <!-- 中间小节线（自定义拍子模式中的分组间分隔线，使用小节线样式） -->
+                  <view wx:if="{{beat.barLineAfter}}" class="bar-line bar-line-middle"></view>
+                </view>
+
+                <!-- 小节线（右侧） -->
+                <view class="bar-line bar-line-right"></view>
+              </view>
+            </view>
+            
+            <!-- 添加谱面图标 -->
+            <view class="add-notation-row">
+              <image class="add-icon" src="/assets/icons/add.png" data-after-id="{{notation.id}}" bindtap="addNotationAfter"></image>
+              <image class="refresh-icon" src="/assets/icons/refresh.png" data-id="{{notation.id}}" bindtap="refreshNotation"></image>
+              <image class="tool-icon" src="/assets/icons/tool.png" data-id="{{notation.id}}" bindtap="openModuleSettings"></image>
+            </view>
+          </block>
+        </view>
+      </view>
+      
+      <!-- 手指拖动提示（仅在第一页且有多页时显示） -->
+      <view class="hand-drag-hint" wx:if="{{currentPage === 0 && totalPages > 1}}">
+        <image src="/assets/icons/hand_drag.png" class="hand-drag-image"></image>
+        <text class="hand-drag-text">向左滑动浏览更多</text>
+      </view>
+
+      <!-- 手指拖动提示（第2页及以后） -->
+      <view class="hand-drag-hint" wx:if="{{currentPage > 0 && totalPages > 1}}">
+        <image src="/assets/icons/hand_move.png" class="hand-drag-image"></image>
+        <text class="hand-drag-text">左右滑动浏览更多</text>
+      </view>
+    </view>
+
+    <!-- 分页指示器 -->
+    <view class="pagination-indicator" wx:if="{{enablePagination}}">
+      <text class="pagination-text">第 {{currentPage + 1}} / {{totalPages}} 页</text>
+    </view>
+  </view>
+
+  <!-- 页面切换加载遮罩 + 居中Logo + 80BPM悬浮节拍器（置于过渡容器外，避免被淡出遮挡） -->
+  <view wx:if="{{showPageLoadingOverlay}}" class="page-loading-overlay">
+    <image class="page-loading-logo" src="/assets/img/logo.png" mode="aspectFit"></image>
+    <view class="overlay-metronome">
+      <view wx:for="{{overlayMetronomeBeats}}" wx:key="index" class="metronome-dot overlay-dot"></view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view wx:if="{{!actionCollapsed}}" class="action-buttons">
+    <view class="action-btn" bindtap="toggleFloatingMetronome">
+      <image class="action-btn-icon" src="/assets/icons/ring.png"></image>
+      <text class="action-btn-text">节拍器</text>
+      <view class="help-icon-wrap" catchtap="showMetronomeHelp">
+        <image class="help-icon" src="/assets/icons/help.png"></image>
+      </view>
+    </view>
+    <view class="action-btn" bindtap="resetNotations">
+      <image class="action-btn-icon" src="/assets/icons/reset.png"></image>
+      <text class="action-btn-text">重置</text>
+    </view>
+    <view class="action-btn" bindtap="exportPDF">
+      <image class="action-btn-icon" src="/assets/icons/save.png"></image>
+      <text class="action-btn-text">导出</text>
+    </view>
+    <view class="action-btn" bindtap="openImportModal">
+      <image class="action-btn-icon" src="/assets/icons/upload.png"></image>
+      <text class="action-btn-text">导入</text>
+    </view>
+      <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
+      
+  </view>
+  <image class="action-toggle" src="/assets/icons/handpan.png" bindtap="toggleActionBar"></image>
+
+  <!-- 悬浮节拍器 -->
+  <view wx:if="{{showFloatingMetronome}}" class="floating-metronome">
+    <view class="metronome-dots">
+      <view wx:for="{{metronomeBeats}}" wx:key="index" class="metronome-dot {{currentMetronomeBeat === index ? (index === 0 ? 'active active-accent' : 'active') : ''}}"></view>
+    </view>
+    <image class="metronome-close" src="/assets/icons/close.png" bindtap="closeFloatingMetronome"></image>
+  </view>
+
+  <!-- 节拍器帮助提示窗口 -->
+  <view wx:if="{{showMetronomeHelpModal}}" class="modal-overlay" bindtap="closeMetronomeHelp">
+    <view class="modal-content help-modal" catchtap="stopPropagation">
+      <view class="modal-title">节拍器说明</view>
+      <view class="help-md">
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text>点击节拍器按钮会弹出一个悬浮节拍器</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text>节奏速度和拍数按照「节拍器」页面设定的值</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text>悬浮节拍器会显示当前拍点，便于练习</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text>点击关闭图标可关闭悬浮节拍器</text>
+        </view>
+      </view>
+      <view class="modal-buttons">
+        <button class="btn-primary" bindtap="closeMetronomeHelp">知道了</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 排版视角帮助窗口 -->
+  <view wx:if="{{showRotationHelpModal}}" class="modal-overlay" bindtap="closeRotationHelp">
+    <view class="modal-content help-modal" catchtap="stopPropagation">
+      <view class="modal-title">排版视角</view>
+      <view class="help-md">
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text><text class="md-strong">竖屏模式：</text>默认手机端排版模式</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text><text class="md-strong">横屏/平板模式：</text>一行排版更多小节，可容纳更多内容，页面元素均缩小</text>
+        </view>
+        <view class="md-quote">切换时谱面自动调整排版，数据不丢失。手机关闭固定旋转模式并横屏可提供更方便的展示。</view>
+      </view>
+      <view class="modal-buttons">
+        <button class="btn-primary" bindtap="closeRotationHelp">知道了</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 拍号选择帮助窗口 -->
+  <view wx:if="{{showTimeSignatureHelpModal}}" class="modal-overlay" bindtap="closeTimeSignatureHelp">
+    <view class="modal-content help-modal" catchtap="stopPropagation">
+      <view class="modal-title">拍号设置</view>
+      <view class="help-md">
+        <view class="md-line">
+          <text class="md-dot"></text>
+          <text><text class="md-strong">独立数据：</text>每个拍号都有独立数据空间，互不影响</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot"></text>
+          <text><text class="md-strong">自动切换：</text>更换拍号会自动切换到对应数据</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text><text class="md-strong">4/4：</text>每小节 4 拍，标准节拍</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text><text class="md-strong">3/4：</text>每小节 3 拍，常见于圆舞曲</text>
+        </view>
+        <view class="md-quote">首次进入某拍号会初始化默认谱面，可在该拍号下自由编辑，不影响其他拍号。</view>
+      </view>
+      <view class="modal-buttons">
+        <button class="btn-primary" bindtap="closeTimeSignatureHelp">知道了</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 通用编辑弹窗（用于标题/副标题/速度等） -->
+  <view wx:if="{{showEditModal}}" class="modal-overlay" bindtap="closeModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-title">{{editModalTitle}}</view>
+      <view class="modal-body">
+        <input class="modal-input" type="{{editInputType}}" value="{{editValue}}" focus="true" placeholder="{{editPlaceholder}}" bindinput="onEditInput" confirm-type="done" bindconfirm="confirmEdit" />
+      </view>
+      <view class="modal-buttons">
+        <button class="btn-primary" bindtap="confirmEdit">确定</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 自由设定拍号模态框 -->
+  <view wx:if="{{showCustomTimeSignatureModal}}" class="modal-overlay" bindtap="closeCustomTimeSignatureModal">
+    <view class="modal-content custom-time-signature-modal" catchtap="stopPropagation">
+      <view class="modal-title">自由设定拍号</view>
+      
+      <view class="custom-signature-help">
+        <view class="help-section">
+          <text class="help-label">符号说明：</text>
+          <text class="help-text">[ ] = 小节线 | | = 拍号线 - = 音符位</text>
+        </view>
+        <view class="help-section">
+          <text class="help-label">示例：</text>
+          <text class="help-text">4/4 拍号：[----|----|----|----]</text>
+        </view>
+        <view class="help-section">
+          <text class="help-label">限制：</text>
+          <text class="help-text">• 音符位"-"不超过35个</text>
+          <text class="help-text">• 仅包含 [ ] | - 四种符号</text>
+          <text class="help-text">• 必须以"["开始，"]"结束</text>
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <textarea 
+          class="template-input"
+          value="{{customTimeSignatureTemplate}}" 
+          focus="true" 
+          placeholder="输入单行模板，例如：[----|----|----|----]" 
+          bindinput="onCustomTimeSignatureInput"
+          maxlength="100"
+        />
+        <view wx:if="{{customTimeSignatureError}}" class="error-message">{{customTimeSignatureError}}</view>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeCustomTimeSignatureModal">取消</button>
+        <button class="btn-primary" bindtap="confirmCustomTimeSignature" disabled="{{!!customTimeSignatureError || !customTimeSignatureTemplate}}">确定</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 模块设置模态框 -->
+  <view wx:if="{{showModuleSettingsModal}}" class="modal-overlay" bindtap="closeModuleSettingsModal">
+    <view class="modal-content module-settings-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <view class="modal-title">模块设置</view>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeModuleSettingsModal"></image>
+      </view>
+      
+      <view class="module-settings-scrollable">
+      <view class="settings-item">
+        <view class="settings-item-header">
+          <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
+          <text class="settings-label">行数</text>
+        </view>
+        <view class="settings-item-content">
+          <view class="line-count-row">
+            <text class="settings-default-label">默认：{{orientation === 'landscape' ? 2 : 4}} 行</text>
+            <view class="module-line-input-group">
+              <input 
+                class="module-line-input"
+                type="number"
+                value="{{moduleLineCount}}" 
+                placeholder="1-20"
+                bindinput="onModuleLineCountInput"
+                bindconfirm="confirmModuleLineCount"
+                bindblur="confirmModuleLineCount"
+                min="1"
+                max="20"
+              />
+              <text class="input-hint">行</text>
+            </view>
+          </view>
+          <view wx:if="{{moduleLineCountError}}" class="error-message">{{moduleLineCountError}}</view>
+        </view>
+      </view>
+
+      <view class="settings-item">
+        <view class="settings-item-header">
+          <image class="settings-icon" src="/assets/icons/timing.png"></image>
+          <text class="settings-label">拍号</text>
+        </view>
+        <view class="settings-item-content">
+          <text class="settings-default-label">默认：{{timeSignatureBeats}}/{{timeSignatureBottom}}</text>
+          <view class="time-signature-picker">
+            <view class="picker-item" bindtap="selectModuleTimeSignature" data-value="4">
+              <text class="picker-text {{moduleTimeSignatureBeats === 4 ? 'active' : ''}}">4/4</text>
+            </view>
+            <view class="picker-item" bindtap="selectModuleTimeSignature" data-value="3">
+              <text class="picker-text {{moduleTimeSignatureBeats === 3 ? 'active' : ''}}">3/4</text>
+            </view>
+            <view class="picker-item" bindtap="selectModuleTimeSignature" data-value="custom">
+              <text class="picker-text {{moduleTimeSignatureBeats === 'custom' ? 'active' : ''}}">自由</text>
+            </view>
+          </view>
+          <view wx:if="{{moduleTimeSignatureBeats === 'custom'}}" class="custom-template-input-section">
+            <textarea
+              class="custom-template-input"
+              value="{{moduleCustomTemplate}}"
+              placeholder="例如：[----|---|-----|--][--|--]"
+              bindinput="onModuleCustomTemplateInput"
+              maxlength="100"
+            />
+            <view wx:if="{{moduleCustomTemplateError}}" class="error-message">{{moduleCustomTemplateError}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="settings-item">
+        <view class="settings-item-header">
+          <text class="settings-label">导入/导出</text>
+        </view>
+        <view class="settings-item-content">
+          <view class="import-export-buttons">
+            <view class="import-export-button" bindtap="openModuleImport" data-id="{{currentModuleId}}">
+              <image src="/assets/icons/afferent.png" class="button-icon"></image>
+              <text class="button-text">导入代码</text>
+            </view>
+            <view class="import-export-button" bindtap="showExportCode">
+              <image src="/assets/icons/output.png" class="button-icon"></image>
+              <text class="button-text">导出代码</text>
+            </view>
+          </view>
+          <view wx:if="{{exportModuleCode}}" style="display: flex; gap: 12rpx; align-items: flex-start; margin-top: 16rpx;">
+            <view style="flex: 1; background: #f5f5f5; padding: 16rpx; border-radius: 8rpx; word-break: break-all; font-size: 24rpx; font-family: monospace; max-height: 150rpx; overflow-y: auto; color: #333;">{{exportModuleCode}}</view>
+            <image class="copy-icon" src="/assets/icons/copy.png" style="width: 40rpx; height: 40rpx; flex-shrink: 0; margin-top: 16rpx;" bindtap="copyModuleCode"></image>
+          </view>
+        </view>
+      </view>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="resetModuleSettings">恢复默认</button>
+        <button class="btn-primary" bindtap="applyModuleSettings">完成</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导入乐谱模态窗口 -->
+  <view wx:if="{{showImportModal}}" class="modal-overlay" bindtap="closeImportModal">
+    <view class="modal-content import-modal" catchtap="stopPropagation">
+      <view class="modal-header-with-help">
+        <view class="modal-title">导入乐谱</view>
+        <view class="help-icon-wrap-enhanced" catchtap="showImportHelp">
+          <image class="help-icon-enhanced" src="/assets/icons/help.png"></image>
+          <text class="help-hint">查看说明</text>
+        </view>
+      </view>
+      <view class="import-description">
+        <text>请输入乐谱代码（支持LaTeX风格语法）</text>
+      </view>
+      <textarea
+        class="import-code-input"
+        value="{{importCode}}"
+        placeholder="示例：\begin{module}{A-1}&#10;[ (7,5)/(3,1) + (6)/(2,1) | ... ]&#10;\end{module}"
+        bindinput="onImportCodeInput"
+        maxlength="-1"
+      />
+      <view wx:if="{{importError}}" class="error-message">{{importError}}</view>
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeImportModal">取消</button>
+        <button class="btn-primary" bindtap="confirmImport">导入</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导入帮助模态窗口 -->
+  <view wx:if="{{showImportHelpModal}}" class="modal-overlay" bindtap="closeImportHelp">
+    <view class="modal-content import-help-modal" catchtap="stopPropagation">
+      <view class="modal-title">乐谱导入使用指南</view>
+      <scroll-view class="help-scroll-view" scroll-y="true">
+        <!-- 功能说明 -->
+        <view class="help-section">
+          <text class="help-section-title">📖 功能说明</text>
+          <text class="help-section-text">通过输入特定格式的代码快速创建乐谱，避免逐个音符手动输入，主要目的是在处理具有循环特性的乐谱是可以通过复制粘贴实现快速导入。此外也同时在开发借由AI识别图片快速扒谱的功能（当前识别转化效果较粗糙，欢迎体验）。支持批量导入多个模块或覆盖单个模块。</text>
+        
+        </view>
+
+        <!-- 基础语法 -->
+        <view class="help-section">
+          <text class="help-section-title">📝 基础语法</text>
+          <view class="help-subsection">
+            <text class="help-label">1. 模块定义</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{A-1}</text>
+              <text class="code-text">...乐谱内容...</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+          </view>
+          
+          <view class="help-subsection">
+            <text class="help-label">2. 分隔符</text>
+            <!-- 使用四个反斜杠以在界面上显示双反斜杠 -->
+            <text class="help-item">• 换行：\  \（分隔不同视觉行）</text>
+            <text class="help-item">• 小节：[ ] （][视为一个共用小jie）</text>
+            <text class="help-item">• 拍位：| （分隔拍）</text>
+            <text class="help-item">• 细分：+ （分隔16分音符）</text>
+            <text class="help-item">• 注释：% （行注释，会被忽略）</text>
+          </view>
+        </view>
+
+        <!-- 音符格式 -->
+        <view class="help-section">
+          <text class="help-section-title">🎵 音符格式</text>
+          <view class="help-subsection">
+            <text class="help-label">标准格式：(右手)/(左手)</text>
+            <text class="help-desc">四轨道系统从上到下依次为：</text>
+            <text class="help-item">→ Slot 0：右手外侧（离中轴远）</text>
+            <text class="help-item">→ Slot 1：右手内侧（贴近中轴）</text>
+            <text class="help-item">→ Slot 2：左手内侧（贴近中轴）</text>
+            <text class="help-item">→ Slot 3：左手外侧（离中轴远）</text>
+          </view>
+
+          <view class="help-subsection">
+            <text class="help-label">常用格式</text>
+            <text class="help-item">• (7,5)/(3,1) → 完整四音符</text>
+            <text class="help-item">• (5)/(1,2) → 右手单音符自动贴中轴</text>
+            <text class="help-item">• (5,3)/(2) → 左手单音符自动贴中轴</text>
+            <text class="help-item">• ()/(1,2) → 仅左手演奏</text>
+            <text class="help-item">• (7,5)/() → 仅右手演奏</text>
+            <text class="help-item">• - 或 ()/() → 空音符（占位）</text>
+          </view>
+
+          <view class="help-subsection">
+            <text class="help-label">简写规则（奇数右手，偶数左手）</text>
+            <text class="help-item">• (1,2,3) 自动转为 (3,1)/(2)：括号前半（右手）按奇数降序，括号后半（左手）按偶数升序。</text>
+            <text class="help-item">• 单个数字也可省略括号/斜杠：1 解析为 (1)/()，2 解析为 ()/(2)。</text>
+            <text class="help-item">• 示例：[(1,2,3)+-+-+-] 将被识别为 [(3,1)/(2)+-+-+-]；[(2+1+-+-] 将被识别为 [()/(2)+(1)/()+-+-]。</text>
+          </view>
+
+          <view class="help-subsection">
+            <text class="help-label">高级简写（隐含+号与手指定）</text>
+            <text class="help-item">• 隐含+号：相邻token之间自动插入+，无需显式书写。例如 12-- 被识别为 1+2+-+-。</text>
+            <text class="help-item">• 多位数：用{}包裹以防混淆。例如 {12}-- 被识别为 {12}+-+-，而不是 1+2+-+-。</text>
+            <text class="help-item">• 单手指定：用"数字/"和"/数字"格式手动指定左右手。例如 1/ 表示 ()/(1)（1在左手），/1 表示 (1)/()（1在右手）。</text>
+            <text class="help-item">• 完整手指定：简写为 4/1 等价于 (4)/(1)，也可用 {4/1} 规范为一个音符位。</text>
+            <text class="help-item">• 所有手指定均支持{}：{12/} 表示 ()/{12}，/{12} 表示 {12}/()，{4/1} 等同于 4/1。</text>
+            <text class="help-item">• 完整示例：1{1/}1{2/} 被识别为 1+{1/}+1+{2/}，结果为右手第1和1个音符，左手第2和左手第2个音符。4/1则直接表示右手4左手1。</text>
+          </view>
+        </view>
+
+        <!-- 示例代码 -->
+        <view class="help-section">
+          <text class="help-section-title">💡 示例代码</text>
+          
+          <view class="help-subsection">
+            <text class="help-label">简单示例（3/4拍）</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{示例-1}</text>
+              <text class="code-text">% 第一行</text>
+              <text class="code-text">[ (7,5)/(3,1) + (6)/(2) + - |</text>
+              <text class="code-text">  (8)/(4,2) + ()/(5) |</text>
+              <text class="code-text">  (9,7)/(6,4) + (T)/(5) ]</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+          </view>
+
+          <view class="help-subsection">
+            <text class="help-label">完整示例（4/4拍，多行）</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{A-1}</text>
+              <text class="code-text">% 第一行</text>
+              <text class="code-text">[ (7,5)/(3,1) + (6)/(2) |</text>
+              <text class="code-text">  (8,6)/(4,3) + (5)/(1,2) |</text>
+              <text class="code-text">  (9)/(5) + - |</text>
+              <text class="code-text">  (T,8)/(6,5) + (7)/(4) ] \\\</text>
+              <text class="code-text">% 第二行</text>
+              <text class="code-text">[ (5)/(1,2) + (6)/(2) |</text>
+              <text class="code-text">  (7,5)/(3,1) + - |</text>
+              <text class="code-text">  (8)/(4,2) + (9)/(5) |</text>
+              <text class="code-text">  - + (T)/(6) ]</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+          </view>
+
+          <view class="help-subsection">
+            <text class="help-label">多模块导入</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{B-1}</text>
+              <text class="code-text">[ (7)/(3) | (8)/(4) ]</text>
+              <text class="code-text">\end{module}</text>
+              <text class="code-text"></text>
+              <text class="code-text">\begin{module}{B-2}</text>
+              <text class="code-text">[ (9)/(5) | (T)/(6) ]</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+          </view>
+
+          <view class="help-subsection">
+            <text class="help-label">简写示例（复杂代码与简写对比）</text>
+            <text class="help-item">以下复杂代码：</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{A-1}</text>
+              <text class="code-text">[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|</text>
+              <text class="code-text"> (6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+            <text class="help-item">可简写为：</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{A-2}</text>
+              <text class="code-text">[6/D -/1{d/}|/D-6/1-|6/D -/1{d/}|/D-6/1-]\\</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+            <text class="help-item">说明：6/D 自动展开为 (6)/(D)，-/1 为 ()/(1)，{d/} 为 ()/{d}，隐含的 + 号自动插入</text>
+          </view>
+        </view>
+
+        <!-- 使用技巧 -->
+        <view class="help-section">
+          <text class="help-section-title">💡 使用技巧</text>
+          <text class="help-item">• 使用 T 表示数字10</text>
+          <text class="help-item">• 空格会被自动忽略</text>
+          <text class="help-item">• 小节线支持 ][ 连写</text>
+          <text class="help-item">• 可使用 % 添加注释说明</text>
+          <text class="help-item">• 建议先用简单示例测试</text>
+        </view>
+
+        <!-- 导入模式说明 -->
+        <view class="help-section">
+          <text class="help-section-title">🔄 导入模式</text>
+          <text class="help-item">• 菜单栏导入：添加新模块到谱面末尾</text>
+          <text class="help-item">• 模块设置导入：覆盖当前模块内容</text>
+          <text class="help-desc">（注：覆盖模式仅导入第一个模块的内容）</text>
+        </view>
+
+        <!-- 常见问题 -->
+        <view class="help-section">
+          <text class="help-section-title">❓ 常见问题</text>
+          <text class="help-item">Q: 如何表示空音符？</text>
+          <text class="help-answer">A: 使用 - 或 ()/() 均可</text>
+          
+          <text class="help-item">Q: 导入会覆盖原有数据吗？</text>
+          <text class="help-answer">A: 菜单栏导入会添加，模块设置导入会覆盖当前模块</text>
+          
+          <text class="help-item">Q: 支持哪些拍号？</text>
+          <text class="help-answer">A: 自动适配当前选择的拍号（3/4、4/4或自定义）</text>
+        </view>
+      </scroll-view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="dismissImportHelp">不再显示</button>
+        <button class="btn-primary" bindtap="closeImportHelp">知道了</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导出选项模态框 -->
+  <!-- 已移除：导出前图片加载测试弹窗 -->
+
+  <view wx:if="{{showExportOptionsModal}}" class="modal-overlay" bindtap="closeExportOptions">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">选择导出模式</text>
+      </view>
+      
+      <view class="export-options">
+        <view class="export-option {{exportMode === 'long' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="long">
+          <view class="option-content">
+            <text class="option-title">长图模式</text>
+            <text class="option-desc">一次导出完整谱面为单张长图</text>
+          </view>
+          <view wx:if="{{exportMode === 'long'}}" class="option-check">✓</view>
+        </view>
+        
+        <view class="export-option {{exportMode === 'paged' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="paged">
+          <view class="option-content">
+            <text class="option-title">分页模式（A4）</text>
+            <text class="option-desc">自动分页，适合打印或分享</text>
+          </view>
+          <view wx:if="{{exportMode === 'paged'}}" class="option-check">✓</view>
+        </view>
+
+        <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
+          <view class="option-content">
+            <text class="option-title">导出为代码</text>
+            <text class="option-desc">生成LaTeX风格代码，可复制分享</text>
+          </view>
+          <view wx:if="{{exportMode === 'code'}}" class="option-check">✓</view>
+        </view>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeExportOptions">取消</button>
+        <button class="btn-primary" bindtap="confirmExport">确认导出</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导出预览窗口（分页模式） -->
+  <view wx:if="{{showExportPreview}}" class="export-preview-overlay" bindtap="closeExportPreview">
+    <view class="export-preview-container" catchtap="stopPropagation">
+      <view class="preview-header">
+        <text class="preview-title">导出预览（{{currentPreviewPage + 1}}/{{exportPreviewImages.length}}）</text>
+        <image class="preview-close" src="/assets/icons/close.png" bindtap="closeExportPreview"></image>
+      </view>
+      
+      <swiper class="preview-swiper" current="{{currentPreviewPage}}" bindchange="onPreviewPageChange">
+        <swiper-item wx:for="{{exportPreviewImages}}" wx:key="index">
+          <image class="preview-image" src="{{item}}" mode="aspectFit"></image>
+        </swiper-item>
+      </swiper>
+      
+      <view class="preview-actions">
+        <button class="btn-secondary" bindtap="closeExportPreview">取消</button>
+        <button class="btn-primary" bindtap="saveExportImages">保存到相册</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导出代码预览窗口 -->
+  <view wx:if="{{showExportCodeModal}}" class="modal-overlay" bindtap="closeExportCodeModal">
+    <view class="modal-content export-code-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">导出代码</text>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeExportCodeModal"></image>
+      </view>
+      
+      <view class="export-code-body">
+        <view class="code-display">
+          <text class="code-output-text" user-select="true">{{exportedCode}}</text>
+        </view>
+      </view>
+      
+      <view class="export-code-actions">
+        <button class="btn-copy" bindtap="copyExportedCode">
+          <image class="copy-icon" src="/assets/icons/copy.png"></image>
+          <text>复制代码</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 开屏弹窗 -->
+  <view class="splash-modal-overlay {{showSplashModal ? 'show' : ''}}" bindtap="closeSplashModal" wx:if="{{showSplashModal}}">
+    <view class="splash-modal-content" catchtap="stopPropagation">
+      <!-- 关闭按钮 -->
+      <image class="splash-close-btn" src="/assets/icons/delete.png" bindtap="closeSplashModal"></image>
+
+      <!-- 弹窗标题 -->
+      <view class="splash-header">
+        <text class="splash-title">欢迎使用</text>
+        <text class="splash-subtitle">Handpan Note</text>
+      </view>
+
+      <!-- 弹窗描述 -->
+      <view class="splash-description">
+        <text class="splash-text">Handpan Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
+        <text class="splash-text">谱面为前端渲染，部分数据加载可能较慢，请耐心等待啦。欢迎分享给其他朋友使用~</text>
+        <text class="splash-text"></text>
+      </view>
+
+      <!-- 操作按钮（三个横向排列） -->
+      <view class="splash-actions">
+        <view class="splash-action-row">
+          <button class="splash-btn splash-btn-never-show" bindtap="onSplashNeverShowAgain">
+            <text class="splash-btn-label">不再显示</text>
+          </button>
+          <button class="splash-btn splash-btn-example" bindtap="onSplashViewExample">
+            <text class="splash-btn-label">查看示例</text>
+          </button>
+          <button class="splash-btn splash-btn-manual" bindtap="onSplashViewManual">
+            <text class="splash-btn-label">用户手册</text>
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

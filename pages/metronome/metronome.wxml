@@ -1,0 +1,54 @@
+<view class="metronome-container">
+  <!-- 背景图片装饰 -->
+  <image class="background-image" src="/assets/img/bg2.png" mode="widthFix"></image>
+  
+  <view class="card metronome-card">
+    <text class="page-title">节拍器</text>
+
+    <!-- 速度设置 -->
+    <view class="setting-section">
+      <text class="setting-label">速度 (BPM)</text>
+      <view class="tempo-control">
+        <image class="tempo-btn" src="/assets/icons/down.png" bindtap="decreaseTempo"></image>
+        <input class="tempo-input" type="number" value="{{tempo}}" bindblur="onTempoBlur" />
+        <image class="tempo-btn" src="/assets/icons/up.png" bindtap="increaseTempo"></image>
+      </view>
+    </view>
+
+    <!-- 拍号设置 -->
+    <view class="setting-section">
+      <text class="setting-label">拍号</text>
+      <view class="time-signature-control">
+        <picker mode="selector" range="{{beatsOptions}}" value="{{beatsIndex}}" bindchange="onBeatsChange">
+          <view class="picker-display">
+            <text>{{beatsOptions[beatsIndex]}}</text>
+          </view>
+        </picker>
+        <text class="slash">/</text>
+        <picker mode="selector" range="{{noteValueOptions}}" value="{{noteValueIndex}}" bindchange="onNoteValueChange">
+          <view class="picker-display">
+            <text>{{noteValueOptions[noteValueIndex]}}</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 视觉指示器 -->
+    <view class="visual-indicator">
+      <view wx:for="{{beats}}" wx:key="index" class="beat-dot {{currentBeat === index ? 'active' : ''}}"></view>
+    </view>
+
+    <!-- 控制按钮 -->
+    <view class="control-buttons">
+      <button class="btn-primary {{isPlaying ? 'playing' : ''}}" bindtap="toggleMetronome">
+        {{isPlaying ? '停止' : '开始'}}
+      </button>
+    </view>
+
+    <!-- 音量控制 -->
+    <view class="setting-section">
+      <text class="setting-label">音量</text>
+      <slider class="volume-slider" min="0" max="100" value="{{volume}}" bindchange="onVolumeChange" activeColor="#314D63" backgroundColor="#B2E8E8" />
+    </view>
+  </view>
+</view>

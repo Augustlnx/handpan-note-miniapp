@@ -1,0 +1,47 @@
+{
+  "pages": [
+    "pages/notation/notation",
+    "pages/metronome/metronome",
+    "pages/settings/settings"
+  ],
+  "permission": {
+    "scope.writePhotosAlbum": {
+      "desc": "需要您的授权以保存图片到相册"
+    }
+  },
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#304859",
+    "navigationBarTitleText": "Handpan Note",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#fffffff1"
+  },
+  "tabBar": {
+    "color": "#8FB9AB",
+    "selectedColor": "#314D63",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/notation/notation",
+        "text": "记谱",
+        "iconPath": "assets/icons/notation.png",
+        "selectedIconPath": "assets/icons/notation-active.png"
+      },
+      {
+        "pagePath": "pages/metronome/metronome",
+        "text": "节拍器",
+        "iconPath": "assets/icons/metronome.png",
+        "selectedIconPath": "assets/icons/metronome-active.png"
+      },
+      {
+        "pagePath": "pages/settings/settings",
+        "text": "设置",
+        "iconPath": "assets/icons/settings.png",
+        "selectedIconPath": "assets/icons/settings-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

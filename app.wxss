@@ -1,0 +1,59 @@
+/* 全局样式 */
+page {
+  background-color: #F4F4F4;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.container {
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+/* 通用按钮样式 */
+.btn-primary {
+  background-color: #314D63;
+  color: white;
+  border-radius: 8rpx;
+  padding: 20rpx 40rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.btn-secondary {
+  background-color: #8FB9AB;
+  color: white;
+  border-radius: 8rpx;
+  padding: 20rpx 40rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.btn-accent {
+  background-color: #F4D096;
+  color: #314D63;
+  border-radius: 8rpx;
+  padding: 20rpx 40rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+/* 输入框样式 */
+.input-field {
+  background-color: white;
+  border: 2rpx solid #B2E8E8;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #314D63;
+}
+
+/* 卡片样式 */
+.card {
+  background-color: white;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(49, 77, 99, 0.08);
+  position: relative;
+  z-index: 1;
+}
