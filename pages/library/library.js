@@ -1,0 +1,811 @@
+﻿// pages/library/library.js
+const libraryManager = require('../../utils/libraryManager.js');
+
+Page({
+  data: {
+    // 标签状态
+    activeTab: 'personal', // 'personal' | 'public'
+    
+    // 界面控制
+    editMode: false,
+    showSearchBar: false,
+    showSortMenu: false,
+    showMenu: false,
+    showInputModal: false,
+    showFolderPicker: false,
+    showFabMenu: false, // 悬浮按钮菜单
+    showImportModal: false, // 导入弹窗
+    
+    // 数据状态
+    currentPath: [], // 当前文件夹路径
+    breadcrumbs: [], // 面包屑导航
+    displayItems: [], // 当前显示的项目列表
+    recentFiles: [], // 最近打开的文件
+    allFolders: [], // 所有文件夹列表（用于移动）
+    
+    // 搜索和排序
+    searchKeyword: '',
+    sortType: 'name', // 'name' | 'createTime' | 'modifyTime'
+    
+    // 选择状态
+    selectedCount: 0,
+    
+    // 弹窗状态
+    menuItems: [],
+    currentItem: null,
+    inputModalTitle: '',
+    inputModalPlaceholder: '',
+    inputModalValue: '',
+    inputModalCallback: null,
+    
+    // 导入弹窗状态
+    importFileName: '',
+    importTargetPath: [],
+    importFolderItems: [],
+    importFolderBreadcrumbs: [],
+    importFolderCurrentPath: [],
+    importSnapshot: null,
+  },
+
+  onLoad() {
+    this.loadLibraryData();
+  },
+
+  onShow() {
+    // 每次显示页面时刷新数据
+    this.loadLibraryData();
+  },
+
+  // ========== 数据加载 ==========
+  loadLibraryData() {
+    const currentPath = this.data.currentPath;
+    const searchKeyword = this.data.searchKeyword;
+    const sortType = this.data.sortType;
+
+    // 获取当前目录的内容
+    let items = libraryManager.getItemsByPath(currentPath);
+
+    // 搜索过滤
+    if (searchKeyword) {
+      items = items.filter(item => 
+        item.name && item.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        item.file_name && item.file_name.toLowerCase().includes(searchKeyword.toLowerCase())
+      );
+    }
+
+    // 排序
+    items = this.sortItems(items, sortType);
+
+    // 更新面包屑
+    const breadcrumbs = this.generateBreadcrumbs(currentPath);
+
+    // 获取最近打开的文件
+    const recentFiles = libraryManager.getRecentFiles();
+
+    // 获取所有文件夹（用于移动功能）
+    const allFolders = libraryManager.getAllFolders();
+
+    this.setData({
+      displayItems: items,
+      breadcrumbs,
+      recentFiles,
+      allFolders
+    });
+  },
+
+  // 排序项目
+  sortItems(items, sortType) {
+    const folders = items.filter(item => item.type === 'folder');
+    const files = items.filter(item => item.type === 'file');
+
+    const sortFn = (a, b) => {
+      switch(sortType) {
+        case 'name':
+          const nameA = a.name || a.file_name || '';
+          const nameB = b.name || b.file_name || '';
+          return nameA.localeCompare(nameB);
+        case 'createTime':
+          return (b.createTime || 0) - (a.createTime || 0);
+        case 'modifyTime':
+          return (b.modifyTime || 0) - (a.modifyTime || 0);
+        default:
+          return 0;
+      }
+    };
+
+    return [...folders.sort(sortFn), ...files.sort(sortFn)];
+  },
+
+  // 生成面包屑导航
+  generateBreadcrumbs(path) {
+    return path.map((folderId, index) => {
+      const folder = libraryManager.getFolderById(folderId);
+      return {
+        id: folderId,
+        name: folder ? folder.name : '未知',
+        index
+      };
+    });
+  },
+
+  // ========== 标签切换 ==========
+  switchTab(e) {
+    const tab = e.currentTarget.dataset.tab;
+    if (tab === 'public') {
+      wx.showToast({
+        title: '功能开发中',
+        icon: 'none',
+        duration: 2000
+      });
+    }
+    this.setData({ activeTab: tab });
+  },
+
+  // ========== 导航操作 ==========
+  navigateToRoot() {
+    this.setData({ 
+      currentPath: [],
+      searchKeyword: '',
+      editMode: false,
+      showFabMenu: false
+    }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  navigateToFolder(e) {
+    const index = e.currentTarget.dataset.index;
+    const newPath = this.data.currentPath.slice(0, index + 1);
+    this.setData({ 
+      currentPath: newPath,
+      editMode: false,
+      showFabMenu: false
+    }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  enterFolder(e) {
+    if (this.data.editMode) return;
+    
+    const item = e.currentTarget.dataset.item;
+    if (item.type !== 'folder') return;
+
+    const newPath = [...this.data.currentPath, item.id];
+    this.setData({ 
+      currentPath: newPath,
+      searchKeyword: '',
+      showFabMenu: false
+    }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  navigateBackFolder() {
+    if (this.data.currentPath.length === 0) return;
+    const newPath = this.data.currentPath.slice(0, -1);
+    this.setData({ currentPath: newPath, editMode: false, showFabMenu: false }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  // ========== 工具栏操作 ==========
+  toggleSearchBar() {
+    this.setData({ 
+      showSearchBar: !this.data.showSearchBar,
+      showSortMenu: false,
+      showFabMenu: false
+    });
+  },
+
+  toggleSortMenu() {
+    this.setData({ 
+      showSortMenu: !this.data.showSortMenu,
+      showSearchBar: false,
+      showFabMenu: false
+    });
+  },
+
+  toggleEditMode() {
+    const newEditMode = !this.data.editMode;
+    
+    // 退出编辑模式时清除选择状态
+    if (!newEditMode) {
+      const items = this.data.displayItems.map(item => ({
+        ...item,
+        selected: false
+      }));
+      this.setData({ 
+        editMode: newEditMode,
+        displayItems: items,
+        selectedCount: 0,
+        showFabMenu: false
+      });
+    } else {
+      this.setData({ 
+        editMode: newEditMode,
+        showFabMenu: false
+      });
+    }
+  },
+
+  // ========== 悬浮按钮菜单 ==========
+  toggleFabMenu() {
+    this.setData({ showFabMenu: !this.data.showFabMenu });
+  },
+
+  closeFabMenu() {
+    this.setData({ showFabMenu: false });
+  },
+
+  // ========== 搜索操作 ==========
+  onSearchInput(e) {
+    const keyword = e.detail.value;
+    this.setData({ searchKeyword: keyword }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  cancelSearch() {
+    this.setData({ 
+      showSearchBar: false,
+      searchKeyword: ''
+    }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  // ========== 排序操作 ==========
+  changeSortType(e) {
+    const sortType = e.currentTarget.dataset.type;
+    this.setData({ 
+      sortType,
+      showSortMenu: false
+    }, () => {
+      this.loadLibraryData();
+    });
+  },
+
+  // ========== 文件操作 ==========
+  openFile(e) {
+    if (this.data.editMode) return;
+    
+    const item = e.currentTarget.dataset.item;
+    wx.showModal({
+      title: '覆盖当前谱面？',
+      content: '打开该乐谱会覆盖记谱页当前内容，是否继续？',
+      confirmText: '继续',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) return;
+
+        const payload = {
+          id: item.id,
+          path: item.path || [],
+          file_name: item.file_name,
+          title: item.title,
+          subtitle: item.subtitle,
+          tempo: item.tempo,
+          rotation: item.rotation,
+          timing: item.timing,
+          code: item.code
+        };
+
+        wx.setStorageSync('pending_notation_load', payload);
+        wx.showLoading({ title: '加载谱面...', mask: true });
+        wx.switchTab({
+          url: '/pages/notation/notation',
+          success: () => {
+            libraryManager.addRecentFile(item);
+            this.loadLibraryData();
+          },
+          fail: () => {
+            wx.showToast({ title: '打开失败，请重试', icon: 'none' });
+            wx.hideLoading();
+          }
+        });
+      }
+    });
+  },
+
+  openRecentFile(e) {
+    const file = e.currentTarget.dataset.file;
+    this.openFile({ currentTarget: { dataset: { item: file } } });
+  },
+
+  // ========== 菜单操作 ==========
+  showFolderMenu(e) {
+    const item = e.currentTarget.dataset.item;
+    this.setData({
+      currentItem: item,
+      showMenu: true,
+      menuItems: [
+        { text: '重命名', icon: '/assets/icons/library/folder-rename.png', action: 'renameFolder' },
+        { text: '删除', icon: '/assets/icons/library/file_delete.png', action: 'deleteFolder' }
+      ]
+    });
+  },
+
+  showFileMenu(e) {
+    const item = e.currentTarget.dataset.item;
+    this.setData({
+      currentItem: item,
+      showMenu: true,
+      menuItems: [
+        { text: '打开', icon: '/assets/icons/library/file-rename.png', action: 'openFile' },
+        { text: '重命名', icon: '/assets/icons/library/folder-rename.png', action: 'renameFile' },
+        { text: item.starred ? '取消收藏' : '收藏', icon: '/assets/icons/library/星星_star.png', action: 'toggleStar' },
+        { text: '移动', icon: '/assets/icons/library/file-conversion-folder.png', action: 'moveFile' },
+        { text: '删除', icon: '/assets/icons/library/file_delete.png', action: 'deleteFile' }
+      ]
+    });
+  },
+
+  showItemMenu(e) {
+    const item = e.currentTarget.dataset.item;
+    if (item.type === 'folder') {
+      this.showFolderMenu(e);
+    } else {
+      this.showFileMenu(e);
+    }
+  },
+
+  handleMenuAction(e) {
+    const action = e.currentTarget.dataset.action;
+    const item = this.data.currentItem;
+
+    this.closeMenu();
+
+    switch(action) {
+      case 'openFile':
+        this.openFile({ currentTarget: { dataset: { item } } });
+        break;
+      case 'renameFolder':
+        this.showRenameModal(item, 'folder');
+        break;
+      case 'renameFile':
+        this.showRenameModal(item, 'file');
+        break;
+      case 'deleteFolder':
+        this.confirmDelete(item, 'folder');
+        break;
+      case 'deleteFile':
+        this.confirmDelete(item, 'file');
+        break;
+      case 'toggleStar':
+        this.toggleStar({ currentTarget: { dataset: { id: item.id } } });
+        break;
+      case 'moveFile':
+        this.showMoveFilePicker(item);
+        break;
+    }
+  },
+
+  closeMenu() {
+    this.setData({ 
+      showMenu: false,
+      currentItem: null
+    });
+  },
+
+  // ========== 添加操作 ==========
+  addNewFile() {
+    this.closeFabMenu();
+    this.showInputModal({
+      title: '新建文件',
+      placeholder: '请输入文件名',
+      value: '',
+      callback: (name) => {
+        if (!name) {
+          wx.showToast({ title: '文件名不能为空', icon: 'none' });
+          return;
+        }
+
+        // 创建默认谱面数据（空模块 A-1，四行占位）
+        const defaultCode = `\\begin{module}{A-1}
+      [----|----|----|----]\\
+      [----|----|----|----]\\
+      [----|----|----|----]\\
+      [----|----|----|----]
+      \\end{module}
+      `;
+
+        const newFile = {
+          file_name: name,
+          title: name,
+          subtitle: 'Author: Unknown',
+          tempo: 120,
+          rotation: "手机竖屏（默认）",
+          timing: "4/4",
+          code: defaultCode
+        };
+
+        const created = libraryManager.addFile(this.data.currentPath, newFile);
+        wx.showToast({ title: `创建成功：${created.file_name}`, icon: 'success' });
+        this.loadLibraryData();
+        
+        // 自动打开新创建的文件
+        setTimeout(() => {
+          const payload = {
+            id: created.id,
+            path: created.path || [],
+            file_name: created.file_name,
+            title: created.title,
+            subtitle: created.subtitle,
+            tempo: created.tempo,
+            rotation: created.rotation,
+            timing: created.timing,
+            code: created.code
+          };
+
+          wx.setStorageSync('pending_notation_load', payload);
+          wx.showLoading({ title: '加载谱面...', mask: true });
+          wx.switchTab({
+            url: '/pages/notation/notation',
+            success: () => {
+              libraryManager.addRecentFile(created);
+            },
+            fail: () => {
+              wx.showToast({ title: '打开失败，请重试', icon: 'none' });
+              wx.hideLoading();
+            }
+          });
+        }, 300);
+      }
+    });
+  },
+
+  addNewFolder() {
+    this.closeFabMenu();
+    this.showInputModal({
+      title: '新建文件夹',
+      placeholder: '请输入文件夹名称',
+      value: '',
+      callback: (name) => {
+        if (!name) {
+          wx.showToast({ title: '文件夹名称不能为空', icon: 'none' });
+          return;
+        }
+
+        libraryManager.addFolder(this.data.currentPath, name);
+        wx.showToast({ title: '创建成功', icon: 'success' });
+        this.loadLibraryData();
+      }
+    });
+  },
+
+  importFromNotation() {
+    this.closeFabMenu();
+    const snapshot = wx.getStorageSync('latest_notation_snapshot_for_library');
+
+    if (!snapshot || !snapshot.code) {
+      wx.showModal({
+        title: '需要先在记谱页保存',
+        content: '请在“记谱”页面点击“保存到曲库”后再回来导入。',
+        confirmText: '去记谱',
+        success: (res) => {
+          if (res.confirm) {
+            wx.switchTab({ url: '/pages/notation/notation' });
+          }
+        }
+      });
+      return;
+    }
+
+    this.setData({
+      showImportModal: true,
+      importFileName: snapshot.file_name || snapshot.title || '未命名',
+      importTargetPath: [],
+      importFolderItems: [],
+      importFolderBreadcrumbs: [],
+      importFolderCurrentPath: [],
+      importSnapshot: snapshot
+    });
+    this.refreshImportFolderView([]);
+  },
+
+  closeImportModal(silent) {
+    const suppressToast = silent === true;
+    this.setData({
+      showImportModal: false,
+      importFileName: '',
+      importTargetPath: [],
+      importFolderItems: [],
+      importFolderBreadcrumbs: [],
+      importFolderCurrentPath: [],
+      importSnapshot: null
+    });
+    if (!suppressToast) {
+      wx.showToast({ title: '已取消导入', icon: 'none' });
+    }
+  },
+
+  onImportFileNameInput(e) {
+    this.setData({ importFileName: e.detail.value });
+  },
+
+  confirmImportFromNotation() {
+    const snapshot = this.data.importSnapshot || wx.getStorageSync('latest_notation_snapshot_for_library');
+    if (!snapshot || !snapshot.code) {
+      wx.showToast({ title: '暂无可导入的谱面', icon: 'none' });
+      return;
+    }
+
+    const name = (this.data.importFileName || '').trim();
+    if (!name) {
+      wx.showToast({ title: '请输入文件名', icon: 'none' });
+      return;
+    }
+
+    const { id, ...rest } = snapshot; // 避免复用旧ID
+    const payload = {
+      ...rest,
+      file_name: name,
+      title: snapshot.title || name
+    };
+
+    const created = libraryManager.addFile(this.data.importTargetPath || [], payload);
+    wx.showToast({ title: `已导入：${created.file_name}`, icon: 'success' });
+    this.closeImportModal(true);
+    this.loadLibraryData();
+  },
+
+  refreshImportFolderView(path = []) {
+    const items = libraryManager.getItemsByPath(path || []);
+    const folders = items.filter(i => i.type === 'folder');
+    const files = items.filter(i => i.type === 'file');
+    const breadcrumbs = this.generateImportBreadcrumbs(path || []);
+    this.setData({
+      importFolderCurrentPath: path,
+      importFolderItems: [...folders, ...files],
+      importFolderBreadcrumbs: breadcrumbs,
+      importTargetPath: path
+    });
+  },
+
+  generateImportBreadcrumbs(path = []) {
+    return path.map((folderId, index) => {
+      const folder = libraryManager.getFolderById(folderId);
+      return {
+        id: folderId,
+        name: folder ? folder.name : '未知',
+        index,
+        display: folder ? folder.name : '未知'
+      };
+    });
+  },
+
+  navigateImportRoot() {
+    this.refreshImportFolderView([]);
+  },
+
+  navigateImportBreadcrumb(e) {
+    const index = e.currentTarget.dataset.index;
+    const newPath = this.data.importFolderCurrentPath.slice(0, index + 1);
+    this.refreshImportFolderView(newPath);
+  },
+
+  backImportFolder() {
+    if (!this.data.importFolderCurrentPath || this.data.importFolderCurrentPath.length === 0) return;
+    const newPath = this.data.importFolderCurrentPath.slice(0, -1);
+    this.refreshImportFolderView(newPath);
+  },
+
+  enterImportFolder(e) {
+    const item = e.currentTarget.dataset.item;
+    if (!item || item.type !== 'folder') return;
+    const newPath = [...this.data.importFolderCurrentPath, item.id];
+    this.refreshImportFolderView(newPath);
+  },
+
+  // ========== 重命名操作 ==========
+  showRenameModal(item, type) {
+    const currentName = type === 'folder' ? item.name : item.file_name;
+    this.showInputModal({
+      title: type === 'folder' ? '重命名文件夹' : '重命名文件',
+      placeholder: '请输入新名称',
+      value: currentName,
+      callback: (newName) => {
+        if (!newName) {
+          wx.showToast({ title: '名称不能为空', icon: 'none' });
+          return;
+        }
+
+        if (type === 'folder') {
+          libraryManager.renameFolder(item.id, newName);
+        } else {
+          libraryManager.renameFile(item.id, newName);
+        }
+
+        wx.showToast({ title: '重命名成功', icon: 'success' });
+        this.loadLibraryData();
+      }
+    });
+  },
+
+  // ========== 删除操作 ==========
+  confirmDelete(item, type) {
+    wx.showModal({
+      title: '确认删除',
+      content: `确定要删除${type === 'folder' ? '文件夹' : '文件'}"${type === 'folder' ? item.name : item.file_name}"吗？${type === 'folder' ? '文件夹内的所有内容也将被删除。' : ''}`,
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      success: (res) => {
+        if (res.confirm) {
+          if (type === 'folder') {
+            libraryManager.deleteFolder(item.id);
+          } else {
+            libraryManager.deleteFile(item.id);
+          }
+          wx.showToast({ title: '删除成功', icon: 'success' });
+          this.loadLibraryData();
+        }
+      }
+    });
+  },
+
+  // ========== 收藏操作 ==========
+  toggleStar(e) {
+    const id = e.currentTarget.dataset.id;
+    libraryManager.toggleFileStar(id);
+    this.loadLibraryData();
+  },
+
+  // ========== 移动操作 ==========
+  showMoveFilePicker(item) {
+    this.setData({
+      currentItem: item,
+      showFolderPicker: true
+    });
+  },
+
+  selectTargetFolder(e) {
+    const targetPath = e.currentTarget.dataset.path;
+    const item = this.data.currentItem;
+
+    // 解析路径
+    let parsedPath = [];
+    try {
+      parsedPath = typeof targetPath === 'string' ? JSON.parse(targetPath) : targetPath;
+    } catch (e) {
+      parsedPath = [];
+    }
+
+    // 检查是否移动到当前位置
+    if (JSON.stringify(parsedPath) === JSON.stringify(this.data.currentPath)) {
+      wx.showToast({ title: '已在当前位置', icon: 'none' });
+      this.closeFolderPicker();
+      return;
+    }
+
+    // 判断是批量移动还是单个移动
+    if (item.selectedItems && item.selectedItems.length > 0) {
+      // 批量移动
+      item.selectedItems.forEach(file => {
+        libraryManager.moveFile(file.id, parsedPath);
+      });
+      wx.showToast({ title: `已移动${item.selectedItems.length}个文件`, icon: 'success' });
+      this.setData({ editMode: false }, () => {
+        this.closeFolderPicker();
+        this.loadLibraryData();
+      });
+    } else {
+      // 单个移动
+      libraryManager.moveFile(item.id, parsedPath);
+      wx.showToast({ title: '移动成功', icon: 'success' });
+      this.closeFolderPicker();
+      this.loadLibraryData();
+    }
+  },
+
+  closeFolderPicker() {
+    this.setData({ 
+      showFolderPicker: false,
+      currentItem: null
+    });
+  },
+
+  // ========== 批量操作 ==========
+  toggleSelect(e) {
+    const id = e.currentTarget.dataset.id;
+    const items = this.data.displayItems.map(item => {
+      if (item.id === id) {
+        return { ...item, selected: !item.selected };
+      }
+      return item;
+    });
+
+    const selectedCount = items.filter(item => item.selected).length;
+
+    this.setData({ 
+      displayItems: items,
+      selectedCount
+    });
+  },
+
+  batchDelete() {
+    const selectedItems = this.data.displayItems.filter(item => item.selected);
+    
+    if (selectedItems.length === 0) {
+      wx.showToast({ title: '请先选择项目', icon: 'none' });
+      return;
+    }
+
+    wx.showModal({
+      title: '确认删除',
+      content: `确定要删除选中的 ${selectedItems.length} 个项目吗？`,
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      success: (res) => {
+        if (res.confirm) {
+          selectedItems.forEach(item => {
+            if (item.type === 'folder') {
+              libraryManager.deleteFolder(item.id);
+            } else {
+              libraryManager.deleteFile(item.id);
+            }
+          });
+          
+          wx.showToast({ title: '删除成功', icon: 'success' });
+          this.setData({ editMode: false }, () => {
+            this.loadLibraryData();
+          });
+        }
+      }
+    });
+  },
+
+  batchMove() {
+    const selectedItems = this.data.displayItems.filter(item => item.selected && item.type === 'file');
+    
+    if (selectedItems.length === 0) {
+      wx.showToast({ title: '请选择要移动的文件', icon: 'none' });
+      return;
+    }
+
+    this.setData({
+      currentItem: { selectedItems },
+      showFolderPicker: true
+    });
+  },
+
+  // ========== 通用弹窗 ==========
+  showInputModal({ title, placeholder, value, callback }) {
+    this.setData({
+      showInputModal: true,
+      inputModalTitle: title,
+      inputModalPlaceholder: placeholder,
+      inputModalValue: value,
+      inputModalCallback: callback
+    });
+  },
+
+  onModalInput(e) {
+    this.setData({ inputModalValue: e.detail.value });
+  },
+
+  confirmInput() {
+    const callback = this.data.inputModalCallback;
+    const value = this.data.inputModalValue;
+    
+    this.closeInputModal();
+    
+    if (callback) {
+      callback(value);
+    }
+  },
+
+  closeInputModal() {
+    this.setData({
+      showInputModal: false,
+      inputModalTitle: '',
+      inputModalPlaceholder: '',
+      inputModalValue: '',
+      inputModalCallback: null
+    });
+  },
+
+  stopPropagation() {
+    // 阻止事件冒泡
+  }
+});

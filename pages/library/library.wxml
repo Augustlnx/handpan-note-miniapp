@@ -1,0 +1,258 @@
+<!-- 曲库页面 -->
+<view class="library-container">
+  <!-- 顶部标签方框 -->
+  <view class="tab-header">
+    <view class="tab-box {{activeTab === 'personal' ? 'active' : ''}}" bindtap="switchTab" data-tab="personal">
+      个人曲库
+    </view>
+    <view class="tab-box {{activeTab === 'public' ? 'active' : ''}}" bindtap="switchTab" data-tab="public">
+      公开曲库
+    </view>
+  </view>
+
+  <!-- 个人曲库内容 -->
+  <view class="library-content" wx:if="{{activeTab === 'personal'}}">
+    
+    <!-- 最近打开（在顶部） -->
+    <view class="recent-section" wx:if="{{recentFiles.length > 0 && currentPath.length === 0 && !searchKeyword}}">
+      <view class="section-title">最近打开</view>
+      <view class="recent-grid">
+        <view class="recent-item" wx:for="{{recentFiles}}" wx:key="id" wx:if="{{index < 4}}" bindtap="openRecentFile" data-file="{{item}}">
+          <view class="recent-icon">♪</view>
+          <text class="recent-name">{{item.file_name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 工具栏 -->
+    <view class="toolbar">
+      <view class="breadcrumb">
+        <text class="breadcrumb-item" bindtap="navigateToRoot">根目录</text>
+        <block wx:for="{{breadcrumbs}}" wx:key="index">
+          <text class="breadcrumb-separator">/</text>
+          <text class="breadcrumb-item" bindtap="navigateToFolder" data-index="{{index}}">{{item.name}}</text>
+        </block>
+      </view>
+
+      <view class="action-buttons">
+        <view class="action-btn" wx:if="{{currentPath.length > 0}}" bindtap="navigateBackFolder">
+          <image class="action-icon" src="/assets/icons/library/上一步_back.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-btn" bindtap="toggleSearchBar">
+          <image class="action-icon" src="/assets/icons/library/搜索_search.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-btn" bindtap="toggleSortMenu">
+          <image class="action-icon" src="/assets/icons/library/排序_sort.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-btn" bindtap="toggleEditMode">
+          <image class="action-icon" src="/assets/icons/library/更多_more-app.png" mode="aspectFit"></image>
+          <text class="action-text">{{editMode ? '完成' : '批量编辑'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 搜索栏 -->
+    <view class="search-bar" wx:if="{{showSearchBar}}">
+      <input class="search-input" placeholder="搜索文件..." bindinput="onSearchInput" value="{{searchKeyword}}" />
+      <text class="search-cancel" bindtap="cancelSearch">取消</text>
+    </view>
+
+    <!-- 排序菜单 -->
+    <view class="sort-menu" wx:if="{{showSortMenu}}">
+      <view class="sort-item {{sortType === 'name' ? 'active' : ''}}" bindtap="changeSortType" data-type="name">
+        按名称排序
+      </view>
+      <view class="sort-item {{sortType === 'createTime' ? 'active' : ''}}" bindtap="changeSortType" data-type="createTime">
+        按创建时间
+      </view>
+      <view class="sort-item {{sortType === 'modifyTime' ? 'active' : ''}}" bindtap="changeSortType" data-type="modifyTime">
+        按修改时间
+      </view>
+    </view>
+
+    <!-- 文件列表 -->
+    <scroll-view class="file-list" scroll-y>
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{displayItems.length === 0}}">
+        <image class="empty-icon" src="/assets/img/logo.png" mode="aspectFit"></image>
+        <text class="empty-text">{{searchKeyword ? '未找到相关文件' : '暂无内容，点击右下角按钮添加'}}</text>
+      </view>
+
+      <!-- 文件夹和文件列表 -->
+      <block wx:for="{{displayItems}}" wx:key="id">
+          <!-- 文件夹项 -->
+          <view class="list-item folder-item" wx:if="{{item.type === 'folder'}}" bindtap="enterFolder" data-item="{{item}}" bindlongpress="showItemMenu" data-item="{{item}}">
+          <view class="item-checkbox" wx:if="{{editMode}}" catchtap="toggleSelect" data-id="{{item.id}}">
+            <view class="checkbox {{item.selected ? 'checked' : ''}}"></view>
+          </view>
+            <image class="item-icon-img" src="/assets/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
+          <view class="item-info">
+            <text class="item-name">{{item.name}}</text>
+            <text class="item-detail">{{item.fileCount || 0}} 个项目</text>
+          </view>
+          <view class="item-actions" wx:if="{{!editMode}}" catchtap="showFolderMenu" data-item="{{item}}">
+              <text class="more-icon">⋯</text>
+          </view>
+        </view>
+
+       
+        <!-- 文件项 -->
+        <view class="list-item file-item" wx:if="{{item.type === 'file'}}" bindtap="openFile" data-item="{{item}}" bindlongpress="showItemMenu" data-item="{{item}}">
+          <view class="item-checkbox" wx:if="{{editMode}}" catchtap="toggleSelect" data-id="{{item.id}}">
+            <view class="checkbox {{item.selected ? 'checked' : ''}}"></view>
+          </view>
+          <!-- emoji占位，后续替换为自定义文件图标 -->
+          <view class="file-icon">♪</view>
+          <view class="item-info">
+            <text class="item-name">{{item.file_name}}</text>
+            <text class="item-detail">{{item.tempo}} BPM · {{item.timing}} · {{item.subtitle}}</text>
+          </view>
+          <view class="item-star" wx:if="{{item.starred}}" catchtap="toggleStar" data-id="{{item.id}}">
+            <!-- emoji占位，后续替换为图片: star.png -->
+            <image class="star-icon-img" src="/assets/icons/library/星星_star.png" mode="aspectFit"></image>
+          </view>
+          <view class="item-actions" wx:if="{{!editMode}}" catchtap="showFileMenu" data-item="{{item}}">
+            <text class="more-icon">⋯</text>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+
+    <view class="batch-bar" wx:if="{{editMode}}">
+      <text class="selected-count">已选择 {{selectedCount}} 项</text>
+      <view class="batch-actions">
+        <view class="batch-btn" bindtap="batchDelete">
+          <image class="batch-icon" src="/assets/icons/library/file_delete.png" mode="aspectFit"></image>
+          <text>删除</text>
+        </view>
+        <view class="batch-btn" bindtap="batchMove">
+          <image class="batch-icon" src="/assets/icons/library/file-conversion-folder.png" mode="aspectFit"></image>
+          <text>移动</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 公开曲库（开发中） -->
+      <view class="library-content public-library" wx:if="{{activeTab === 'public'}}">
+        <view class="dev-notice">
+          <image class="dev-icon" src="/assets/icons/library/工程车_engineering-vehicle.png" mode="aspectFit"></image>
+          <text class="dev-text">作者买不起数据库，公开曲库不正在开发中...</text>
+          <text class="dev-subtitle">敬请不期待</text>
+        </view>
+      </view>
+
+      <view class="fab-container" wx:if="{{!editMode}}">
+        <view class="fab-menu" wx:if="{{showFabMenu}}">
+          <view class="fab-menu-item" bindtap="addNewFile">
+            <text class="fab-menu-label">新建文件</text>
+            <image class="fab-menu-icon-img" src="/assets/icons/library/file-addition.png" mode="aspectFit"></image>
+          </view>
+          <view class="fab-menu-item" bindtap="addNewFolder">
+            <text class="fab-menu-label">新建文件夹</text>
+            <image class="fab-menu-icon-img" src="/assets/icons/library/folder-plus.png" mode="aspectFit"></image>
+          </view>
+          
+        </view>
+        <view class="fab-button {{showFabMenu ? 'active' : ''}}" bindtap="toggleFabMenu">
+          <text class="fab-button-text">+</text>
+        </view>
+      </view>
+
+  <!-- 操作菜单弹窗 -->
+  <view class="modal-mask" wx:if="{{showMenu}}" bindtap="closeMenu">
+    <view class="action-menu" catchtap="stopPropagation">
+      <view class="menu-item" wx:for="{{menuItems}}" wx:key="action" bindtap="handleMenuAction" data-action="{{item.action}}">
+        <image class="menu-icon-img" src="{{item.icon}}" mode="aspectFit"></image>
+        <text class="menu-text">{{item.text}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 输入框弹窗（重命名/新建） -->
+  <view class="modal-mask" wx:if="{{showInputModal}}" bindtap="closeInputModal">
+    <view class="input-modal" catchtap="stopPropagation">
+      <text class="modal-title">{{inputModalTitle}}</text>
+      <input class="modal-input" placeholder="{{inputModalPlaceholder}}" bindinput="onModalInput" value="{{inputModalValue}}" />
+      <view class="modal-buttons">
+        <button class="modal-btn cancel-btn" bindtap="closeInputModal">取消</button>
+        <button class="modal-btn confirm-btn" bindtap="confirmInput">确定</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 文件夹选择器（移动文件时使用） -->
+  <view class="modal-mask" wx:if="{{showFolderPicker}}" bindtap="closeFolderPicker">
+    <view class="folder-picker" catchtap="stopPropagation">
+      <text class="modal-title">选择目标文件夹</text>
+      <scroll-view class="folder-list" scroll-y>
+        <view class="folder-option" bindtap="selectTargetFolder" data-path="[]">
+          <image class="folder-icon-img" src="/assets/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
+          <text class="folder-name">根目录</text>
+        </view>
+        <view class="folder-option" wx:for="{{allFolders}}" wx:key="id" bindtap="selectTargetFolder" data-path="{{item.path}}">
+          <image class="folder-icon-img" src="/assets/icons/library/文件夹-开_folder-open.png" mode="aspectFit"></image>
+          <text class="folder-name">{{item.displayPath}}</text>
+        </view>
+      </scroll-view>
+      <view class="modal-buttons">
+        <button class="modal-btn cancel-btn" bindtap="closeFolderPicker">取消</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 从notation导入弹窗 -->
+  <view wx:if="{{showImportModal}}" class="modal-overlay" bindtap="closeImportModal">
+    <view class="modal-content import-modal" catchtap="stopPropagation">
+      <view class="modal-header-with-help">
+        <view class="modal-title">从记谱导入</view>
+      </view>
+      <view class="import-description">
+        <text>输入文件名，并选择保存位置</text>
+      </view>
+      <input class="modal-input" value="{{importFileName}}" placeholder="文件名" bindinput="onImportFileNameInput" />
+
+      <view class="save-path-bar">
+        <view class="save-breadcrumb">
+          <text class="save-breadcrumb-item" bindtap="navigateImportRoot">根目录</text>
+          <block wx:for="{{importFolderBreadcrumbs}}" wx:key="id">
+            <text class="save-breadcrumb-separator">/</text>
+            <text class="save-breadcrumb-item" bindtap="navigateImportBreadcrumb" data-index="{{index}}">{{item.name}}</text>
+          </block>
+        </view>
+      </view>
+      <view class="save-action-bar" wx:if="{{importFolderCurrentPath.length > 0}}">
+        <view class="save-back-btn" bindtap="backImportFolder">
+          <image class="save-back-icon" src="/assets/icons/library/上一步_back.png" mode="aspectFit"></image>
+        </view>
+      </view>
+
+      <scroll-view class="save-folder-list" scroll-y>
+        <block wx:for="{{importFolderItems}}" wx:key="id">
+          <view class="save-list-item save-folder-item" wx:if="{{item.type === 'folder'}}" bindtap="enterImportFolder" data-item="{{item}}">
+            <image class="save-item-icon" src="/assets/icons/library/文件夹-开_folder-open.png" mode="aspectFit"></image>
+            <view class="save-item-info">
+              <text class="save-item-name">{{item.name}}</text>
+              <text class="save-item-detail">{{item.fileCount || 0}} 个项目</text>
+            </view>
+          </view>
+          <view class="save-list-item save-file-item" wx:else>
+            <view class="save-file-icon">♪</view>
+            <view class="save-item-info">
+              <text class="save-item-name">{{item.file_name}}</text>
+              <text class="save-item-detail">{{item.tempo}} BPM · {{item.timing}}</text>
+            </view>
+          </view>
+        </block>
+        <view class="save-empty-state" wx:if="{{importFolderItems.length === 0}}">
+          <text class="save-empty-text">此目录暂无内容</text>
+        </view>
+      </scroll-view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeImportModal">取消</button>
+        <button class="btn-primary" bindtap="confirmImportFromNotation">导入到当前目录</button>
+      </view>
+    </view>
+  </view>
+</view>

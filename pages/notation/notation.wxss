@@ -152,6 +152,11 @@
   position: relative;
 }
 
+/* 收缩状态下减少下边距（没有底部图标了） */
+.notation-sheet.collapsed {
+  margin-bottom: 8rpx;
+}
+
 .measure {
   position: relative;
   display: flex;
@@ -241,6 +246,23 @@
   opacity: 1;
 }
 
+/* 更多图标（右上角，收起状态） */
+.more-icon-top-right {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  width: 48rpx;
+  height: 48rpx;
+  opacity: 1;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.more-icon-top-right:active {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 /* 添加谱面图标行 */
 .add-notation-row {
   display: flex;
@@ -253,7 +275,8 @@
 
 .add-icon,
 .refresh-icon,
-.tool-icon {
+.tool-icon,
+.less-icon {
   width: 43rpx;
   height: 43rpx;
   opacity: 1;
@@ -262,7 +285,8 @@
 
 .add-icon:active,
 .refresh-icon:active,
-.tool-icon:active {
+.tool-icon:active,
+.less-icon:active {
   opacity: 1;
 }
 
@@ -276,6 +300,10 @@
 
 .tool-icon:active {
   transform: scale(1.08);
+}
+
+.less-icon:active {
+  transform: scale(1.1);
 }
 
 /* 谱面信息 */
@@ -524,17 +552,30 @@
 /* 操作按钮 */
 .action-buttons {
   position: fixed;
-  bottom: 30rpx;
+  bottom: 120rpx;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 40rpx;
+  gap: 24rpx;
   align-items: center;
-  z-index: 100;
+  z-index: 105;
   padding: 24rpx 40rpx;
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 60rpx;
   box-shadow: 0 8rpx 24rpx rgba(49, 77, 99, 0.15);
+  animation: slideUp 0.3s ease-out;
+}
+
+/* 菜单栏滑上动画 */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .action-btn {
@@ -609,19 +650,31 @@
 .action-toggle {
   position: fixed;
   right: 30rpx;
-  bottom: 30rpx;
-  width: 64rpx;
-  height: 64rpx;
+  bottom: 10rpx;
+  width: 150rpx;
+  height: 150rpx;
   z-index: 110;
-  opacity: 0.85;
+  opacity: 0.9;
   transition: all 0.3s;
-  border-radius: 50%;
-  box-shadow: 0 4rpx 16rpx rgba(49, 77, 99, 0.2);
+  border-radius: 0%;
+  
+  cursor: pointer;
+  animation: floating 3s ease-in-out infinite;
+}
+
+/* 浮动动画 */
+@keyframes floating {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12rpx);
+  }
 }
 
 .action-toggle:active {
   opacity: 1;
-  transform: scale(1.1);
+  transform: scale(1.15) !important;
 }
 
 /* —— 横屏整体 UI 缩放：标题区、功能行、模块标签与图标缩小至 50% —— */
@@ -661,11 +714,13 @@
   border-width: 1.5rpx; /* 3 -> 1.5 */
 }
 
-/* 模块图标：delete / add / refresh / tool 横屏下统一减半 */
+/* 模块图标：delete / add / refresh / tool / less 横屏下统一减半 */
 .landscape-mode .delete-icon,
+.landscape-mode .more-icon-top-right,
 .landscape-mode .add-icon,
 .landscape-mode .refresh-icon,
-.landscape-mode .tool-icon {
+.landscape-mode .tool-icon,
+.landscape-mode .less-icon {
   width: 24rpx; /* 48 -> 24 */
   height: 24rpx;
 }
@@ -694,13 +749,14 @@
   padding: 5rpx 0; /* 10 -> 5 */
   gap: 12rpx; /* 20 -> 12 */
 }
+
 .landscape-mode .refresh-icon {
   margin-left: 0; /* 移除左边距，使用gap统一 */
 }
 
 /* 横屏：菜单栏（底部操作按钮）缩小至 50% */
 .landscape-mode .action-buttons {
-  gap: 20rpx; /* 40 -> 20 */
+  gap: 12rpx; /* 20 -> 12 */
   padding: 12rpx 20rpx; /* 24 40 -> 12 20 */
   border-radius: 30rpx; /* 60 -> 30 */
   box-shadow: 0 6rpx 16rpx rgba(49, 77, 99, 0.12);
@@ -736,7 +792,9 @@
   height: 32rpx;
   right: 20rpx; /* 微调位置，避免过大留白 */
   bottom: 20rpx;
-  box-shadow: 0 3rpx 10rpx rgba(49, 77, 99, 0.18);
+  box-shadow: 0 3rpx 10rpx rgba(49, 77, 99, 0.18), 
+              0 1rpx 4rpx rgba(49, 77, 99, 0.08);
+  /* 继承浮动动画 */
 }
 
 /* 悬浮节拍器 */
@@ -1173,6 +1231,142 @@
   max-width: 800rpx;
   max-height: 85vh;
   overflow-y: auto;
+}
+
+/* ========== 保存到曲库弹窗样式 ========== */
+.save-path-bar {
+  padding: 20rpx 0 12rpx 0;
+}
+
+.save-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 26rpx;
+}
+
+.save-breadcrumb-item {
+  color: #314D63;
+  max-width: 200rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4rpx 0;
+}
+
+.save-breadcrumb-separator {
+  margin: 0 10rpx;
+  color: #999;
+}
+
+.save-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12rpx 0 20rpx 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 20rpx;
+}
+
+.save-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 12rpx;
+  background-color: #f0f0f0;
+  transition: all 0.2s;
+}
+
+.save-back-btn:active {
+  background-color: #e0e0e0;
+}
+
+.save-back-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.save-folder-list {
+  max-height: 500rpx;
+  margin-bottom: 30rpx;
+  background-color: #fff;
+}
+
+.save-list-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background-color 0.2s;
+}
+
+.save-folder-item:active {
+  background-color: #f8f8f8;
+}
+
+.save-file-item {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.save-item-icon {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.save-file-icon {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  font-size: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #314D63 0%, #5a7a92 100%);
+  border-radius: 14rpx;
+  color: #fff;
+}
+
+.save-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.save-item-name {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 6rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.save-item-detail {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 40rpx;
+  color: #999;
+}
+
+.save-empty-text {
+  font-size: 26rpx;
+  text-align: center;
 }
 
 .modal-header-with-help {
@@ -1784,6 +1978,79 @@
   width: 32rpx;
   height: 32rpx;
 }
+
+/* 保存到曲库弹窗 */
+.folder-list-save {
+  max-height: 360rpx;
+  margin: 20rpx 0;
+  padding: 10rpx 0;
+  overflow-y: auto;
+  border: 1px solid #e5e5e5;
+  border-radius: 12rpx;
+}
+
+.folder-option-save {
+  padding: 20rpx;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 28rpx;
+  color: #333;
+}
+
+.folder-option-save:last-child {
+  border-bottom: none;
+}
+
+/* 保存模式选择弹窗 */
+.save-mode-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  margin: 32rpx 0;
+  width: 100%;
+}
+
+.save-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 32rpx;
+  background-color: #f8f9fa;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.save-mode-btn:active {
+  background-color: #e8f4f8;
+  border-color: #90caf9;
+  transform: scale(0.98);
+}
+
+.save-mode-icon {
+  width: 48rpx;
+  height: 48rpx;
+  font-size: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+}
+
+.save-mode-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+
+.folder-option-save.active {
+  background: #eef2f5;
+  color: #314D63;
+  font-weight: 600;
+}
+
+.folder-name-save {
+  word-break: break-all;
+}
 /* ==================== 分页样式 ==================== */
 
 /* 分页容器 */
@@ -1881,14 +2148,14 @@
   align-items: center;
   justify-content: center;
   gap: 32rpx;
-  background-color: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(6rpx);
+  background-color: #ffffff;
   z-index: 1200;
+  will-change: opacity;
 }
 
 .page-loading-logo {
-  width: 220rpx;
-  height: 220rpx;
+  width: 500rpx;
+  height: 500rpx;
   opacity: 0.98;
 }
 
@@ -1899,7 +2166,7 @@
   padding: 16rpx 26rpx;
   background-color: rgba(49, 77, 99, 0.08);
   border-radius: 999rpx;
-  box-shadow: 0 8rpx 26rpx rgba(49, 77, 99, 0.18);
+  box-shadow: 0 4rpx 12rpx rgba(49, 77, 99, 0.12);
 }
 
 .overlay-dot {
@@ -1928,16 +2195,16 @@
 }
 
 @keyframes overlayBeatLight {
-  0% { transform: scale(1); background-color: #E0E0E0; box-shadow: none; }
-  35% { transform: scale(1.25); background-color: #5F7C92; box-shadow: 0 0 10rpx rgba(95, 124, 146, 0.4); }
-  65% { transform: scale(1); background-color: #E0E0E0; box-shadow: none; }
+  0% { transform: scale(1); background-color: #E0E0E0; }
+  35% { transform: scale(1.25); background-color: #5F7C92; }
+  65% { transform: scale(1); background-color: #E0E0E0; }
   100% { transform: scale(1); }
 }
 
 @keyframes overlayBeatAccent {
-  0% { transform: scale(1); background-color: #E0E0E0; box-shadow: none; }
-  30% { transform: scale(1.5); background-color: #314D63; box-shadow: 0 0 14rpx rgba(49, 77, 99, 0.6); }
-  60% { transform: scale(1); background-color: #E0E0E0; box-shadow: none; }
+  0% { transform: scale(1); background-color: #E0E0E0; }
+  30% { transform: scale(1.5); background-color: #314D63; }
+  60% { transform: scale(1); background-color: #E0E0E0; }
   100% { transform: scale(1); }
 }
 
@@ -2026,7 +2293,14 @@
   display: block;
   font-size: 32rpx;
   font-weight: 600;
-  color: #8FB9AB;
+  color: #DBCC97;
+}
+
+.splash-logo {
+  width: 350rpx;
+  height: 350rpx;
+  margin: -30rpx auto -30rpx auto;
+  display: block;
 }
 
 .splash-description {

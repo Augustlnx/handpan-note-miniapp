@@ -6,6 +6,25 @@ const A4_HEIGHT = 3508; // 约 297mm
 const CONTENT_PADDING = 120; // 内容边距
 const CONTENT_WIDTH = A4_WIDTH - CONTENT_PADDING * 2;
 
+// 将错误对象转换为可读提示
+function readableError(err, fallback) {
+  if (!err) return fallback || '未知错误';
+  if (typeof err === 'string') return err;
+  if (err.errMsg) return err.errMsg;
+  if (err.message) return err.message;
+  return fallback || '未知错误';
+}
+
+// 弹窗提示导出失败原因，方便调试
+function notifyExportFailure(err) {
+  const reason = readableError(err, '导出失败，原因未知');
+  wx.showModal({
+    title: '导出失败',
+    content: reason,
+    showCancel: false
+  });
+}
+
 /**
  * 导出谱面为 PNG 图片
  * @param {Object} options - 包含 notations, mainTitle, subTitle, globalTempo, exportMode ('long' | 'paged')
@@ -14,12 +33,13 @@ const CONTENT_WIDTH = A4_WIDTH - CONTENT_PADDING * 2;
 function exportNotationToPNG(options) {
   var exportMode = options.exportMode;
   if (exportMode === undefined) exportMode = 'long';
-  
-  if (exportMode === 'paged') {
-    return exportAsPages(options);
-  } else {
-    return exportAsLongImage(options);
-  }
+
+  var promise = (exportMode === 'paged') ? exportAsPages(options) : exportAsLongImage(options);
+  return promise.catch(function(err){
+    console.error('导出PNG失败', err);
+    notifyExportFailure(err);
+    return Promise.reject(err);
+  });
 }
 
 /**
@@ -118,15 +138,16 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       wx.canvasToTempFilePath({
         canvas,
         success: (res) => resolve(res.tempFilePath),
-        fail: (err) => reject(err)
+        fail: (err) => reject(new Error('canvasToTempFilePath failed (long image): ' + readableError(err)))
       });
-    }).catch(() => {
+    }).catch((err) => {
+      console.warn('水印/背景图片加载失败，使用文字水印', readableError(err));
       // 回退为文字水印
       addTextWatermark(ctx, width / 2, totalHeight / 2);
       wx.canvasToTempFilePath({
         canvas,
         success: (res) => resolve(res.tempFilePath),
-        fail: (err) => reject(err)
+        fail: (err) => reject(new Error('canvasToTempFilePath failed (long image, text fallback): ' + readableError(err)))
       });
     });
   } else {
@@ -137,7 +158,8 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
         rightHandColor, leftHandColor, measuresPerRow, resolve, reject, watermarkImg, bgImg);
-    }).catch(() => {
+    }).catch((err) => {
+      console.warn('水印/背景图片加载失败，分页模式使用文字水印', readableError(err));
       // 图片加载失败则使用文字水印回退
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
@@ -406,7 +428,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         generateNextPage();
       },
       fail: (err) => {
-        reject(err);
+        reject(new Error('canvasToTempFilePath failed (paged, page ' + (pageIndex + 1) + '): ' + readableError(err)));
       }
     });
   }
@@ -421,11 +443,13 @@ function preloadWatermarkImages(canvas) {
   var wmCandidates = [
     '/assets/img/mini_program_code.jpg',
     'assets/img/mini_program_code.jpg',
+    '../../assets/img/mini_program_code.jpg',
     '../assets/img/mini_program_code.jpg'
   ];
   var bgCandidates = [
     '/assets/img/bg2.png',
     'assets/img/bg2.png',
+    '../../assets/img/bg2.png',
     '../assets/img/bg2.png'
   ];
   return Promise.all([
@@ -440,8 +464,9 @@ function preloadWatermarkImages(canvas) {
 function resolveImageFromCandidates(canvas, candidates) {
   return new Promise(function(resolve, reject){
     var i = 0;
+    var errors = [];
     function tryNext() {
-      if (i >= candidates.length) { reject(new Error('all candidates failed')); return; }
+      if (i >= candidates.length) { reject(new Error('all candidates failed: ' + errors.join(' | '))); return; }
       var src = candidates[i++];
       wx.getImageInfo({
         src: src,
@@ -450,6 +475,7 @@ function resolveImageFromCandidates(canvas, candidates) {
             var img = (typeof canvas.createImage === 'function') ? canvas.createImage() : wx.createImage();
             img.onload = function(){ resolve(img); };
             img.onerror = function(){ // 尝试直接路径
+              errors.push(src + ' -> onload fail');
               try {
                 var img2 = (typeof canvas.createImage === 'function') ? canvas.createImage() : wx.createImage();
                 img2.onload = function(){ resolve(img2); };
@@ -459,16 +485,19 @@ function resolveImageFromCandidates(canvas, candidates) {
             };
             img.src = res.path;
           } catch (e) {
+            errors.push(src + ' -> createImage error');
             tryNext();
           }
         },
         fail: function(){
+          errors.push(src + ' -> getImageInfo fail');
           try {
             var img3 = (typeof canvas.createImage === 'function') ? canvas.createImage() : wx.createImage();
             img3.onload = function(){ resolve(img3); };
             img3.onerror = function(){ tryNext(); };
             img3.src = src;
           } catch (e) {
+            errors.push(src + ' -> createImage direct fail');
             tryNext();
           }
         }
@@ -711,7 +740,11 @@ function exportNotationToPDF(data) {
           resolve(pngPath);
         }
       });
-    }).catch(reject);
+    }).catch(err => {
+      console.error('导出PDF失败', err);
+      notifyExportFailure(err);
+      reject(err);
+    });
   });
 }
 

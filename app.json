@@ -2,7 +2,8 @@
   "pages": [
     "pages/notation/notation",
     "pages/metronome/metronome",
-    "pages/settings/settings"
+    "pages/settings/settings",
+    "pages/library/library"
   ],
   "permission": {
     "scope.writePhotosAlbum": {
@@ -17,7 +18,7 @@
     "backgroundColor": "#fffffff1"
   },
   "tabBar": {
-    "color": "#8FB9AB",
+    "color": "black",
     "selectedColor": "#314D63",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "black",
@@ -27,6 +28,12 @@
         "text": "记谱",
         "iconPath": "assets/icons/notation.png",
         "selectedIconPath": "assets/icons/notation-active.png"
+      },
+      {
+        "pagePath": "pages/library/library",
+        "text": "曲库",
+        "iconPath": "assets/icons/library.png",
+        "selectedIconPath": "assets/icons/library-active.png"
       },
       {
         "pagePath": "pages/metronome/metronome",

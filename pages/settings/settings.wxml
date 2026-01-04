@@ -80,7 +80,7 @@
         <text>用户手册</text>
       </view>
       <view class="about-link" bindtap="showChangelog">
-        <image class="about-icon" src="/assets/icons/document.png"></image>
+        <image class="about-icon" src="/assets/icons/calendar.png"></image>
         <text>更新日志</text>
       </view>
     </view>
@@ -180,6 +180,25 @@
               <text class="change-text">• 模块删除后自动重新编号</text>
               <text class="change-text">• 横屏模式 UI 元素自动缩放</text>
               <text class="change-text">• 模块工具支持独立拍号设置</text>
+            </view>
+          </view>
+
+          <view class="changelog-item">
+            <text class="version-tag">v3.0.0</text>
+            <text class="version-date">2026-01-04</text>
+            <view class="changelog-content">
+              <text class="change-title">✨ 新功能</text>
+              <text class="change-text">• 添加了曲库功能，支持文件管理和快速打开</text>
+              
+              <text class="change-title">🔧 优化改进</text>
+              <text class="change-text">• 修复了页面切换和加载性能问题</text>
+              <text class="change-text">• 优化了文件关联和保存逻辑</text>
+              <text class="change-text">• 改进了导入导出功能的自动识别</text>
+              <text class="change-text">• 修复了颜色设置不生效的问题</text>
+              
+              <text class="change-title">🎨 设计更新</text>
+              <text class="change-text">• 更新了logo和背景的美术设计</text>
+              <text class="change-text">• 优化了界面视觉效果和用户体验</text>
             </view>
           </view>
           

@@ -1,4 +1,5 @@
 ﻿const app = getApp();
+const libraryManager = require('../../utils/libraryManager.js');
 
 // 内置示例数据（完整示例，包含所有module）
 const BUILTIN_EXAMPLE = {
@@ -99,6 +100,17 @@ Page({
     showExportCodeModal: false,
     exportedCode: '',
     exportModuleCode: '', // 模块导出代码
+
+    // 保存到曲库弹窗导航
+    saveFolderCurrentPath: [],
+    saveFolderItems: [],
+    saveFolderBreadcrumbs: [],
+    
+    // Library文件关联（标识当前谱面来源）
+    libraryFileId: null, // 文件ID（时间戳）
+    libraryFilePath: null, // 文件路径（数组）
+    libraryFileName: null, // 文件名
+    showSaveModeModal: false, // 保存模式选择弹窗
     
     // 分页相关
     currentPage: 0, // 当前页码
@@ -119,13 +131,19 @@ Page({
     // 已移除导出前图片加载测试
 
     // 开屏弹窗相关
-    showSplashModal: false
+    showSplashModal: false,
+
+    // 阅读模式相关
+    readingMode: false // false: 编辑模式, true: 阅读模式
   },
 
   onLoad() {
     // 初始化临时编辑状态
     this.prevEditing = null;
     this.prevEditingValue = '';
+    
+    // 预加载Logo图片以提升加载遮罩显示速度
+    this.preloadLogoImage();
     
     this.loadNotations();
     this.loadTitles();
@@ -138,17 +156,68 @@ Page({
     this.checkAndShowSplashModal(); // 检查是否显示开屏弹窗
   },
 
+  onShow() {
+    // 回到该页时刷新标题/颜色/透明度设置，确保设置页调整即时生效
+    this.loadTitles();
+
+    // 若有待加载的曲库数据则应用
+    const pending = wx.getStorageSync('pending_notation_load');
+    if (pending && pending.code) {
+      // 先显示加载遮罩，等导入完成后再关闭
+      this.showPageLoadingOverlay();
+      wx.removeStorageSync('pending_notation_load');
+      this.applyLibraryPayload(pending);
+    } else {
+      wx.hideLoading();
+    }
+  },
+
+  // 应用曲库传入的数据并覆盖当前谱面
+  applyLibraryPayload(payload) {
+    if (!payload || !payload.code) return;
+
+    const orientation = (payload.rotation || '').includes('横') ? 'landscape' : 'portrait';
+    const timingText = payload.timing || `${payload.timeSignatureBeats || 4}/${payload.timeSignatureBottom || 4}`;
+    const [beatsStr, bottomStr] = (timingText || '4/4').split('/');
+    const beats = parseInt(beatsStr, 10) || 4;
+    const bottom = parseInt(bottomStr, 10) || 4;
+
+    this.setData({
+      mainTitle: payload.title || payload.file_name || '未命名',
+      subTitle: payload.subtitle || 'Author: Unknown',
+      globalTempo: payload.tempo || 60,
+      orientation,
+      timeSignatureBeats: beats,
+      timeSignatureBottom: bottom,
+      timeSignatureDisplay: timingText,
+      currentTimeSignatureType: 'standard',
+      // 保存文件来源信息
+      libraryFileId: payload.id || null,
+      libraryFilePath: payload.path || null,
+      libraryFileName: payload.file_name || null
+    }, () => {
+      this.saveTitles();
+      this.saveGlobalTempo();
+      this.saveNotationsScoped([]);
+      this.setNotations([]);
+      const result = this.performImport(payload.code, 'add', null);
+      if (result && result.success) {
+        wx.showToast({ title: '已从曲库载入', icon: 'success' });
+      } else if (result && !result.success) {
+        wx.showToast({ title: `载入失败: ${result.message}`, icon: 'none' });
+      }
+      this.calculatePages();
+      wx.hideLoading();
+      this.hidePageLoadingOverlay();
+    });
+  },
+
   // 加载导入帮助显示设置
   loadImportHelpSettings() {
     const dismissed = wx.getStorageSync('importHelpDismissed');
     this.setData({
       importHelpDismissed: dismissed === true
     });
-  },
-
-  onShow() {
-    // 回到该页时刷新标题/颜色/透明度设置，确保设置页调整即时生效
-    this.loadTitles();
   },
 
   onHide() {
@@ -352,6 +421,10 @@ Page({
       if (newNotation.measures.length > 4) {
         newNotation.measures = newNotation.measures.slice(0, 4);
       }
+      // 确保有 collapsed 属性（旧数据可能没有）
+      if (newNotation.collapsed === undefined) {
+        newNotation.collapsed = false;
+      }
       return newNotation;
     });
 
@@ -396,6 +469,24 @@ Page({
     return this.createMeasureFromCustomTemplate(template);
   },
 
+  // 统计模板中[]块的数量，决定每行小节数
+  countBracketGroups(template) {
+    if (!template || typeof template !== 'string') return 0;
+    const matches = template.match(/\[[^\]]*\]/g);
+    return matches ? matches.length : 0;
+  },
+
+  // 根据模块或全局拍号模板决定每行小节数
+  getMeasuresPerRowForNotation(notation) {
+    const globalCustom = wx.getStorageSync('customTimeSignature') || {};
+    const beats = this.data.timeSignatureBeats || 4;
+    const fallbackTemplate = globalCustom.template || this.convertBeatsCountToTemplate(beats);
+    const template = notation.moduleCustomTemplate || fallbackTemplate;
+    const count = this.countBracketGroups(template);
+    if (count && count > 0) return count;
+    return this.data.measuresPerRow || 1;
+  },
+
   // 创建一个谱面模块（含4个小节）
   createNotation(label, withExample = false, beatsCount = null) {
     const beats = beatsCount || this.data.timeSignatureBeats || 4;
@@ -420,7 +511,8 @@ Page({
       id: Date.now() + Math.floor(Math.random() * 1000),
       label,
       measures,
-      timeSignature: `${beats}/4`
+      timeSignature: `${beats}/4`,
+      collapsed: false // 默认展开
     };
   },
 
@@ -999,7 +1091,7 @@ Page({
     let code = `\\begin{module}{${notation.label}}\n`;
     
     const measures = notation.measures || [];
-    const measuresPerLine = Math.ceil(measures.length / Math.max(1, Math.floor(measures.length / 2))) || 4;
+    const measuresPerLine = this.getMeasuresPerRowForNotation(notation);
     
     for (let i = 0; i < measures.length; i += measuresPerLine) {
       const lineMeasures = measures.slice(i, i + measuresPerLine);
@@ -1803,6 +1895,50 @@ Page({
     this.setData({ actionCollapsed: !this.data.actionCollapsed });
   },
 
+  // 切换阅读模式
+  toggleReadingMode() {
+    const newReadingMode = !this.data.readingMode;
+    this.setData({ readingMode: newReadingMode });
+    
+    if (newReadingMode) {
+      // 进入阅读模式：收起所有module的谱面图标
+      this.collapseAllNotations();
+    } else {
+      // 退出阅读模式：一键展开所有module
+      this.expandAllNotations();
+    }
+  },
+
+  // 收起单个谱面的图标行
+  toggleNotationCollapse(e) {
+    const notationId = e.currentTarget.dataset.id;
+    const notations = this.data.notations.map(notation => {
+      if (notation.id === notationId) {
+        return { ...notation, collapsed: !notation.collapsed };
+      }
+      return notation;
+    });
+    this.setData({ notations });
+  },
+
+  // 收起所有谱面的图标行
+  collapseAllNotations() {
+    const notations = this.data.notations.map(notation => ({
+      ...notation,
+      collapsed: true
+    }));
+    this.setData({ notations });
+  },
+
+  // 展开所有谱面的图标行
+  expandAllNotations() {
+    const notations = this.data.notations.map(notation => ({
+      ...notation,
+      collapsed: false
+    }));
+    this.setData({ notations });
+  },
+
   // 显示节拍器帮助（使用 catchtap 已阻止冒泡）
   showMetronomeHelp() {
     this.setData({ showMetronomeHelpModal: true });
@@ -2017,6 +2153,166 @@ Page({
     }
   },
 
+  // 触发保存弹窗
+  saveToLibrary() {
+    // 如果当前谱面来自library文件，显示保存模式选择
+    if (this.data.libraryFileId) {
+      this.setData({ showSaveModeModal: true });
+    } else {
+      // 新谱面，直接打开另存为弹窗
+      this.openSaveAsDialog();
+    }
+  },
+
+  // 打开另存为对话框
+  openSaveAsDialog() {
+    this.setData({
+      showSaveToLibraryModal: true,
+      saveFileName: this.data.mainTitle || '未命名',
+      saveTargetPath: [],
+      saveFolderOptions: []
+    });
+    this.refreshSaveFolderView([]);
+  },
+
+  // 保存模式选择
+  selectSaveMode(e) {
+    const mode = e.currentTarget.dataset.mode;
+    this.setData({ showSaveModeModal: false });
+    
+    if (mode === 'overwrite') {
+      // 保存原文件修改
+      this.saveToOriginalFile();
+    } else if (mode === 'saveas') {
+      // 另存为
+      this.openSaveAsDialog();
+    }
+  },
+
+  // 关闭保存模式选择弹窗
+  closeSaveModeModal() {
+    this.setData({ showSaveModeModal: false });
+  },
+
+  // 保存原文件修改
+  saveToOriginalFile() {
+    try {
+      const code = this.generateNotationCode();
+      const updatePayload = {
+        file_name: this.data.libraryFileName,
+        title: this.data.mainTitle || this.data.libraryFileName,
+        subtitle: this.data.subTitle || 'Author: Unknown',
+        tempo: this.data.globalTempo || 60,
+        rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
+        timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
+        code
+      };
+
+      const success = libraryManager.updateFile(this.data.libraryFileId, updatePayload);
+      if (success) {
+        wx.showToast({ title: '已更新原文件', icon: 'success' });
+      } else {
+        wx.showToast({ title: '未找到原文件', icon: 'none' });
+      }
+    } catch (err) {
+      wx.showToast({ title: '更新失败: ' + err.message, icon: 'none' });
+    }
+  },
+
+  selectSaveFolder(e) {
+    const path = e.currentTarget.dataset.path;
+    this.setData({ saveTargetPath: path });
+  },
+
+  closeSaveToLibraryModal(silent) {
+    const suppressToast = silent === true;
+    this.setData({ showSaveToLibraryModal: false, saveFolderOptions: [], saveFileName: '', saveTargetPath: [], saveFolderItems: [], saveFolderBreadcrumbs: [], saveFolderCurrentPath: [] });
+    if (!suppressToast) {
+      wx.showToast({ title: '已取消保存', icon: 'none' });
+    }
+  },
+
+  onSaveFileNameInput(e) {
+    this.setData({ saveFileName: e.detail.value });
+  },
+
+  confirmSaveToLibrary() {
+    const name = (this.data.saveFileName || '').trim();
+    if (!name) {
+      wx.showToast({ title: '请输入文件名', icon: 'none' });
+      return;
+    }
+
+    try {
+      const code = this.generateNotationCode();
+      const payload = {
+        file_name: name,
+        title: this.data.mainTitle || name,
+        subtitle: this.data.subTitle || 'Author: Unknown',
+        tempo: this.data.globalTempo || 60,
+        rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
+        timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
+        code
+      };
+
+      const created = libraryManager.addFile(this.data.saveTargetPath || [], payload);
+      wx.setStorageSync('latest_notation_snapshot_for_library', created);
+      wx.showToast({ title: `已保存：${created.file_name}`, icon: 'success' });
+      this.closeSaveToLibraryModal(true);
+    } catch (err) {
+      wx.showToast({ title: '保存失败: ' + err.message, icon: 'none' });
+    }
+  },
+
+  // 保存弹窗：刷新当前目录内容与面包屑
+  refreshSaveFolderView(path = []) {
+    const items = libraryManager.getItemsByPath(path || []);
+    const folders = items.filter(i => i.type === 'folder');
+    const files = items.filter(i => i.type === 'file');
+    const breadcrumbs = this.generateSaveBreadcrumbs(path || []);
+    this.setData({
+      saveFolderCurrentPath: path,
+      saveFolderItems: [...folders, ...files],
+      saveFolderBreadcrumbs: breadcrumbs,
+      saveTargetPath: path
+    });
+  },
+
+  generateSaveBreadcrumbs(path = []) {
+    return path.map((folderId, index) => {
+      const folder = libraryManager.getFolderById(folderId);
+      return {
+        id: folderId,
+        name: folder ? folder.name : '未知',
+        index,
+        display: folder ? folder.name : '未知'
+      };
+    });
+  },
+
+  navigateSaveRoot() {
+    this.refreshSaveFolderView([]);
+  },
+
+  navigateSaveBreadcrumb(e) {
+    const index = e.currentTarget.dataset.index;
+    const newPath = this.data.saveFolderCurrentPath.slice(0, index + 1);
+    this.refreshSaveFolderView(newPath);
+  },
+
+  backSaveFolder() {
+    if (!this.data.saveFolderCurrentPath || this.data.saveFolderCurrentPath.length === 0) return;
+    const newPath = this.data.saveFolderCurrentPath.slice(0, -1);
+    this.refreshSaveFolderView(newPath);
+  },
+
+  enterSaveFolder(e) {
+    const item = e.currentTarget.dataset.item;
+    if (!item || item.type !== 'folder') return;
+    const newPath = [...this.data.saveFolderCurrentPath, item.id];
+    this.refreshSaveFolderView(newPath);
+  },
+
   // 生成乐谱代码
   generateNotationCode() {
     const notations = this.data.notations;
@@ -2029,8 +2325,8 @@ Page({
     for (const notation of notations) {
       code += `\\begin{module}{${notation.label}}\n`;
       
-      // 根据measuresPerRow分组小节到行
-      const measuresPerRow = this.data.measuresPerRow || 1;
+      // 根据模板确定每行小节数
+      const measuresPerRow = this.getMeasuresPerRowForNotation(notation);
       const totalMeasures = notation.measures.length;
       
       for (let i = 0; i < totalMeasures; i += measuresPerRow) {
@@ -2040,7 +2336,7 @@ Page({
         
         // 如果不是最后一行，添加换行符
         if (i + measuresPerRow < totalMeasures) {
-          code += ' \\\\\n';
+          code += ' \\\n';
         } else {
           code += '\n';
         }
@@ -2602,6 +2898,19 @@ Page({
     }
   },
 
+  // 预加载Logo图片以优化加载遮罩显示速度
+  preloadLogoImage() {
+    wx.getImageInfo({
+      src: '/assets/img/logo.png',
+      success: (res) => {
+        console.log('Logo图片预加载成功', res.width, res.height);
+      },
+      fail: (err) => {
+        console.warn('Logo图片预加载失败', err);
+      }
+    });
+  },
+
   // ========== 导入功能相关方法 ==========
 
   // 打开导入模态窗口（添加新模块模式）
@@ -2717,6 +3026,11 @@ Page({
     try {
       // 解析代码
       const parsedModules = this.parseImportCode(code);
+      // 根据首个模块首行小节数自动设置每行小节数（用于导出/显示行分组）
+      const detectedPerRow = parsedModules[0] && parsedModules[0].firstLineMeasureCount ? parsedModules[0].firstLineMeasureCount : null;
+      if (detectedPerRow && detectedPerRow > 0) {
+        this.setData({ measuresPerRow: detectedPerRow });
+      }
       
       if (!parsedModules || parsedModules.length === 0) {
         throw new Error('未能解析出有效的模块数据');
@@ -2838,16 +3152,21 @@ Page({
     }
     
     const allMeasures = [];
+    let firstLineMeasureCount = 0;
     
     // 遍历每一行
-    for (const line of lines) {
+    lines.forEach((line, idx) => {
       const measures = this.parseLine(line);
+      if (idx === 0) {
+        firstLineMeasureCount = measures.length;
+      }
       allMeasures.push(...measures);
-    }
+    });
     
     return {
       name: moduleName,
-      measures: allMeasures
+      measures: allMeasures,
+      firstLineMeasureCount
     };
   },
 
@@ -3595,6 +3914,13 @@ Page({
     const deltaY = this.data.touchStartY - moveY;
     const minDistance = 50;
 
+    const atFirstPage = this.data.currentPage === 0;
+    const atLastPage = this.data.currentPage >= this.data.totalPages - 1;
+    // 首尾页不响应越界方向滑动
+    if ((atFirstPage && deltaX < 0) || (atLastPage && deltaX > 0)) {
+      return;
+    }
+
     // 仅当明确是水平换页拖动且超过阈值时显示遮罩
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minDistance) {
       if (!this.data.showPageLoadingOverlay && !this.data.pageTransitioning) {
@@ -3620,11 +3946,21 @@ Page({
     
     // 检测是否是水平滑动（水平距离 > 垂直距离）
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minDistance) {
+      const atFirstPage = this.data.currentPage === 0;
+      const atLastPage = this.data.currentPage >= this.data.totalPages - 1;
       if (deltaX > 0) {
         // 向左滑动：加载下一页
+        if (atLastPage) {
+          this.hidePageLoadingOverlay();
+          return;
+        }
         this.turnToNextPage();
       } else {
         // 向右滑动：加载上一页
+        if (atFirstPage) {
+          this.hidePageLoadingOverlay();
+          return;
+        }
         this.turnToPreviousPage();
       }
     } else {
@@ -3642,6 +3978,8 @@ Page({
     
     if (currentPage < totalPages - 1) {
       this.switchToPage(currentPage + 1, 'left');
+    } else {
+      this.hidePageLoadingOverlay();
     }
   },
 
@@ -3651,6 +3989,8 @@ Page({
     
     if (currentPage > 0) {
       this.switchToPage(currentPage - 1, 'right');
+    } else {
+      this.hidePageLoadingOverlay();
     }
   },
 

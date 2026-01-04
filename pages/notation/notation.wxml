@@ -7,8 +7,8 @@
   <view id="notation-pages" class="notation-pages-wrapper {{pageTransitioning ? 'page-transition-out' : 'page-transition-in'}}" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd">
     <!-- 标题区（仅在第一页显示） -->
     <view class="header-section" wx:if="{{currentPage === 0}}">
-      <text class="main-title" bindtap="editTitle">{{mainTitle}}</text>
-      <text class="sub-title" bindtap="editSubTitle">{{subTitle}}</text>
+      <text class="main-title" bindtap="editTitle" style="color: {{mainTitleColor}}">{{mainTitle}}</text>
+      <text class="sub-title" bindtap="editSubTitle" style="color: {{subTitleColor}}">{{subTitle}}</text>
       
       <!-- 速度设置 -->
       <view class="header-action-row" bindtap="editGlobalTempo">
@@ -40,13 +40,16 @@
 
     <!-- 谱面列表（仅显示当前页的modules） -->
     <view class="notation-list">
-      <view wx:for="{{currentPageModules}}" wx:key="id" class="notation-sheet" wx:for-item="pageModule">
+      <view wx:for="{{currentPageModules}}" wx:key="id" class="notation-sheet {{notations[pageModule.index].collapsed ? 'collapsed' : ''}}" wx:for-item="pageModule">
         <!-- 使用 pageModule.index 访问原始 notations 数组中的数据 -->
         <view wx:if="{{notations[pageModule.index]}}">
           <!-- 定义引用以简化代码 -->
           <block wx:key="id" wx:for-item="notation" wx:for-index="notationItemIdx" wx:for="{{[notations[pageModule.index]]}}">
             <!-- 删除图标（右上角） -->
-            <image class="delete-icon" src="/assets/icons/delete.png" data-id="{{notation.id}}" bindtap="deleteNotation"></image>
+            <image class="delete-icon" src="/assets/icons/delete.png" data-id="{{notation.id}}" bindtap="deleteNotation" wx:if="{{!notations[pageModule.index].collapsed}}"></image>
+            
+            <!-- 收起状态时显示more.png -->
+            <image class="more-icon-top-right" src="/assets/icons/more.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse" wx:if="{{notations[pageModule.index].collapsed}}"></image>
             
             <!-- 谱面信息 -->
             <view class="sheet-info">
@@ -89,7 +92,7 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="0"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.rightHand[0]}}" class="note-number note-right-hand">{{subdivision.rightHand[0]}}</text>
+                              <text wx:if="{{subdivision.rightHand[0]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}">{{subdivision.rightHand[0]}}</text>
                               <text wx:else class="note-number placeholder">　</text>
                             </block>
                           </view>
@@ -104,7 +107,7 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="1"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.rightHand[1]}}" class="note-number note-right-hand">{{subdivision.rightHand[1]}}</text>
+                              <text wx:if="{{subdivision.rightHand[1]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}">{{subdivision.rightHand[1]}}</text>
                               <text wx:else class="note-number placeholder">　</text>
                             </block>
                           </view>
@@ -125,7 +128,7 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="0"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.leftHand[0]}}" class="note-number note-left-hand">{{subdivision.leftHand[0]}}</text>
+                              <text wx:if="{{subdivision.leftHand[0]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}">{{subdivision.leftHand[0]}}</text>
                               <text wx:else class="note-number placeholder">　</text>
                             </block>
                           </view>
@@ -140,7 +143,7 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="1"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.leftHand[1]}}" class="note-number note-left-hand">{{subdivision.leftHand[1]}}</text>
+                              <text wx:if="{{subdivision.leftHand[1]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}">{{subdivision.leftHand[1]}}</text>
                               <text wx:else class="note-number placeholder">　</text>
                             </block>
                           </view>
@@ -161,11 +164,12 @@
               </view>
             </view>
             
-            <!-- 添加谱面图标 -->
-            <view class="add-notation-row">
+            <!-- 添加谱面图标（仅展开状态显示） -->
+            <view class="add-notation-row" wx:if="{{!notations[pageModule.index].collapsed}}">
               <image class="add-icon" src="/assets/icons/add.png" data-after-id="{{notation.id}}" bindtap="addNotationAfter"></image>
               <image class="refresh-icon" src="/assets/icons/refresh.png" data-id="{{notation.id}}" bindtap="refreshNotation"></image>
               <image class="tool-icon" src="/assets/icons/tool.png" data-id="{{notation.id}}" bindtap="openModuleSettings"></image>
+              <image class="less-icon" src="/assets/icons/less.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse"></image>
             </view>
           </block>
         </view>
@@ -200,8 +204,9 @@
 
   <!-- 操作按钮 -->
   <view wx:if="{{!actionCollapsed}}" class="action-buttons">
+    
     <view class="action-btn" bindtap="toggleFloatingMetronome">
-      <image class="action-btn-icon" src="/assets/icons/ring.png"></image>
+      <image class="action-btn-icon" src="/assets/icons/metronome.png"></image>
       <text class="action-btn-text">节拍器</text>
       <view class="help-icon-wrap" catchtap="showMetronomeHelp">
         <image class="help-icon" src="/assets/icons/help.png"></image>
@@ -211,18 +216,29 @@
       <image class="action-btn-icon" src="/assets/icons/reset.png"></image>
       <text class="action-btn-text">重置</text>
     </view>
-    <view class="action-btn" bindtap="exportPDF">
+    <view class="action-btn" bindtap="saveToLibrary">
       <image class="action-btn-icon" src="/assets/icons/save.png"></image>
+      <text class="action-btn-text">保存</text>
+    </view>
+    <view class="action-btn" bindtap="exportPDF">
+      <image class="action-btn-icon" src="/assets/icons/download.png"></image>
       <text class="action-btn-text">导出</text>
     </view>
     <view class="action-btn" bindtap="openImportModal">
       <image class="action-btn-icon" src="/assets/icons/upload.png"></image>
       <text class="action-btn-text">导入</text>
     </view>
+    <view class="action-btn" bindtap="toggleReadingMode">
+      <image class="action-btn-icon" src="{{readingMode ? '/assets/icons/newspaper-folding-active.png' : '/assets/icons/newspaper-folding.png'}}"></image>
+      <text class="action-btn-text">{{readingMode ? '编辑' : '阅读'}}</text>
+    </view>
       <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
       
   </view>
-  <image class="action-toggle" src="/assets/icons/handpan.png" bindtap="toggleActionBar"></image>
+  <image class="action-toggle" 
+    src="/assets/icons/handpan.png" 
+    bindtap="toggleActionBar"
+    wx:if="{{actionCollapsed}}"></image>
 
   <!-- 悬浮节拍器 -->
   <view wx:if="{{showFloatingMetronome}}" class="floating-metronome">
@@ -273,10 +289,7 @@
           <text class="md-dot">•</text>
           <text><text class="md-strong">横屏/平板模式：</text>一行排版更多小节，可容纳更多内容，页面元素均缩小</text>
         </view>
-        <view class="md-quote">切换时谱面自动调整排版，数据不丢失。手机关闭固定旋转模式并横屏可提供更方便的展示。</view>
-      </view>
-      <view class="modal-buttons">
-        <button class="btn-primary" bindtap="closeRotationHelp">知道了</button>
+      
       </view>
     </view>
   </view>
@@ -684,7 +697,7 @@
             <text class="option-title">长图模式</text>
             <text class="option-desc">一次导出完整谱面为单张长图</text>
           </view>
-          <view wx:if="{{exportMode === 'long'}}" class="option-check">✓</view>
+          <image wx:if="{{exportMode === 'long'}}" class="option-check" src="/assets/icons/check.png"></image>
         </view>
         
         <view class="export-option {{exportMode === 'paged' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="paged">
@@ -692,7 +705,7 @@
             <text class="option-title">分页模式（A4）</text>
             <text class="option-desc">自动分页，适合打印或分享</text>
           </view>
-          <view wx:if="{{exportMode === 'paged'}}" class="option-check">✓</view>
+          <image wx:if="{{exportMode === 'paged'}}" class="option-check" src="/assets/icons/check.png"></image>
         </view>
 
         <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
@@ -700,7 +713,7 @@
             <text class="option-title">导出为代码</text>
             <text class="option-desc">生成LaTeX风格代码，可复制分享</text>
           </view>
-          <view wx:if="{{exportMode === 'code'}}" class="option-check">✓</view>
+          <image wx:if="{{exportMode === 'code'}}" class="option-check" src="/assets/icons/check.png"></image>
         </view>
       </view>
       
@@ -755,6 +768,82 @@
     </view>
   </view>
 
+  <!-- 保存到曲库弹窗 -->
+  <view wx:if="{{showSaveToLibraryModal}}" class="modal-overlay" bindtap="closeSaveToLibraryModal">
+    <view class="modal-content import-modal" catchtap="stopPropagation">
+      <view class="modal-header-with-help">
+        <view class="modal-title">保存到曲库</view>
+      </view>
+      <view class="import-description">
+        <text>输入文件名，并选择保存位置</text>
+      </view>
+      <input class="modal-input" value="{{saveFileName}}" placeholder="文件名" bindinput="onSaveFileNameInput" />
+
+      <view class="save-path-bar">
+        <view class="save-breadcrumb">
+          <text class="save-breadcrumb-item" bindtap="navigateSaveRoot">根目录</text>
+          <block wx:for="{{saveFolderBreadcrumbs}}" wx:key="id">
+            <text class="save-breadcrumb-separator">/</text>
+            <text class="save-breadcrumb-item" bindtap="navigateSaveBreadcrumb" data-index="{{index}}">{{item.name}}</text>
+          </block>
+        </view>
+      </view>
+      <view class="save-action-bar" wx:if="{{saveFolderCurrentPath.length > 0}}">
+        <view class="save-back-btn" bindtap="backSaveFolder">
+          <image class="save-back-icon" src="/assets/icons/library/上一步_back.png" mode="aspectFit"></image>
+        </view>
+      </view>
+
+      <scroll-view class="save-folder-list" scroll-y>
+        <block wx:for="{{saveFolderItems}}" wx:key="id">
+          <view class="save-list-item save-folder-item" wx:if="{{item.type === 'folder'}}" bindtap="enterSaveFolder" data-item="{{item}}">
+            <image class="save-item-icon" src="/assets/icons/library/文件夹-开_folder-open.png" mode="aspectFit"></image>
+            <view class="save-item-info">
+              <text class="save-item-name">{{item.name}}</text>
+              <text class="save-item-detail">{{item.fileCount || 0}} 个项目</text>
+            </view>
+          </view>
+          <view class="save-list-item save-file-item" wx:else>
+            <view class="save-file-icon">♪</view>
+            <view class="save-item-info">
+              <text class="save-item-name">{{item.file_name}}</text>
+              <text class="save-item-detail">{{item.tempo}} BPM · {{item.timing}}</text>
+            </view>
+          </view>
+        </block>
+        <view class="save-empty-state" wx:if="{{saveFolderItems.length === 0}}">
+          <text class="save-empty-text">此目录暂无内容</text>
+        </view>
+      </scroll-view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeSaveToLibraryModal">取消</button>
+        <button class="btn-primary" bindtap="confirmSaveToLibrary">保存到当前目录</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 保存模式选择弹窗 -->
+  <view class="modal-overlay {{showSaveModeModal ? 'show' : ''}}" bindtap="closeSaveModeModal" wx:if="{{showSaveModeModal}}">
+    <view class="modal-content" catchtap="stopPropagation">
+      <text class="modal-title">保存方式</text>
+      <text class="modal-description">当前谱面来自曲库文件：{{libraryFileName}}</text>
+      
+      <view class="save-mode-buttons">
+        <button class="save-mode-btn" bindtap="selectSaveMode" data-mode="overwrite">
+          <view class="save-mode-icon">💾</view>
+          <text class="save-mode-text">保存原文件修改</text>
+        </button>
+        <button class="save-mode-btn" bindtap="selectSaveMode" data-mode="saveas">
+          <view class="save-mode-icon">📝</view>
+          <text class="save-mode-text">另存为新文件</text>
+        </button>
+      </view>
+      
+      <button class="btn-secondary" bindtap="closeSaveModeModal">取消</button>
+    </view>
+  </view>
+
   <!-- 开屏弹窗 -->
   <view class="splash-modal-overlay {{showSplashModal ? 'show' : ''}}" bindtap="closeSplashModal" wx:if="{{showSplashModal}}">
     <view class="splash-modal-content" catchtap="stopPropagation">
@@ -764,13 +853,16 @@
       <!-- 弹窗标题 -->
       <view class="splash-header">
         <text class="splash-title">欢迎使用</text>
-        <text class="splash-subtitle">Handpan Note</text>
+        <text class="splash-subtitle">Orbit Note 星轨手碟记谱</text>
       </view>
+
+      <!-- Logo 图片 -->
+      <image class="splash-logo" src="/assets/img/logo1.png" mode="aspectFit"></image>
 
       <!-- 弹窗描述 -->
       <view class="splash-description">
-        <text class="splash-text">Handpan Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
-        <text class="splash-text">谱面为前端渲染，部分数据加载可能较慢，请耐心等待啦。欢迎分享给其他朋友使用~</text>
+        <text class="splash-text">Orbit Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
+        <text class="splash-text">谱面为前端渲染，部分数据加载可能较慢，请耐心等待啦。导出图片有可能因为缓存失败，可以尝试重启一下小程序多尝试几次。欢迎分享给其他朋友使用~</text>
         <text class="splash-text"></text>
       </view>
 
