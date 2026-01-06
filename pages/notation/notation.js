@@ -763,25 +763,25 @@ Page({
           wx.showToast({ title: '未找到谱面', icon: 'none' });
           return;
         }
-        const lineCount = updated[idx].measures.length;
-        const isCustom = that.data.currentTimeSignatureType === 'custom';
         
-        let template = '';
-        if (isCustom) {
-          const custom = wx.getStorageSync('customTimeSignature') || {};
-          template = custom.template || '';
-        } else {
-          const beatsCount = that.data.timeSignatureBeats || 4;
-          template = that.convertBeatsCountToTemplate(beatsCount);
-        }
+        // 保持拍号布局不变，只清空音符数据
+        updated[idx].measures.forEach(measure => {
+          if (measure.beats) {
+            measure.beats.forEach(beat => {
+              if (beat.subdivisions) {
+                beat.subdivisions.forEach(sub => {
+                  sub.rightHand = ['', ''];
+                  sub.leftHand = ['', ''];
+                });
+              }
+            });
+          }
+        });
         
-        // 统一使用模板方式生成小节
-        updated[idx].measures = Array.from({ length: lineCount }).map(() => that.createMeasureFromCustomTemplate(template));
-        updated[idx].timeSignature = isCustom ? '自由/自由' : `${that.data.timeSignatureBeats || 4}/4`;
+        // 清除模块级拍号设置，恢复为全局设置
         updated[idx].moduleTimeSignature = undefined;
         updated[idx].moduleCustomTemplate = undefined;
-        // 同步 barLineAfter 与模板
-        that.syncBarLineAfterWithTemplate(updated[idx]);
+        
         const withOffsets = that.updateMeasureOffsets(updated);
         that.saveNotationsScoped(withOffsets);
         that.setNotations(withOffsets);
