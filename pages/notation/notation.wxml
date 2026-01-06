@@ -216,6 +216,10 @@
       <image class="action-btn-icon" src="/assets/icons/reset.png"></image>
       <text class="action-btn-text">重置</text>
     </view>
+    <view class="action-btn" bindtap="undo">
+      <image class="action-btn-icon" src="/assets/icons/library/上一步_back.png"></image>
+      <text class="action-btn-text">撤销</text>
+    </view>
     <view class="action-btn" bindtap="saveToLibrary">
       <image class="action-btn-icon" src="/assets/icons/save.png"></image>
       <text class="action-btn-text">保存</text>

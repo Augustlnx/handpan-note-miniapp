@@ -102,6 +102,9 @@ Page({
     exportedCode: '',
     exportModuleCode: '', // 模块导出代码
 
+    // 撤销功能相关
+    undoStack: [], // 保存最近5步操作的谱面代码备份
+
     // 保存到曲库弹窗导航
     saveFolderCurrentPath: [],
     saveFolderItems: [],
@@ -659,6 +662,8 @@ Page({
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
     wx.showToast({ title: '已添加谱面', icon: 'success' });
+    // 备份当前状态
+    this.backupCurrentState();
   },
 
   // 重新编号模块（从指定位置开始）
@@ -786,6 +791,8 @@ Page({
         that.saveNotationsScoped(withOffsets);
         that.setNotations(withOffsets);
         wx.showToast({ title: '已重置', icon: 'success' });
+        // 备份当前状态
+        that.backupCurrentState();
       }
     });
   },
@@ -855,6 +862,8 @@ Page({
     that.saveNotationsScoped(withOffsets);
     that.setNotations(withOffsets);
     wx.showToast({ title: '已清空谱面', icon: 'success' });
+    // 备份当前状态
+    that.backupCurrentState();
   },
 
   // 读取示例文件并导入（不可撤销提示）
@@ -916,6 +925,8 @@ Page({
           title: `成功加载`,
           icon: 'success'
         });
+        // 备份当前状态
+        that.backupCurrentState();
       } catch (parseErr) {
         console.error('示例导入错误：', parseErr);
         wx.showToast({ title: '加载示例失败: ' + (parseErr.message || '解析失败'), icon: 'none' });
@@ -1465,6 +1476,8 @@ Page({
     this.setNotations(withOffsets);
     this.closeModuleSettingsModal();
     wx.showToast({ title: '设置已修改', icon: 'success' });
+    // 备份当前状态
+    this.backupCurrentState();
   },
 
   // 应用模块级拍号设置
@@ -2156,6 +2169,9 @@ Page({
     setTimeout(() => {
       this.saveNotationsScoped(this.data.notations);
     }, 100);
+    
+    // 备份当前状态
+    this.backupCurrentState();
   },
 
   onSlotConfirm(e) {
@@ -2597,6 +2613,36 @@ Page({
         });
       }
     });
+  },
+
+  // 备份当前谱面状态
+  backupCurrentState() {
+    const code = this.generateCodeForNotations(this.data.notations);
+    this.data.undoStack.push(code);
+    if (this.data.undoStack.length > 5) {
+      this.data.undoStack.shift();
+    }
+    this.setData({ undoStack: this.data.undoStack });
+  },
+
+  // 撤销上一步操作
+  undo() {
+    if (this.data.undoStack.length === 0) {
+      wx.showToast({ title: '没有可撤销的操作', icon: 'none' });
+      return;
+    }
+    const code = this.data.undoStack.pop();
+    this.setData({ undoStack: this.data.undoStack });
+    
+    // 解析并恢复谱面
+    const parsed = this.parseImportCode(code);
+    if (!parsed || !parsed.length) {
+      wx.showToast({ title: '恢复失败', icon: 'none' });
+      return;
+    }
+    const notations = parsed.map(module => this.convertToNotation(module));
+    this.setNotations(notations);
+    wx.showToast({ title: '已撤销', icon: 'success' });
   },
 
   // 导出为 PNG
@@ -3216,6 +3262,8 @@ Page({
         title: result.message,
         icon: 'success'
       });
+      // 备份当前状态
+      this.backupCurrentState();
     } else {
       this.setData({ importError: result.message });
     }
