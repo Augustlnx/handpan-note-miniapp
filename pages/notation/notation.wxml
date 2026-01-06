@@ -59,12 +59,12 @@
             </view>
 
             <!-- 谱面内容 -->
-            <view class="staff-container {{measuresPerRow > 1 ? 'multi-measure' : 'single-measure'}}">
-              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / measuresPerRow}}%;">
+            <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}">
+              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%;">
                 <!-- 小节编号（上方居中） -->
                 <view class="measure-index">{{(notation.measureOffset || 0) + measureIndex + 1}}</view>
                 <!-- 小节线（左侧） -->
-                <view class="bar-line bar-line-left"></view>
+                <view wx:if="{{measureIndex % (notation.measuresPerRow || measuresPerRow) === 0}}" class="bar-line bar-line-left"></view>
 
                 <!-- 拍子 -->
                 <view wx:for="{{measure.beats}}" wx:key="index" wx:for-item="beat" wx:for-index="beatIndex" class="beat">

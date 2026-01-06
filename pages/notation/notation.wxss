@@ -207,10 +207,8 @@
 .staff-container.multi-measure .bar-line {
   width: 4rpx;
 }
-.staff-container.multi-measure .measure:nth-child(2n+1) .bar-line-right {
-  display: none; /* 与下一小节共享边界线 */
-}
-.staff-container.multi-measure .measure:nth-child(2n) .bar-line-left {
+.staff-container.multi-measure .bar-line-left,
+.staff-container.multi-measure .bar-line-right {
   display: block;
 }
 .staff-container.multi-measure .beat-line {

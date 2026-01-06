@@ -36,7 +36,8 @@ Page({
     editingValue: '',
     // 排版和横屏
     orientation: 'portrait', // 'portrait' 或 'landscape'
-    measuresPerRow: 1, // 计算每行显示的小节数
+    measuresPerRow: 1, // 当前排版每行小节数（随横竖屏倍增）
+    measuresPerRowPortrait: 1, // 竖屏基准每行小节数（按导入/模板检测）
     // 帮助模态框
     showFloatingMetronome: false,
     showMetronomeHelpModal: false,
@@ -354,17 +355,21 @@ Page({
   // 保存到当前拍号的独立存储
   saveNotationsScoped(notations) {
     const key = this.getNotationStorageKey();
-    app.globalData.notations = notations;
-    wx.setStorageSync(key, notations);
+    const normalized = this.normalizeBarLines(notations);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    app.globalData.notations = withOffsets;
+    wx.setStorageSync(key, withOffsets);
   },
 
   // 直接指定key保存谱面数据
   saveNotationsScopedWithKey(notations, key) {
-    app.globalData.notations = notations;
-    wx.setStorageSync(key, notations);
+    const normalized = this.normalizeBarLines(notations);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    app.globalData.notations = withOffsets;
+    wx.setStorageSync(key, withOffsets);
   },
 
-  // 迁移旧版谱面结构到新版（每拍4个subdivision，且每个subdivision上下各2个数字）
+  // 迁移旧版谱面结构到新版（保留原 subdivision 数量，每个 subdivision 仅规范左右手数组长度）
   migrateNotations(notations) {
     const ensureArray2 = (val) => {
       if (Array.isArray(val)) {
@@ -386,41 +391,27 @@ Page({
         const beats = (measure.beats || []).map(beat => {
           // 旧结构可能是 {rightHand: 'x', leftHand: 'y'} 或已是 {subdivisions: [...]}
           if (!beat.subdivisions) {
-            // 将单音符拍转换为4个 subdivision 的拍，首个 subdivision 填旧值，其他为空
+            // 将缺省的拍转换为单个 subdivision，保留原左右手值
             const rh = ensureArray2(beat.rightHand);
             const lh = ensureArray2(beat.leftHand);
             return {
               subdivisions: [
-                { rightHand: rh, leftHand: lh },
-                { rightHand: ['', ''], leftHand: ['', ''] },
-                { rightHand: ['', ''], leftHand: ['', ''] },
-                { rightHand: ['', ''], leftHand: ['', ''] }
+                { rightHand: rh, leftHand: lh }
               ]
             };
           }
 
-          // 已有 subdivisions，则逐个规范化
+          // 已有 subdivisions，则逐个规范化，不补齐数量
           const subs = (beat.subdivisions || []).map(sub => ({
             rightHand: ensureArray2(sub.rightHand),
             leftHand: ensureArray2(sub.leftHand)
           }));
 
-          // 如果 subdivisions 数量不足4，则补齐
-          while (subs.length < 4) {
-            subs.push({ rightHand: ['', ''], leftHand: ['', ''] });
-          }
-
-          return { subdivisions: subs.slice(0, 4) };
+          return { subdivisions: subs };
         });
         return { beats };
       });
-      // 确保每个模块至少4个小节
-      while (newNotation.measures.length < 4) {
-        newNotation.measures.push(this.createEmptyMeasure());
-      }
-      if (newNotation.measures.length > 4) {
-        newNotation.measures = newNotation.measures.slice(0, 4);
-      }
+      // 不再强制截断/补足固定小节数，保留导入的实际行数
       // 确保有 collapsed 属性（旧数据可能没有）
       if (newNotation.collapsed === undefined) {
         newNotation.collapsed = false;
@@ -476,30 +467,131 @@ Page({
     return matches ? matches.length : 0;
   },
 
+  // 将单个小节转换为模板片段，如 beats:3 且每拍2分则 -> "[--|--|--]"
+  buildMeasureTemplate(measure) {
+    const beats = (measure && measure.beats) ? measure.beats : [];
+    const beatStr = beats.map(beat => {
+      const count = (beat && Array.isArray(beat.subdivisions)) ? beat.subdivisions.length : 1;
+      return '-'.repeat(Math.max(1, count));
+    }).join('|');
+    return `[${beatStr || '--'}]`;
+  },
+
+  // 检查小节是否包含实际音符（用于模板推断）
+  measureHasContent(measure) {
+    if (!measure || !Array.isArray(measure.beats) || measure.beats.length === 0) return false;
+    return measure.beats.some(beat => {
+      const subs = Array.isArray(beat.subdivisions) ? beat.subdivisions : [];
+      if (subs.length === 0) return false;
+      return subs.some(sub => {
+        const rh = Array.isArray(sub.rightHand) ? sub.rightHand : ['', ''];
+        const lh = Array.isArray(sub.leftHand) ? sub.leftHand : ['', ''];
+        const rhFilled = (rh[0] && rh[0].trim()) || (rh[1] && rh[1].trim());
+        const lhFilled = (lh[0] && lh[0].trim()) || (lh[1] && lh[1].trim());
+        return !!rhFilled || !!lhFilled;
+      });
+    });
+  },
+
+  // 规范化模板字符串：移除多余空格/空小节，确保 ][ 被当作单个分隔
+  sanitizeTemplateString(template) {
+    if (!template || typeof template !== 'string') return '';
+    const normalized = template.replace(/\]\s*\[/g, '][').replace(/\s+/g, '');
+    const groups = normalized.match(/\[[^\]]*\]/g);
+    if (!groups) return '';
+    const filtered = groups.filter(group => {
+      const inner = group.slice(1, -1).trim();
+      return inner.length > 0;
+    });
+    return filtered.join('');
+  },
+
+  // 判断小节是否为空（保留逻辑，当前不删除空小节）
+  isBlankMeasure(measure) {
+    return false;
+  },
+
+  // 将整行模板拆为小节模板数组
+  splitTemplateIntoMeasures(template) {
+    const sanitized = this.sanitizeTemplateString(template);
+    if (!sanitized) return [];
+    const groups = sanitized.match(/\[[^\]]*\]/g);
+    return groups || [];
+  },
+
+  // 合并多余小节线：移除空小节（由 ][ 或 [] 产生），避免连续bar-line
+  normalizeBarLines(notations) {
+    return (notations || []).map(n => {
+      const measures = Array.isArray(n.measures)
+        ? n.measures.filter(measure => {
+            const beats = Array.isArray(measure?.beats) ? measure.beats : [];
+            if (!beats.length) return false;
+            return beats.some(beat => {
+              const subs = Array.isArray(beat.subdivisions) ? beat.subdivisions : [];
+              return subs.length > 0;
+            });
+          })
+        : [];
+
+      return {
+        ...n,
+        measures: measures.length > 0 ? measures : (Array.isArray(n.measures) ? n.measures : [])
+      };
+    });
+  },
+
+  // 根据模块当前数据推断自由模板（首行的模板串）
+  inferTemplateFromNotation(notation) {
+    const measures = (notation && notation.measures) ? notation.measures : [];
+    if (!measures.length) return '';
+    const perRow = notation && notation.measuresPerRow ? notation.measuresPerRow : (this.getMeasuresPerRowForNotation(notation) || 1);
+    const rowMeasures = measures.slice(0, perRow > 0 ? perRow : 1);
+    const templates = rowMeasures
+      .filter(m => Array.isArray(m.beats) && m.beats.length > 0)
+      .map(m => this.buildMeasureTemplate(m))
+      .filter(t => t && t !== '[]');
+    return templates.join('');
+  },
+
   // 根据模块或全局拍号模板决定每行小节数
   getMeasuresPerRowForNotation(notation) {
     const globalCustom = wx.getStorageSync('customTimeSignature') || {};
     const beats = this.data.timeSignatureBeats || 4;
     const fallbackTemplate = globalCustom.template || this.convertBeatsCountToTemplate(beats);
-    const template = notation.moduleCustomTemplate || fallbackTemplate;
-    const count = this.countBracketGroups(template);
-    if (count && count > 0) return count;
+
+    // 模块自定义模板优先决定每行小节数
+    if (notation && notation.moduleCustomTemplate) {
+      const templateCount = this.countBracketGroups(notation.moduleCustomTemplate);
+      if (templateCount && templateCount > 0) return templateCount;
+    }
+
+    // 其次使用模块解析得到的每行小节数（导入时记录）
+    if (notation && notation.measuresPerRow && notation.measuresPerRow > 0) {
+      return notation.measuresPerRow;
+    }
+
+    // 最后使用全局模板的分组数
+    const globalCount = this.countBracketGroups(fallbackTemplate);
+    if (globalCount && globalCount > 0) return globalCount;
+
     return this.data.measuresPerRow || 1;
   },
 
   // 创建一个谱面模块（含4个小节）
   createNotation(label, withExample = false, beatsCount = null) {
     const beats = beatsCount || this.data.timeSignatureBeats || 4;
+    const portraitRow = this.data.measuresPerRowPortrait || this.data.measuresPerRow || 1;
+    const factor = this.data.orientation === 'landscape' ? 2 : 1;
     const measures = Array.from({ length: 4 }).map(() => this.createEmptyMeasure(beats));
     if (withExample) {
       // 在第1小节填入示例
       measures[0] = {
         beats: [
-          { subdivisions: [ { rightHand: ['7', '8'], leftHand: ['', '8'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
-          { subdivisions: [ { rightHand: ['8', '9'], leftHand: ['8', '9'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
-          { subdivisions: [ { rightHand: ['', '6'], leftHand: ['9', 'T'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
+          { subdivisions: [ { rightHand: ['1', '3'], leftHand: ['', '9'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
+          { subdivisions: [ { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
+          { subdivisions: [ { rightHand: ['', 's'], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
           // 如果是3/4则示例仅取前三拍
-          ...(beats === 4 ? [ { subdivisions: [ { rightHand: ['8', '7'], leftHand: ['', '8'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] } ] : [])
+          ...(beats === 4 ? [ { subdivisions: [ { rightHand: ['1', '3'], leftHand: ['', '9'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] } ] : [])
         ]
       };
       if (beats === 3) {
@@ -512,7 +604,9 @@ Page({
       label,
       measures,
       timeSignature: `${beats}/4`,
-      collapsed: false // 默认展开
+      collapsed: false, // 默认展开
+      measuresPerRowPortrait: portraitRow,
+      measuresPerRow: portraitRow * factor
     };
   },
 
@@ -731,50 +825,31 @@ Page({
   // 执行清空操作
   performClearNotations() {
     const that = this;
-    const isCustom = that.data.currentTimeSignatureType === 'custom';
-    let template = '';
-    if (isCustom) {
-      const custom = wx.getStorageSync('customTimeSignature') || {};
-      template = custom.template || '';
-    } else {
-      const beatsCount = that.data.timeSignatureBeats || 4;
-      template = that.convertBeatsCountToTemplate(beatsCount);
-    }
-    
-    // 仅保留前两个模块，并清空其谱面数据
-    let rebuilt = [];
-    const existing = Array.isArray(that.data.notations) ? that.data.notations.slice(0, 2) : [];
+    const defaultBeats = 4;
+    const template = that.convertBeatsCountToTemplate(defaultBeats);
+    const portraitRow = that.data.measuresPerRowPortrait || that.data.measuresPerRow || 1;
+    const factor = that.data.orientation === 'landscape' ? 2 : 1;
 
-    if (existing.length === 0) {
-      // 若当前无模块，初始化保留两个空模块
-      if (isCustom && template) {
-        rebuilt = [
-          that.createNotationWithCustomTemplate('A-1', false, template),
-          that.createNotationWithCustomTemplate('A-2', false, template)
-        ];
-      } else {
-        rebuilt = [
-          that.createNotation('A-1', false, that.data.timeSignatureBeats || 4),
-          that.createNotation('A-2', false, that.data.timeSignatureBeats || 4)
-        ];
-      }
-    } else {
-      // 清空并保留前两个模块的标签与ID
-      rebuilt = existing.map(n => {
-        const lineCount = (n.measures && n.measures.length) ? n.measures.length : 4;
-        const newMeasures = Array.from({ length: lineCount }).map(() => that.createMeasureFromCustomTemplate(template));
-        const cleared = {
-          ...n,
-          measures: newMeasures,
-          timeSignature: isCustom ? '自由/自由' : `${that.data.timeSignatureBeats || 4}/4`,
-          moduleTimeSignature: undefined,
-          moduleCustomTemplate: undefined
-        };
-        // 同步 barLineAfter 与模板
-        that.syncBarLineAfterWithTemplate(cleared);
-        return cleared;
-      });
-    }
+    // 清空时强制恢复全局拍号为4/4，并退出自定义模式
+    that.setData({
+      timeSignatureBeats: defaultBeats,
+      timeSignatureBottom: 4,
+      timeSignatureDisplay: '4/4',
+      currentTimeSignatureType: 'standard',
+      measuresPerRowPortrait: portraitRow,
+      measuresPerRow: portraitRow * factor
+    });
+    wx.setStorageSync('timeSignatureBeats', defaultBeats);
+    wx.removeStorageSync('customTimeSignature');
+    
+    // 固定替换为两个空模块（A-1、A-2），每个4行、4/4、空拍位
+    const rebuilt = [
+      that.createNotation('A-1', false, defaultBeats),
+      that.createNotation('A-2', false, defaultBeats)
+    ];
+
+    // 确保空模板的 barLineAfter 与拍号一致
+    rebuilt.forEach(n => that.syncBarLineAfterWithTemplate(n));
 
     const withOffsets = that.updateMeasureOffsets(rebuilt);
     that.saveNotationsScoped(withOffsets);
@@ -1029,6 +1104,8 @@ Page({
     const parsed = this.parseCustomTemplate(template);
     const beatStructure = parsed.beatStructure;
     const beatsCount = parsed.totalBeats;
+    const portraitRow = this.countBracketGroups(template) || this.data.measuresPerRowPortrait || this.data.measuresPerRow || 1;
+    const factor = this.data.orientation === 'landscape' ? 2 : 1;
 
     const measures = Array.from({ length: 4 }).map((_, idx) => {
       if (withExample && idx === 0) {
@@ -1060,7 +1137,9 @@ Page({
       label,
       measures,
       timeSignature: '自由/自由', // 标记为自由节奏
-      customTemplate: template // 保存原始模板
+      customTemplate: template, // 保存原始模板
+      measuresPerRowPortrait: portraitRow,
+      measuresPerRow: portraitRow * factor
     };
   },
 
@@ -1125,6 +1204,40 @@ Page({
     return code;
   },
 
+  // 将单个小节数据转换为代码片段 [ ... ]
+  buildMeasureCode(measure) {
+    if (!measure || !Array.isArray(measure.beats)) return '[]';
+
+    const beatStrings = measure.beats.map(beat => {
+      const subs = Array.isArray(beat.subdivisions) ? beat.subdivisions : [];
+      const subStrings = subs.map(sub => {
+        const rh = Array.isArray(sub.rightHand) ? sub.rightHand : ['', ''];
+        const lh = Array.isArray(sub.leftHand) ? sub.leftHand : ['', ''];
+        const rhText = [rh[0] || '', rh[1] || ''].filter(Boolean).join(',');
+        const lhText = [lh[0] || '', lh[1] || ''].filter(Boolean).join(',');
+        return `(${rhText})/(${lhText})`;
+      });
+      return subStrings.join('+');
+    });
+
+    const content = beatStrings.join('|');
+    return `[${content}]`;
+  },
+
+  // 将单个notation转换为完整module代码（保留行数与每行小节数）
+  buildModuleCodeFromNotation(notation) {
+    if (!notation) return '';
+    const perRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    const measures = Array.isArray(notation.measures) ? notation.measures : [];
+    const lines = [];
+    for (let i = 0; i < measures.length; i += perRow) {
+      const slice = measures.slice(i, i + perRow);
+      const line = slice.map(m => this.buildMeasureCode(m)).join('');
+      lines.push(line);
+    }
+    return `\\begin{module}{${notation.label}}\n${lines.join('\\\\\n')}\n\\end{module}`;
+  },
+
   // 当用户点击导出按钮时，才提取导出代码（延迟加载）
   showExportCode() {
     const code = this.generateModuleExportCode();
@@ -1150,24 +1263,31 @@ Page({
     // 如果模块是以自定义方式保存，但模板正好等于标准4/4或3/4模板，则在UI上仍显示为4或3，保持界面不变
     const tpl4 = this.convertBeatsCountToTemplate(4);
     const tpl3 = this.convertBeatsCountToTemplate(3);
+    const inferredTemplate = this.inferTemplateFromNotation(notation);
+    const isStandardTpl = inferredTemplate === tpl4 || inferredTemplate === tpl3;
+    const beatCountFromData = (notation.measures && notation.measures[0] && notation.measures[0].beats) ? notation.measures[0].beats.length : (this.data.timeSignatureBeats || 4);
+    const allFourSubs = (notation.measures || []).every(m => (m.beats || []).every(b => Array.isArray(b.subdivisions) && b.subdivisions.length === 4));
+
     let showBeats;
-    if (notation.moduleTimeSignature === 'custom' && notation.moduleCustomTemplate) {
-      if (notation.moduleCustomTemplate === tpl4) {
-        showBeats = 4;
-      } else if (notation.moduleCustomTemplate === tpl3) {
-        showBeats = 3;
-      } else {
-        showBeats = 'custom';
-      }
+    if (notation.moduleTimeSignature === 'custom') {
+      showBeats = (notation.moduleCustomTemplate === tpl4) ? 4 : (notation.moduleCustomTemplate === tpl3 ? 3 : 'custom');
+    } else if (!isStandardTpl || !allFourSubs || beatCountFromData !== (this.data.timeSignatureBeats || 4)) {
+      showBeats = 'custom';
     } else {
       showBeats = isGlobalCustom ? 'custom' : this.data.timeSignatureBeats;
     }
-    const moduleTemplate = notation.moduleCustomTemplate || defaultTemplate;
+
+    const moduleTemplate = showBeats === 'custom'
+      ? (notation.moduleCustomTemplate || inferredTemplate || defaultTemplate)
+      : (notation.moduleCustomTemplate || defaultTemplate);
+
+    const perRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
+    const lineCount = Math.max(1, Math.ceil(((notation.measures || []).length || 0) / perRow));
 
     this.setData({
       showModuleSettingsModal: true,
       currentModuleId: id,
-      moduleLineCount: notation.measures ? notation.measures.length : 4,
+      moduleLineCount: lineCount,
       moduleTimeSignatureBeats: showBeats,
       moduleCustomTemplate: moduleTemplate,
       exportModuleCode: '' // 打开模态框时不立即生成代码
@@ -1326,6 +1446,7 @@ Page({
     }
 
     // 验证自定义拍号（如果选择了自由设定）
+    let sanitizedModuleTemplate = moduleCustomTemplate;
     if (moduleTimeSignatureBeats === 'custom') {
       if (!moduleCustomTemplate) {
         this.setData({ moduleCustomTemplateError: '请输入自定义模板' });
@@ -1334,6 +1455,12 @@ Page({
       if (!this.validateModuleCustomTemplate(moduleCustomTemplate)) {
         return;
       }
+      sanitizedModuleTemplate = this.sanitizeTemplateString(moduleCustomTemplate);
+      if (!sanitizedModuleTemplate) {
+        this.setData({ moduleCustomTemplateError: '模板不能为空或仅包含小节线' });
+        return;
+      }
+      this.setData({ moduleCustomTemplate: sanitizedModuleTemplate });
     }
     
     if (!currentModuleId) {
@@ -1349,73 +1476,77 @@ Page({
       return;
     }
 
-    const currentLineCount = notation.measures.length;
-    
-    // 行数修改：先处理
-    if (lineCount !== currentLineCount) {
-      if (lineCount < currentLineCount) {
-        // 删除行数时显示警告
-        wx.showModal({
-          title: '确认修改行数',
-          content: `将行数从 ${currentLineCount} 改为 ${lineCount}，会删除末尾的 ${currentLineCount - lineCount} 行数据。确认继续？`,
-          success: (res) => {
-            if (res.confirm) {
-              this.updateModuleLineCount(notation, lineCount);
-              // 无论拍号是否与当前相同，都强制应用到所有行
-              this.applyModuleTimeSignature(notation, moduleTimeSignatureBeats, true, moduleCustomTemplate);
-              // 同步 barLineAfter 与模板
-              this.syncBarLineAfterWithTemplate(notation);
-              const withOffsets = this.updateMeasureOffsets(updated);
-              this.saveNotationsScoped(withOffsets);
-              this.setNotations(withOffsets);
-              this.closeModuleSettingsModal();
-              wx.showToast({ title: '设置已修改', icon: 'success' });
-            }
-          }
-        });
-        return;
-      } else {
-        // 增加行数：使用备份-重绘-填回的方式
-        // 1. 备份当前所有谱面数据
-        const backup = JSON.parse(JSON.stringify(notation.measures));
-        
-        // 2. 确定当前模块的拍号模板
-        let template = '';
-        if (moduleTimeSignatureBeats === 'custom' && moduleCustomTemplate) {
-          template = moduleCustomTemplate;
-        } else {
-          // 使用全局拍号或数字拍号转换的模板
-          const globalCustom = wx.getStorageSync('customTimeSignature') || {};
-          template = globalCustom.template || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats);
-        }
-        
-        // 3. 根据新行数重新绘制整个模块
-        notation.measures = Array.from({ length: lineCount }).map(() => 
-          this.createMeasureFromCustomTemplate(template)
-        );
-        
-        // 4. 填回备份的数据（只恢复已有行数的数据）
-        backup.forEach((backupMeasure, idx) => {
-          if (idx < notation.measures.length && notation.measures[idx]) {
-            notation.measures[idx] = JSON.parse(JSON.stringify(backupMeasure));
-          }
-        });
-      }
-    }
+    const perRowForModule = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
+    const currentLineCount = Math.max(1, Math.ceil((notation.measures || []).length / perRowForModule));
 
-    // 拍号应用：最后执行，强制覆盖模块所有行
+    // 统一确定模板（3/4、4/4 转成标准模板；自定义走用户模板；否则用推断模板）
+    let baseTemplate = '';
     if (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4) {
-      // 后台将4/4、3/4按“自由设定”的严格模板处理
-      const tpl = this.convertBeatsCountToTemplate(moduleTimeSignatureBeats);
-      this.applyModuleTimeSignature(notation, 'custom', true, tpl);
+      baseTemplate = this.convertBeatsCountToTemplate(moduleTimeSignatureBeats);
+    } else if (moduleTimeSignatureBeats === 'custom' && sanitizedModuleTemplate) {
+      baseTemplate = sanitizedModuleTemplate;
+    } else if (notation.moduleCustomTemplate) {
+      baseTemplate = notation.moduleCustomTemplate;
     } else {
-      this.applyModuleTimeSignature(notation, moduleTimeSignatureBeats, true, moduleCustomTemplate);
+      baseTemplate = this.inferTemplateFromNotation(notation) || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4);
+    }
+    baseTemplate = this.sanitizeTemplateString(baseTemplate) || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4);
+
+    // 计算目标小节总数
+    const targetMeasures = Math.max(1, lineCount) * Math.max(1, perRowForModule);
+
+    // 是否因拍号变化而清空重绘
+    const timeSigReset = (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4)
+      ? (notation.moduleCustomTemplate !== baseTemplate)
+      : (moduleTimeSignatureBeats === 'custom' && notation.moduleCustomTemplate !== baseTemplate);
+
+    // 将现有小节转成代码片段，必要时清空
+    const existingMeasureCodes = timeSigReset ? [] : (notation.measures || []).map(m => this.buildMeasureCode(m));
+
+    // 生成新增占位小节
+    while (existingMeasureCodes.length < targetMeasures) {
+      existingMeasureCodes.push(baseTemplate);
+    }
+    // 截断多余小节（从末尾删）
+    const trimmedMeasures = existingMeasureCodes.slice(0, targetMeasures);
+
+    // 按行组装代码
+    const lines = [];
+    for (let i = 0; i < trimmedMeasures.length; i += perRowForModule) {
+      lines.push(trimmedMeasures.slice(i, i + perRowForModule).join(''));
     }
 
-    // 同步 barLineAfter 与模板
-    this.syncBarLineAfterWithTemplate(notation);
+    // 拼成module代码，再走既有解析流程回写数据
+    const moduleCode = `\\begin{module}{${notation.label}}\n${lines.join('\\\\\n')}\n\\end{module}`;
+    const parsed = this.parseImportCode(moduleCode);
+    if (!parsed || !parsed.length) {
+      wx.showToast({ title: '解析失败，请重试', icon: 'none' });
+      return;
+    }
+    const rebuilt = this.convertToNotation(parsed[0]);
+    // 保留ID/标签与行数设置
+    rebuilt.id = notation.id;
+    rebuilt.label = notation.label;
+    rebuilt.measuresPerRowPortrait = perRowForModule;
+    rebuilt.measuresPerRow = perRowForModule * (this.data.orientation === 'landscape' ? 2 : 1);
+    // 记录拍号状态
+    if (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4) {
+      rebuilt.moduleTimeSignature = moduleTimeSignatureBeats;
+      rebuilt.timeSignature = `${moduleTimeSignatureBeats}/4`;
+      rebuilt.moduleCustomTemplate = undefined;
+    } else {
+      rebuilt.moduleTimeSignature = 'custom';
+      rebuilt.timeSignature = '自由/自由';
+      rebuilt.moduleCustomTemplate = baseTemplate;
+    }
 
-    const withOffsets = this.updateMeasureOffsets(updated);
+    const replaceIdx = updated.findIndex(n => n.id === currentModuleId);
+    if (replaceIdx >= 0) {
+      updated[replaceIdx] = rebuilt;
+    }
+
+    const normalized = this.normalizeBarLines(updated);
+    const withOffsets = this.updateMeasureOffsets(normalized);
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
     this.closeModuleSettingsModal();
@@ -1426,11 +1557,22 @@ Page({
   applyModuleTimeSignature(notation, beats, forceApplyAll = false, customTemplate = '') {
     // 处理自定义模板的情况
     if (beats === 'custom' && customTemplate) {
-      const parsed = this.parseCustomTemplate(customTemplate);
-      const beatStructure = parsed.beatStructure;
+      const sanitizedTemplate = this.sanitizeTemplateString(customTemplate);
+      const templateMeasures = this.splitTemplateIntoMeasures(sanitizedTemplate);
+      const defaultParsed = this.parseCustomTemplate(sanitizedTemplate);
+      const defaultBeatStructure = defaultParsed.beatStructure;
       
       // 应用自定义模板结构到所有行，保留原有数据
       notation.measures = notation.measures.map((measure, measureIdx) => {
+        // 如果模板含多小节，则按索引选择对应小节模板，否则使用默认
+        const tplForMeasure = templateMeasures.length
+          ? templateMeasures[measureIdx % templateMeasures.length]
+          : sanitizedTemplate;
+        const parsed = this.parseCustomTemplate(tplForMeasure);
+        const beatStructure = parsed.beatStructure && parsed.beatStructure.length > 0
+          ? parsed.beatStructure
+          : defaultBeatStructure;
+
         return {
           beats: beatStructure.map((beat, beatIdx) => {
             const oldBeat = measure.beats && measure.beats[beatIdx];
@@ -1451,8 +1593,15 @@ Page({
       });
       
       notation.moduleTimeSignature = 'custom';
-      notation.moduleCustomTemplate = customTemplate;
+      notation.moduleCustomTemplate = sanitizedTemplate;
       notation.timeSignature = '自由/自由';
+      const groupCount = this.countBracketGroups(customTemplate);
+      // 仅当模板明确包含多个小节分组时才更新每行小节数；否则保留现有设置
+      if (groupCount > 1) {
+        notation.measuresPerRow = groupCount;
+      } else if (!notation.measuresPerRow) {
+        notation.measuresPerRow = this.getMeasuresPerRowForNotation(notation) || this.data.measuresPerRow || 1;
+      }
       return;
     }
 
@@ -1488,18 +1637,20 @@ Page({
         } else {
           // 拍数相同，保留原有数据
           newBeats = measure.beats.map((beat, beatIdx) => {
-            // 确保每个beat有正确的subdivisions结构
-            if (!beat.subdivisions || beat.subdivisions.length !== 4) {
-              return {
-                subdivisions: Array.from({ length: 4 }).map((_, subIdx) => {
-                  if (beat.subdivisions && beat.subdivisions[subIdx]) {
-                    return beat.subdivisions[subIdx];
-                  }
-                  return { rightHand: ['', ''], leftHand: ['', ''] };
-                })
-              };
-            }
-            return beat;
+            // 确保每个 subdivision 的左右手数组长度正确，但不强制为4个 subdivision
+            const normalizedSubs = (beat.subdivisions && beat.subdivisions.length > 0
+              ? beat.subdivisions
+              : [{ rightHand: ['', ''], leftHand: ['', ''] }]
+            ).map(sub => ({
+              rightHand: Array.isArray(sub.rightHand)
+                ? [sub.rightHand[0] || '', sub.rightHand[1] || '']
+                : ['', ''],
+              leftHand: Array.isArray(sub.leftHand)
+                ? [sub.leftHand[0] || '', sub.leftHand[1] || '']
+                : ['', '']
+            }));
+
+            return { subdivisions: normalizedSubs };
           });
         }
         
@@ -1514,35 +1665,54 @@ Page({
     notation.moduleTimeSignature = beats;
     notation.timeSignature = `${beats}/4`;
     notation.moduleCustomTemplate = undefined; // 清除自定义模板标记
+    if (!notation.measuresPerRow) {
+      notation.measuresPerRow = this.data.measuresPerRow || 1;
+    }
   },
 
   // 修改模块行数
-  updateModuleLineCount(notation, newLineCount) {
-    // 统一的模板化处理：检查模块或全局拍号，获取对应模板
+  updateModuleLineCount(notation, newLineCount, overrideTemplate = '') {
+    const storedPerRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
+    const currentLines = Math.max(1, Math.ceil((notation.measures || []).length / storedPerRow));
+
+    // 统一的模板化处理：模块自定义 > 传入模板 > 全局自定义 > 推断模板 > 标准拍号模板
     let template = '';
-    
-    if (notation.moduleTimeSignature === 'custom') {
-      // 模块级自定义拍号
-      template = notation.moduleCustomTemplate || '';
-    } else if (this.data.currentTimeSignatureType === 'custom') {
-      // 全局自定义拍号
-      const custom = wx.getStorageSync('customTimeSignature') || {};
-      template = custom.template || '';
+    if (notation.moduleTimeSignature === 'custom' && notation.moduleCustomTemplate) {
+      template = notation.moduleCustomTemplate;
+    } else if (overrideTemplate) {
+      template = overrideTemplate;
     } else {
-      // 标准拍号（3 或 4），转换为模板
-      const beatsCount = this.data.timeSignatureBeats || 4;
-      template = this.convertBeatsCountToTemplate(beatsCount);
-    }
-    
-    if (newLineCount > notation.measures.length) {
-      // 增加行数：使用统一的模板方式
-      const addCount = newLineCount - notation.measures.length;
-      for (let i = 0; i < addCount; i++) {
-        notation.measures.push(this.createMeasureFromCustomTemplate(template));
+      const globalCustom = wx.getStorageSync('customTimeSignature') || {};
+      if (this.data.currentTimeSignatureType === 'custom' && globalCustom.template) {
+        template = globalCustom.template;
+      } else {
+        template = this.inferTemplateFromNotation(notation) || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4);
       }
-    } else if (newLineCount < notation.measures.length) {
-      // 删除行数
-      notation.measures = notation.measures.slice(0, newLineCount);
+    }
+
+    // 确保模板有效并移除空小节
+    template = this.sanitizeTemplateString(template);
+    if (!template) {
+      template = this.sanitizeTemplateString(this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4));
+    }
+
+    const templateMeasures = this.splitTemplateIntoMeasures(template);
+    const perRowFromTemplate = templateMeasures.length > 0 ? templateMeasures.length : storedPerRow;
+    const effectivePerRow = Math.max(1, perRowFromTemplate);
+
+    // 同步每行小节数，便于后续分页与导出
+    notation.measuresPerRow = effectivePerRow;
+
+    if (newLineCount > currentLines) {
+      const addLines = newLineCount - currentLines;
+      const addMeasures = addLines * effectivePerRow;
+      for (let i = 0; i < addMeasures; i++) {
+        const tpl = templateMeasures.length ? templateMeasures[i % templateMeasures.length] : template;
+        notation.measures.push(this.createMeasureFromCustomTemplate(tpl));
+      }
+    } else if (newLineCount < currentLines) {
+      const keepMeasures = Math.max(0, newLineCount * effectivePerRow);
+      notation.measures = notation.measures.slice(0, keepMeasures);
     }
   },
 
@@ -1599,10 +1769,11 @@ Page({
   //   totalBeats: 4
   // }
   parseCustomTemplate(template) {
-    if (!template) return { beatStructure: [{ noteCount: 4 }, { noteCount: 4 }], totalBeats: 2 };
-    
+    const sanitized = this.sanitizeTemplateString(template);
+    if (!sanitized) return { beatStructure: [{ noteCount: 4 }, { noteCount: 4 }], totalBeats: 2 };
+
     // 移除两端的方括号
-    const cleaned = template.replace(/^\[|\]$/g, '');
+    const cleaned = sanitized.replace(/^\[|\]$/g, '');
     const sections = cleaned.split('][');
     
     const beatStructure = [];
@@ -1646,7 +1817,10 @@ Page({
 
     // 解析模板获取每拍的结构信息
     const parsed = this.parseCustomTemplate(template);
-    const beatStructure = parsed.beatStructure;
+    let beatStructure = parsed.beatStructure;
+    if (!beatStructure || beatStructure.length === 0) {
+      beatStructure = [{ noteCount: 4, barLineAfter: false }];
+    }
     
     return {
       beats: beatStructure.map(beat => ({
@@ -1742,8 +1916,29 @@ Page({
 
   // 更新排版视角
   updateOrientation(newOrientation) {
-    const measuresPerRow = newOrientation === 'landscape' ? 2 : 1;
-    this.setData({ orientation: newOrientation, measuresPerRow });
+    const currentOrientation = this.data.orientation;
+    if (newOrientation === currentOrientation) return;
+
+    const toLandscape = newOrientation === 'landscape';
+    const factor = toLandscape ? 2 : 1;
+    const globalPortrait = this.data.measuresPerRowPortrait || this.data.measuresPerRow || 1;
+
+    const updatedNotations = (this.data.notations || []).map(n => {
+      const portraitBase = n.measuresPerRowPortrait || n.measuresPerRow || globalPortrait;
+      return {
+        ...n,
+        measuresPerRowPortrait: portraitBase,
+        measuresPerRow: portraitBase * factor
+      };
+    });
+
+    this.setData({
+      orientation: newOrientation,
+      measuresPerRowPortrait: globalPortrait,
+      measuresPerRow: globalPortrait * factor,
+      notations: updatedNotations
+    });
+    this.calculatePages();
   },
 
   // 请求横屏（调用系统方向锁定）
@@ -3026,11 +3221,6 @@ Page({
     try {
       // 解析代码
       const parsedModules = this.parseImportCode(code);
-      // 根据首个模块首行小节数自动设置每行小节数（用于导出/显示行分组）
-      const detectedPerRow = parsedModules[0] && parsedModules[0].firstLineMeasureCount ? parsedModules[0].firstLineMeasureCount : null;
-      if (detectedPerRow && detectedPerRow > 0) {
-        this.setData({ measuresPerRow: detectedPerRow });
-      }
       
       if (!parsedModules || parsedModules.length === 0) {
         throw new Error('未能解析出有效的模块数据');
@@ -3153,6 +3343,7 @@ Page({
     
     const allMeasures = [];
     let firstLineMeasureCount = 0;
+    let maxMeasuresPerLine = 0;
     
     // 遍历每一行
     lines.forEach((line, idx) => {
@@ -3160,13 +3351,17 @@ Page({
       if (idx === 0) {
         firstLineMeasureCount = measures.length;
       }
+      if (measures.length > maxMeasuresPerLine) {
+        maxMeasuresPerLine = measures.length;
+      }
       allMeasures.push(...measures);
     });
     
     return {
       name: moduleName,
       measures: allMeasures,
-      firstLineMeasureCount
+      firstLineMeasureCount,
+      measuresPerRow: firstLineMeasureCount || maxMeasuresPerLine || 1
     };
   },
 
@@ -3175,8 +3370,8 @@ Page({
     const measures = [];
     
     // 处理小节线：[ ... ] 或 ][ 连写
-    // 先将 ][ 替换为 ] [，便于分割
-    line = line.replace(/\]\[/g, '] [');
+    // 先将 ][（允许有空格）替换为 ] [，便于分割；连续的 ][ 只当作单个小节分隔
+    line = line.replace(/\]\s*\[/g, '] [');
     
     // 使用正则提取所有小节内容
     const measureRegex = /\[(.*?)\]/g;
@@ -3186,6 +3381,10 @@ Page({
       const measureContent = match[1].trim();
       const measure = this.parseMeasure(measureContent);
       measures.push(measure);
+    }
+    
+    if (measures.length === 0) {
+      throw new Error('未检测到有效的小节，请检查方括号是否成对并使用 ][ 分隔');
     }
     
     return measures;
@@ -3472,7 +3671,8 @@ Page({
 
   // 将解析后的模块转换为notation格式
   convertToNotation(parsedModule) {
-    const beats = this.data.timeSignatureBeats || 4;
+    const portraitRow = parsedModule.measuresPerRow || parsedModule.firstLineMeasureCount || this.data.measuresPerRowPortrait || this.data.measuresPerRow || 1;
+    const factor = this.data.orientation === 'landscape' ? 2 : 1;
     
     // 每个模块包含多个小节
     const measures = parsedModule.measures.map(parsedMeasure => {
@@ -3484,12 +3684,23 @@ Page({
         })
       };
     });
+
+    // 依据导入数据推断自定义模板
+    const tempNotation = {
+      measures,
+      measuresPerRow: portraitRow
+    };
+    const inferredTemplate = this.inferTemplateFromNotation(tempNotation);
     
     return {
       id: Date.now() + Math.floor(Math.random() * 10000),
       label: parsedModule.name,
       measures: measures,
-      timeSignature: `${beats}/4`
+      timeSignature: '自由/自由',
+      moduleTimeSignature: 'custom',
+      moduleCustomTemplate: inferredTemplate,
+      measuresPerRowPortrait: portraitRow,
+      measuresPerRow: portraitRow * factor
     };
   },
 
@@ -3809,7 +4020,9 @@ Page({
   // 加载谱式设置
   // 设置 notations 数据并自动更新分页
   setNotations(notations) {
-    this.setData({ notations });
+    const normalized = this.normalizeBarLines(notations);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    this.setData({ notations: withOffsets });
     this.calculatePages();
   },
 

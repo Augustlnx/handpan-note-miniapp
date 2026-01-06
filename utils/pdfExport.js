@@ -91,14 +91,20 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   const notationLabelHeight = 25; // 模块编号的高度
   const sectionGap = 15; // 模块间距
   
-  // 计算每个模块需要的行数
+  // 计算每个模块需要的行数（模块优先，其次全局，再回退默认）
   const isLandscape = orientation === 'landscape';
-  // 所见即所得：若上层传入 measuresPerRow，则严格使用之（尤其竖屏要与页面一致）
-  const measuresPerRow = (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0)
-    ? data.measuresPerRow
-    : (isPaged ? Math.floor(contentWidth / 250) : (isLandscape ? 2 : 1));
+  const resolveMeasuresPerRow = (notation) => {
+    if (notation && typeof notation.measuresPerRow === 'number' && notation.measuresPerRow > 0) {
+      return notation.measuresPerRow;
+    }
+    if (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0) {
+      return data.measuresPerRow;
+    }
+    return isPaged ? Math.floor(contentWidth / 250) : (isLandscape ? 2 : 1);
+  };
   
   const notationHeights = notations.map(notation => {
+    const measuresPerRow = resolveMeasuresPerRow(notation);
     const measureCount = notation.measures ? notation.measures.length : 4;
     const rowCount = Math.ceil(measureCount / measuresPerRow);
     const totalRowsHeight = (rowCount * measureLineHeight) + Math.max(0, rowCount - 1) * rowGap;
@@ -125,6 +131,7 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     
     // 绘制所有谱面模块
     notations.forEach((notation, idx) => {
+      const measuresPerRow = resolveMeasuresPerRow(notation);
       currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
                                      rightHandColor, leftHandColor, measuresPerRow);
     });
@@ -157,13 +164,13 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       var bgImg = images.bgImg;
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-        rightHandColor, leftHandColor, measuresPerRow, resolve, reject, watermarkImg, bgImg);
+        rightHandColor, leftHandColor, resolve, reject, watermarkImg, bgImg);
     }).catch((err) => {
       console.warn('水印/背景图片加载失败，分页模式使用文字水印', readableError(err));
       // 图片加载失败则使用文字水印回退
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-        rightHandColor, leftHandColor, measuresPerRow, resolve, reject, null, null);
+        rightHandColor, leftHandColor, resolve, reject, null, null);
     });
   }
 }
@@ -276,7 +283,7 @@ function drawNotationSheet(ctx, notation, x, y, width, rightHandColor, leftHandC
  */
 function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
                              mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-                             rightHandColor, leftHandColor, measuresPerRow, resolve, reject,
+                             rightHandColor, leftHandColor, resolve, reject,
                              watermarkImg, bgImg) {
   const pageWidth = A4_WIDTH / dpr;
   const pageHeight = A4_HEIGHT / dpr;
@@ -298,6 +305,16 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
   const notationLabelHeight = 25;
   const sectionGap = 15;
 
+  const resolveMeasuresPerRow = (notation) => {
+    if (notation && typeof notation.measuresPerRow === 'number' && notation.measuresPerRow > 0) {
+      return notation.measuresPerRow;
+    }
+    if (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0) {
+      return data.measuresPerRow;
+    }
+    return Math.floor(contentWidth / 250);
+  };
+
   // 分页算法（逐行判断并可拆分模块）
   const pages = [];
   let currentPage = { includeTitle: true, segments: [] };
@@ -313,6 +330,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
   };
 
   notations.forEach((notation) => {
+    const measuresPerRow = resolveMeasuresPerRow(notation);
     const measureCount = notation.measures ? notation.measures.length : 4;
     const totalRows = Math.ceil(measureCount / measuresPerRow);
     let rowStart = 0;
@@ -392,6 +410,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
 
     // 绘制该页的谱面片段（可跨页拆分模块）
     page.segments.forEach(seg => {
+      const measuresPerRow = resolveMeasuresPerRow(seg.notation);
       currentY = drawNotationSectionPartial(
         ctx,
         seg.notation,
@@ -667,9 +686,10 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor) {
       ctx.stroke();
     }
     
-    // 绘制16分音符
-    const subdivisionWidth = beatWidth / 4;
-    beat.subdivisions.forEach((subdivision, sIdx) => {
+    // 绘制 subdivision，宽度由 subdivision 数量决定（支持自定义拍型）
+    const subdivisionCount = Array.isArray(beat.subdivisions) ? beat.subdivisions.length : 4;
+    const subdivisionWidth = beatWidth / (subdivisionCount || 1);
+    (beat.subdivisions || []).forEach((subdivision, sIdx) => {
       const subX = beatX + (sIdx * subdivisionWidth);
       
       // 16分音符分隔线（跳过第一个）
