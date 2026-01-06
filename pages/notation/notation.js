@@ -1166,42 +1166,8 @@ Page({
       return '';
     }
 
-    // 使用 exportAsCode 的逻辑生成代码
-    let code = `\\begin{module}{${notation.label}}\n`;
-    
-    const measures = notation.measures || [];
-    const measuresPerLine = this.getMeasuresPerRowForNotation(notation);
-    
-    for (let i = 0; i < measures.length; i += measuresPerLine) {
-      const lineMeasures = measures.slice(i, i + measuresPerLine);
-      code += '[';
-      
-      lineMeasures.forEach((measure, idx) => {
-        const beats = measure.beats || [];
-        beats.forEach((beat, beatIdx) => {
-          const subdivisions = beat.subdivisions || [];
-          subdivisions.forEach((sub, subIdx) => {
-            const right = (sub.rightHand || ['', ''])[0] || '';
-            const right1 = (sub.rightHand || ['', ''])[1] || '';
-            const left = (sub.leftHand || ['', ''])[0] || '';
-            const left1 = (sub.leftHand || ['', ''])[1] || '';
-            
-            code += `(${right}${right1 ? ',' + right1 : ''})/(${left}${left1 ? ',' + left1 : ''})`;
-            if (subIdx < subdivisions.length - 1) code += '+';
-          });
-          if (beatIdx < beats.length - 1) code += '|';
-        });
-        
-        if (idx < lineMeasures.length - 1) code += ' ] [\n';
-      });
-      
-      code += ']';
-      if (i + measuresPerLine < measures.length) code += ' \\\\\n';
-      else code += '\n';
-    }
-    
-    code += '\\end{module}';
-    return code;
+    // 使用统一的代码生成逻辑
+    return this.generateCodeForNotations([notation]);
   },
 
   // 将单个小节数据转换为代码片段 [ ... ]
@@ -2509,8 +2475,8 @@ Page({
   },
 
   // 生成乐谱代码
-  generateNotationCode() {
-    const notations = this.data.notations;
+  // 生成谱面代码（支持单个或多个module）
+  generateCodeForNotations(notations) {
     if (!notations || notations.length === 0) {
       throw new Error('当前谱面为空');
     }
@@ -2531,7 +2497,7 @@ Page({
         
         // 如果不是最后一行，添加换行符
         if (i + measuresPerRow < totalMeasures) {
-          code += ' \\\n';
+          code += '\\\\\n';
         } else {
           code += '\n';
         }
@@ -2541,6 +2507,11 @@ Page({
     }
     
     return code.trim();
+  },
+
+  // 生成整个谱面的代码
+  generateNotationCode() {
+    return this.generateCodeForNotations(this.data.notations);
   },
 
   // 生成一行的代码（包含一个或多个小节）
@@ -2562,7 +2533,7 @@ Page({
 
   // 生成单个小节的代码
   generateMeasureCode(measure) {
-    let code = '[ ';
+    let code = '[';
     
     for (let i = 0; i < measure.beats.length; i++) {
       const beat = measure.beats[i];
@@ -2572,14 +2543,14 @@ Page({
       if (i < measure.beats.length - 1) {
         // 检查是否有小节线（自定义拍号中的分组）
         if (beat.barLineAfter) {
-          code += ' ][';
+          code += '][';
         } else {
-          code += ' |';
+          code += '|';
         }
       }
     }
     
-    code += ' ]';
+    code += ']';
     return code;
   },
 
@@ -2593,7 +2564,7 @@ Page({
       
       // 如果不是最后一个细分，添加分隔符
       if (i < beat.subdivisions.length - 1) {
-        code += ' + ';
+        code += '+';
       }
     }
     
