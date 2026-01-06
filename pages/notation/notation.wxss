@@ -554,7 +554,7 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 24rpx;
+  gap: 32rpx;
   align-items: center;
   z-index: 105;
   padding: 24rpx 40rpx;

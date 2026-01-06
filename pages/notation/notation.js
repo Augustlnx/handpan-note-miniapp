@@ -644,6 +644,9 @@ Page({
       return;
     }
 
+    // 先备份当前状态
+    this.backupCurrentState();
+
     // 提取前一个模块的字母前缀 (例如 "A-1" -> "A", "D-4" -> "D")
     const prevLabel = notations[afterIndex].label;
     const match = prevLabel.match(/^([A-Z]+)-/);
@@ -662,8 +665,6 @@ Page({
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
     wx.showToast({ title: '已添加谱面', icon: 'success' });
-    // 备份当前状态
-    this.backupCurrentState();
   },
 
   // 重新编号模块（从指定位置开始）
@@ -726,6 +727,9 @@ Page({
       content: '确定删除该谱面吗？此操作不可撤销。',
       success(res) {
         if (res.confirm) {
+          // 先备份当前状态
+          that.backupCurrentState();
+          
           // 找到被删除模块的索引和前缀
           const deleteIndex = that.data.notations.findIndex(n => n.id === id);
           let prefix = 'A'; // 默认前缀
@@ -823,6 +827,8 @@ Page({
       content: '将清空所有谱面数据，此操作不可撤销，是否继续？',
       success(res) {
         if (res.confirm) {
+          // 先备份当前状态
+          that.backupCurrentState();
           that.performClearNotations();
         }
       }
@@ -862,8 +868,6 @@ Page({
     that.saveNotationsScoped(withOffsets);
     that.setNotations(withOffsets);
     wx.showToast({ title: '已清空谱面', icon: 'success' });
-    // 备份当前状态
-    that.backupCurrentState();
   },
 
   // 读取示例文件并导入（不可撤销提示）
@@ -874,6 +878,8 @@ Page({
       content: '将清空现有谱面并加载示例，此操作不可撤销，是否继续？',
       success(res) {
         if (res.confirm) {
+          // 先备份当前状态
+          that.backupCurrentState();
           that.performLoadExample();
         }
       }
@@ -2158,10 +2164,19 @@ Page({
 
     const handKey = context.hand === 'right' ? 'rightHand' : 'leftHand';
     
+    // 获取旧值，检查是否改变
+    const oldValue = subdivision[handKey][iIdx];
+    const hasChanged = oldValue !== val;
+    
+    if (!hasChanged) return; // 如果没有改变，不需要备份和更新
+    
     // 使用路径更新，只更新单个值
     const path = `notations[${notationIndex}].measures[${mIdx}].beats[${bIdx}].subdivisions[${subIdx}].${handKey}[${iIdx}]`;
     const updateData = {};
     updateData[path] = val;
+    
+    // 先备份当前状态
+    this.backupCurrentState();
     
     this.setData(updateData);
     
@@ -2169,9 +2184,6 @@ Page({
     setTimeout(() => {
       this.saveNotationsScoped(this.data.notations);
     }, 100);
-    
-    // 备份当前状态
-    this.backupCurrentState();
   },
 
   onSlotConfirm(e) {
@@ -2631,18 +2643,30 @@ Page({
       wx.showToast({ title: '没有可撤销的操作', icon: 'none' });
       return;
     }
+    
+    // 显示加载界面
+    wx.showLoading({ title: '正在撤销...' });
+    
     const code = this.data.undoStack.pop();
     this.setData({ undoStack: this.data.undoStack });
     
-    // 解析并恢复谱面
-    const parsed = this.parseImportCode(code);
-    if (!parsed || !parsed.length) {
-      wx.showToast({ title: '恢复失败', icon: 'none' });
-      return;
+    try {
+      // 解析并恢复谱面
+      const parsed = this.parseImportCode(code);
+      if (!parsed || !parsed.length) {
+        wx.hideLoading();
+        wx.showToast({ title: '恢复失败', icon: 'none' });
+        return;
+      }
+      const notations = parsed.map(module => this.convertToNotation(module));
+      this.setNotations(notations);
+      
+      wx.hideLoading();
+      wx.showToast({ title: '已撤销上一步操作', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      wx.showToast({ title: '撤销失败: ' + error.message, icon: 'none' });
     }
-    const notations = parsed.map(module => this.convertToNotation(module));
-    this.setNotations(notations);
-    wx.showToast({ title: '已撤销', icon: 'success' });
   },
 
   // 导出为 PNG
