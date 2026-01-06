@@ -763,25 +763,25 @@ Page({
           wx.showToast({ title: '未找到谱面', icon: 'none' });
           return;
         }
+        const lineCount = updated[idx].measures.length;
+        const isCustom = that.data.currentTimeSignatureType === 'custom';
         
-        // 保持拍号布局不变，只清空音符数据
-        updated[idx].measures.forEach(measure => {
-          if (measure.beats) {
-            measure.beats.forEach(beat => {
-              if (beat.subdivisions) {
-                beat.subdivisions.forEach(sub => {
-                  sub.rightHand = ['', ''];
-                  sub.leftHand = ['', ''];
-                });
-              }
-            });
-          }
-        });
+        let template = '';
+        if (isCustom) {
+          const custom = wx.getStorageSync('customTimeSignature') || {};
+          template = custom.template || '';
+        } else {
+          const beatsCount = that.data.timeSignatureBeats || 4;
+          template = that.convertBeatsCountToTemplate(beatsCount);
+        }
         
-        // 清除模块级拍号设置，恢复为全局设置
+        // 统一使用模板方式生成小节
+        updated[idx].measures = Array.from({ length: lineCount }).map(() => that.createMeasureFromCustomTemplate(template));
+        updated[idx].timeSignature = isCustom ? '自由/自由' : `${that.data.timeSignatureBeats || 4}/4`;
         updated[idx].moduleTimeSignature = undefined;
         updated[idx].moduleCustomTemplate = undefined;
-        
+        // 同步 barLineAfter 与模板
+        that.syncBarLineAfterWithTemplate(updated[idx]);
         const withOffsets = that.updateMeasureOffsets(updated);
         that.saveNotationsScoped(withOffsets);
         that.setNotations(withOffsets);
@@ -1442,73 +1442,21 @@ Page({
       return;
     }
 
-    const perRowForModule = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
-    const currentLineCount = Math.max(1, Math.ceil((notation.measures || []).length / perRowForModule));
+    // 直接修改notation数据
+    // 首先应用行数变化
+    this.updateModuleLineCount(notation, lineCount, sanitizedModuleTemplate);
 
-    // 统一确定模板（3/4、4/4 转成标准模板；自定义走用户模板；否则用推断模板）
-    let baseTemplate = '';
+    // 然后应用拍号变化（如果有）
     if (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4) {
-      baseTemplate = this.convertBeatsCountToTemplate(moduleTimeSignatureBeats);
-    } else if (moduleTimeSignatureBeats === 'custom' && sanitizedModuleTemplate) {
-      baseTemplate = sanitizedModuleTemplate;
-    } else if (notation.moduleCustomTemplate) {
-      baseTemplate = notation.moduleCustomTemplate;
-    } else {
-      baseTemplate = this.inferTemplateFromNotation(notation) || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4);
-    }
-    baseTemplate = this.sanitizeTemplateString(baseTemplate) || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4);
-
-    // 计算目标小节总数
-    const targetMeasures = Math.max(1, lineCount) * Math.max(1, perRowForModule);
-
-    // 是否因拍号变化而清空重绘
-    const timeSigReset = (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4)
-      ? (notation.moduleCustomTemplate !== baseTemplate)
-      : (moduleTimeSignatureBeats === 'custom' && notation.moduleCustomTemplate !== baseTemplate);
-
-    // 将现有小节转成代码片段，必要时清空
-    const existingMeasureCodes = timeSigReset ? [] : (notation.measures || []).map(m => this.buildMeasureCode(m));
-
-    // 生成新增占位小节
-    while (existingMeasureCodes.length < targetMeasures) {
-      existingMeasureCodes.push(baseTemplate);
-    }
-    // 截断多余小节（从末尾删）
-    const trimmedMeasures = existingMeasureCodes.slice(0, targetMeasures);
-
-    // 按行组装代码
-    const lines = [];
-    for (let i = 0; i < trimmedMeasures.length; i += perRowForModule) {
-      lines.push(trimmedMeasures.slice(i, i + perRowForModule).join(''));
-    }
-
-    // 拼成module代码，再走既有解析流程回写数据
-    const moduleCode = `\\begin{module}{${notation.label}}\n${lines.join('\\\\\n')}\n\\end{module}`;
-    const parsed = this.parseImportCode(moduleCode);
-    if (!parsed || !parsed.length) {
-      wx.showToast({ title: '解析失败，请重试', icon: 'none' });
-      return;
-    }
-    const rebuilt = this.convertToNotation(parsed[0]);
-    // 保留ID/标签与行数设置
-    rebuilt.id = notation.id;
-    rebuilt.label = notation.label;
-    rebuilt.measuresPerRowPortrait = perRowForModule;
-    rebuilt.measuresPerRow = perRowForModule * (this.data.orientation === 'landscape' ? 2 : 1);
-    // 记录拍号状态
-    if (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4) {
-      rebuilt.moduleTimeSignature = moduleTimeSignatureBeats;
-      rebuilt.timeSignature = `${moduleTimeSignatureBeats}/4`;
-      rebuilt.moduleCustomTemplate = undefined;
-    } else {
-      rebuilt.moduleTimeSignature = 'custom';
-      rebuilt.timeSignature = '自由/自由';
-      rebuilt.moduleCustomTemplate = baseTemplate;
-    }
-
-    const replaceIdx = updated.findIndex(n => n.id === currentModuleId);
-    if (replaceIdx >= 0) {
-      updated[replaceIdx] = rebuilt;
+      this.applyModuleTimeSignature(notation, moduleTimeSignatureBeats, true, '');
+      notation.moduleTimeSignature = moduleTimeSignatureBeats;
+      notation.timeSignature = `${moduleTimeSignatureBeats}/4`;
+      notation.moduleCustomTemplate = undefined;
+    } else if (moduleTimeSignatureBeats === 'custom') {
+      this.applyModuleTimeSignature(notation, 'custom', true, sanitizedModuleTemplate);
+      notation.moduleTimeSignature = 'custom';
+      notation.timeSignature = '自由/自由';
+      notation.moduleCustomTemplate = sanitizedModuleTemplate;
     }
 
     const normalized = this.normalizeBarLines(updated);
