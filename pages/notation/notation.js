@@ -2630,6 +2630,10 @@ Page({
   // 备份当前谱面状态
   backupCurrentState() {
     const code = this.generateCodeForNotations(this.data.notations);
+    // 检查是否与上一个备份相同，避免重复备份
+    if (this.data.undoStack.length > 0 && this.data.undoStack[this.data.undoStack.length - 1] === code) {
+      return; // 不备份相同状态
+    }
     this.data.undoStack.push(code);
     if (this.data.undoStack.length > 5) {
       this.data.undoStack.shift();

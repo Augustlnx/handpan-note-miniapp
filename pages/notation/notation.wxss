@@ -562,6 +562,8 @@
   border-radius: 60rpx;
   box-shadow: 0 8rpx 24rpx rgba(49, 77, 99, 0.15);
   animation: slideUp 0.3s ease-out;
+  max-width: 90vw; /* 自适应页面宽度 */
+  box-sizing: border-box;
 }
 
 /* 菜单栏滑上动画 */
