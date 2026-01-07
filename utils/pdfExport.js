@@ -107,7 +107,18 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     const measuresPerRow = resolveMeasuresPerRow(notation);
     const measureCount = notation.measures ? notation.measures.length : 4;
     const rowCount = Math.ceil(measureCount / measuresPerRow);
-    const totalRowsHeight = (rowCount * measureLineHeight) + Math.max(0, rowCount - 1) * rowGap;
+    
+    // 获取样式设置来计算高度
+    const style = notation.style || {};
+    const barLineHeightPercent = style.barLineHeight || 100;
+    const lineSpacing = style.lineSpacing || 65;
+    const lineSpacingPx = Math.round(lineSpacing * 0.5);
+    
+    const baseMeasureHeight = 70;
+    const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+    const rowGap = lineSpacingPx;
+    
+    const totalRowsHeight = (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap;
     return notationLabelHeight + totalRowsHeight + sectionGap;
   });
   
@@ -204,8 +215,21 @@ function drawTitleBlock(ctx, mainTitle, subTitle, globalTempo, mainTitleColor, s
  * 绘制单个谱面模块（不包含白色卡片框）
  */
 function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow) {
-  const measureHeight = 70;
-  const rowGap = 12; // 行与行之间增加间距，避免竖线连起来
+  // 获取样式设置，默认值与界面保持一致
+  const style = notation.style || {};
+  const barLineHeightPercent = style.barLineHeight || 100; // 默认100%
+  const noteFontSize = style.noteFontSize || 28; // 默认28rpx，转换为px约为14px
+  const lineSpacing = style.lineSpacing || 65; // 默认65rpx，转换为px约为32.5px
+  
+  // 将rpx转换为px（假设1rpx ≈ 0.5px）
+  const noteFontSizePx = Math.round(noteFontSize * 0.5);
+  const lineSpacingPx = Math.round(lineSpacing * 0.5);
+  
+  // 根据样式调整measure高度
+  const baseMeasureHeight = 70;
+  const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+  const rowGap = lineSpacingPx; // 使用自定义行间距
+  
   const measureCount = notation.measures ? notation.measures.length : 4;
   const rowCount = Math.ceil(measureCount / measuresPerRow);
   
@@ -224,7 +248,8 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
     const colIdx = mIdx % measuresPerRow;
     const measureX = x + (colIdx * measureWidth);
     const measureY = currentY + (rowIdx * (measureHeight + rowGap));
-    drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor);
+    drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor, 
+                measureHeight, noteFontSizePx);
   });
   
   const sectionHeight = 25 + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + 15;
@@ -238,8 +263,21 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
  * @param {boolean} showLabel - 是否绘制模块标签
  */
 function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel) {
-  const measureHeight = 70;
-  const rowGap = 12;
+  // 获取样式设置，默认值与界面保持一致
+  const style = notation.style || {};
+  const barLineHeightPercent = style.barLineHeight || 100; // 默认100%
+  const noteFontSize = style.noteFontSize || 28; // 默认28rpx，转换为px约为14px
+  const lineSpacing = style.lineSpacing || 65; // 默认65rpx，转换为px约为32.5px
+  
+  // 将rpx转换为px（假设1rpx ≈ 0.5px）
+  const noteFontSizePx = Math.round(noteFontSize * 0.5);
+  const lineSpacingPx = Math.round(lineSpacing * 0.5);
+  
+  // 根据样式调整measure高度
+  const baseMeasureHeight = 70;
+  const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+  const rowGap = lineSpacingPx; // 使用自定义行间距
+  
   const measureCount = notation.measures ? notation.measures.length : 4;
   const totalRows = Math.ceil(measureCount / measuresPerRow);
   const drawRows = Math.min(rows, Math.max(0, totalRows - rowStart));
@@ -263,7 +301,8 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
     const colIdx = localIndex % measuresPerRow;
     const measureX = x + (colIdx * measureWidth);
     const measureY = y + (rowIdx * (measureHeight + rowGap));
-    drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor);
+    drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor,
+                measureHeight, noteFontSizePx);
   }
 
   const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + 15;
@@ -333,6 +372,17 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     const measuresPerRow = resolveMeasuresPerRow(notation);
     const measureCount = notation.measures ? notation.measures.length : 4;
     const totalRows = Math.ceil(measureCount / measuresPerRow);
+    
+    // 获取样式设置来计算高度
+    const style = notation.style || {};
+    const barLineHeightPercent = style.barLineHeight || 100;
+    const lineSpacing = style.lineSpacing || 65;
+    const lineSpacingPx = Math.round(lineSpacing * 0.5);
+    
+    const baseMeasureHeight = 70;
+    const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+    const rowGap = lineSpacingPx;
+    
     let rowStart = 0;
     let firstSlice = true;
 
@@ -340,7 +390,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
       const available = contentHeight - usedHeight;
       const labelH = firstSlice ? notationLabelHeight : 0;
       // 估算最多可放行数（保留 sectionGap 间距）
-      const perRowApprox = measureLineHeight + rowGap;
+      const perRowApprox = measureHeight + rowGap;
       let rowsFit = Math.floor((available - labelH - sectionGap + rowGap) / perRowApprox);
       if (rowsFit <= 0) {
         // 换新页
@@ -356,13 +406,13 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         showLabel: firstSlice
       });
 
-      const rowsHeight = rowsFit * measureLineHeight + Math.max(0, rowsFit - 1) * rowGap;
+      const rowsHeight = rowsFit * measureHeight + Math.max(0, rowsFit - 1) * rowGap;
       usedHeight += labelH + rowsHeight + sectionGap;
 
       rowStart += rowsFit;
       firstSlice = false;
 
-      if (rowStart < totalRows && usedHeight + measureLineHeight > contentHeight) {
+      if (rowStart < totalRows && usedHeight + measureHeight > contentHeight) {
         flushPage();
       }
     }
@@ -645,10 +695,10 @@ function addTextWatermark(ctx, centerX, centerY) {
  * - 左手第一个轨道：70%
  * - 左手第二个轨道：90%
  */
-function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor) {
+function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx) {
   const beatCount = Array.isArray(measure.beats) ? measure.beats.length : 4;
   const beatWidth = width / (beatCount || 4);
-  const lineHeight = 70;
+  const lineHeight = measureHeight || 70; // 使用传入的高度或默认值
   
   // 定义固定的音符轨道位置（百分比）
   const trackRightHand1 = 0.23;   // 23%
@@ -703,7 +753,8 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor) {
       }
       
       // 绘制音符数字
-      ctx.font = 'bold 12px sans-serif';
+      const fontSize = noteFontSizePx || 14; // 使用传入的字体大小或默认值
+      ctx.font = 'bold ' + fontSize + 'px sans-serif';
       ctx.textAlign = 'center';
       ctx.baseline = 'middle';
       

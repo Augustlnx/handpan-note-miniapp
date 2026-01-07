@@ -1,4 +1,24 @@
 
+<wxs module="utils">
+var getFontSize = function(orientation, style) {
+  var baseSize = 28;
+  if (style && style.noteFontSize) {
+    baseSize = parseInt(style.noteFontSize, 10);
+    if (isNaN(baseSize)) {
+      baseSize = 28;
+    }
+  }
+  
+  if (orientation === 'landscape') {
+    return (baseSize * 18 / 28);
+  }
+  return baseSize;
+}
+module.exports = {
+  getFontSize: getFontSize
+};
+</wxs>
+
 <!-- 自定义导航栏 -->
 <view class="custom-nav-bar">
   <view class="nav-bar-content">
@@ -73,12 +93,12 @@
             </view>
 
             <!-- 谱面内容 -->
-            <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}">
+            <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}" style="{{(notation.style && notation.style.lineSpacing) ? 'row-gap: ' + notation.style.lineSpacing + 'rpx;' : ''}}">
               <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%;">
                 <!-- 小节编号（上方居中） -->
                 <view class="measure-index">{{(notation.measureOffset || 0) + measureIndex + 1}}</view>
                 <!-- 小节线（左侧） -->
-                <view wx:if="{{measureIndex % (notation.measuresPerRow || measuresPerRow) === 0}}" class="bar-line bar-line-left"></view>
+                <view wx:if="{{measureIndex % (notation.measuresPerRow || measuresPerRow) === 0}}" class="bar-line bar-line-left" style="{{(notation.style && notation.style.barLineHeight) ? 'height: ' + notation.style.barLineHeight + '%;' : ''}}"></view>
 
                 <!-- 拍子 -->
                 <view wx:for="{{measure.beats}}" wx:key="index" wx:for-item="beat" wx:for-index="beatIndex" class="beat">
@@ -106,8 +126,8 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="0"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.rightHand[0]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}">{{subdivision.rightHand[0]}}</text>
-                              <text wx:else class="note-number placeholder">　</text>
+                              <text wx:if="{{subdivision.rightHand[0]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.rightHand[0]}}</text>
+                              <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
                           <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-right' : ''}}">
@@ -121,8 +141,8 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="1"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.rightHand[1]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}">{{subdivision.rightHand[1]}}</text>
-                              <text wx:else class="note-number placeholder">　</text>
+                              <text wx:if="{{subdivision.rightHand[1]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.rightHand[1]}}</text>
+                              <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
                         </view>
@@ -142,8 +162,8 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="0"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.leftHand[0]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}">{{subdivision.leftHand[0]}}</text>
-                              <text wx:else class="note-number placeholder">　</text>
+                              <text wx:if="{{subdivision.leftHand[0]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.leftHand[0]}}</text>
+                              <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
                           <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-left' : ''}}">
@@ -157,8 +177,8 @@
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="1"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.leftHand[1]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}">{{subdivision.leftHand[1]}}</text>
-                              <text wx:else class="note-number placeholder">　</text>
+                              <text wx:if="{{subdivision.leftHand[1]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.leftHand[1]}}</text>
+                              <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
                         </view>
@@ -170,11 +190,11 @@
                   <view wx:if="{{beatIndex < measure.beats.length - 1 && !beat.barLineAfter}}" class="beat-line beat-line-right"></view>
 
                   <!-- 中间小节线（自定义拍子模式中的分组间分隔线，使用小节线样式） -->
-                  <view wx:if="{{beat.barLineAfter}}" class="bar-line bar-line-middle"></view>
+                  <view wx:if="{{beat.barLineAfter}}" class="bar-line bar-line-middle" style="{{(notation.style && notation.style.barLineHeight) ? 'height: ' + notation.style.barLineHeight + '%;' : ''}}"></view>
                 </view>
 
                 <!-- 小节线（右侧） -->
-                <view class="bar-line bar-line-right"></view>
+                <view class="bar-line bar-line-right" style="{{(notation.style && notation.style.barLineHeight) ? 'height: ' + notation.style.barLineHeight + '%;' : ''}}"></view>
               </view>
             </view>
             
@@ -406,33 +426,6 @@
       <view class="module-settings-scrollable">
       <view class="settings-item">
         <view class="settings-item-header">
-          <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
-          <text class="settings-label">行数</text>
-        </view>
-        <view class="settings-item-content">
-          <view class="line-count-row">
-            <text class="settings-default-label">默认：{{orientation === 'landscape' ? 2 : 4}} 行</text>
-            <view class="module-line-input-group">
-              <input 
-                class="module-line-input"
-                type="number"
-                value="{{moduleLineCount}}" 
-                placeholder="1-20"
-                bindinput="onModuleLineCountInput"
-                bindconfirm="confirmModuleLineCount"
-                bindblur="confirmModuleLineCount"
-                min="1"
-                max="20"
-              />
-              <text class="input-hint">行</text>
-            </view>
-          </view>
-          <view wx:if="{{moduleLineCountError}}" class="error-message">{{moduleLineCountError}}</view>
-        </view>
-      </view>
-
-      <view class="settings-item">
-        <view class="settings-item-header">
           <image class="settings-icon" src="/assets/icons/timing.png"></image>
           <text class="settings-label">拍号</text>
         </view>
@@ -459,6 +452,100 @@
             />
             <view wx:if="{{moduleCustomTemplateError}}" class="error-message">{{moduleCustomTemplateError}}</view>
           </view>
+        </view>
+      </view>
+
+      <view class="settings-item">
+        <view class="settings-item-header">
+          <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
+          <text class="settings-label">样式设置</text>
+        </view>
+        <view class="settings-item-content">
+          <view class="line-count-row">
+            <text class="style-label">行数：</text>
+            <text class="settings-default-label">默认：{{orientation === 'landscape' ? 2 : 4}} 行</text>
+            <view class="module-line-input-group">
+              <input 
+                class="module-line-input"
+                type="number"
+                value="{{moduleLineCount}}" 
+                placeholder="1-20"
+                bindinput="onModuleLineCountInput"
+                bindconfirm="confirmModuleLineCount"
+                bindblur="confirmModuleLineCount"
+                min="1"
+                max="20"
+              />
+              <text class="input-hint">行</text>
+            </view>
+          </view>
+          <view wx:if="{{moduleLineCountError}}" class="error-message">{{moduleLineCountError}}</view>
+          
+          <view class="style-setting-row">
+            <view class="style-label-with-default">
+              <text class="style-label">小节线高度：</text>
+              <text class="settings-default-label">默认：100</text>
+            </view>
+            <view class="module-line-input-group">
+              <input 
+                class="module-line-input"
+                type="number"
+                value="{{moduleBarLineHeight}}" 
+                placeholder="50-200"
+                bindinput="onModuleBarLineHeightInput"
+                bindconfirm="confirmModuleBarLineHeight"
+                bindblur="confirmModuleBarLineHeight"
+                min="50"
+                max="200"
+              />
+              <text class="input-hint">%</text>
+            </view>
+          </view>
+          <view wx:if="{{moduleBarLineHeightError}}" class="error-message">{{moduleBarLineHeightError}}</view>
+          
+          <view class="style-setting-row">
+            <view class="style-label-with-default">
+              <text class="style-label">音符字体大小：</text>
+              <text class="settings-default-label">默认：28rpx</text>
+            </view>
+            <view class="module-line-input-group">
+              <input 
+                class="module-line-input"
+                type="number"
+                value="{{moduleNoteFontSize}}" 
+                placeholder="14-50"
+                bindinput="onModuleNoteFontSizeInput"
+                bindconfirm="confirmModuleNoteFontSize"
+                bindblur="confirmModuleNoteFontSize"
+                min="14"
+                max="50"
+              />
+              <text class="input-hint">rpx</text>
+            </view>
+          </view>
+          <view wx:if="{{moduleNoteFontSizeError}}" class="error-message">{{moduleNoteFontSizeError}}</view>
+          
+          <view class="style-setting-row">
+            <view class="style-label-with-default">
+              <text class="style-label">行间距：</text>
+              <text class="settings-default-label">默认：65rpx</text>
+            </view>
+            <view class="module-line-input-group">
+              <input 
+                class="module-line-input"
+                type="number"
+                value="{{moduleLineSpacing}}" 
+                placeholder="30-150"
+                bindinput="onModuleLineSpacingInput"
+                bindconfirm="confirmModuleLineSpacing"
+                bindblur="confirmModuleLineSpacing"
+                min="30"
+                max="150"
+              />
+              <text class="input-hint">rpx</text>
+            </view>
+          </view>
+          <view wx:if="{{moduleLineSpacingError}}" class="error-message">{{moduleLineSpacingError}}</view>
         </view>
       </view>
 

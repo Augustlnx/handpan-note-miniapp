@@ -54,6 +54,12 @@ Page({
     moduleTimeSignatureBeats: 4,
     moduleCustomTemplate: '',
     moduleCustomTemplateError: '',
+    moduleBarLineHeight: 100,
+    moduleBarLineHeightError: '',
+    moduleNoteFontSize: 28,
+    moduleNoteFontSizeError: '',
+    moduleLineSpacing: 65,
+    moduleLineSpacingError: '',
     // 节拍器相关
     metronomeBeats: [1, 2, 3, 4],
     currentMetronomeBeat: -1,
@@ -424,6 +430,14 @@ Page({
       if (newNotation.collapsed === undefined) {
         newNotation.collapsed = false;
       }
+      // 确保有 style 属性（旧数据可能没有）
+      if (!newNotation.style) {
+        newNotation.style = {
+          barLineHeight: '100%', // 小节线高度，默认100%
+          noteFontSize: 28, // 音符字体大小，默认28rpx
+          lineSpacing: 65 // 行间距，默认65rpx
+        };
+      }
       return newNotation;
     });
 
@@ -614,7 +628,12 @@ Page({
       timeSignature: `${beats}/4`,
       collapsed: false, // 默认展开
       measuresPerRowPortrait: portraitRow,
-      measuresPerRow: portraitRow * factor
+      measuresPerRow: portraitRow * factor,
+      style: { // 默认样式参数
+        barLineHeight: '100%', // 小节线高度，默认100%
+        noteFontSize: 28, // 音符字体大小，默认28rpx
+        lineSpacing: 65 // 行间距，默认65rpx
+      }
     };
   },
 
@@ -1423,14 +1442,73 @@ Page({
     return error === '';
   },
 
+  // 恢复模块默认设置
+  resetModuleSettings() {
+    const { currentModuleId } = this.data;
+    
+    if (!currentModuleId) {
+      wx.showToast({ title: '未找到模块', icon: 'none' });
+      return;
+    }
+
+    const updated = JSON.parse(JSON.stringify(this.data.notations));
+    const notation = updated.find(n => n.id === currentModuleId);
+    
+    if (!notation) {
+      wx.showToast({ title: '未找到模块', icon: 'none' });
+      return;
+    }
+
+    // 重置为默认设置
+    notation.style = {
+      barLineHeight: '100%',
+      noteFontSize: 28,
+      lineSpacing: 65
+    };
+
+    const normalized = this.normalizeBarLines(updated);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+    
+    // 重新打开设置界面以显示默认值
+    this.openModuleSettings({ currentTarget: { dataset: { id: currentModuleId } } });
+    
+    wx.showToast({ title: '已恢复默认设置', icon: 'success' });
+    // 备份当前状态
+    this.backupCurrentState();
+  },
+
   // 应用模块设置
   applyModuleSettings() {
-    const { currentModuleId, moduleLineCount, moduleTimeSignatureBeats, moduleCustomTemplate } = this.data;
+    const { 
+      currentModuleId, 
+      moduleLineCount, 
+      moduleTimeSignatureBeats, 
+      moduleCustomTemplate,
+      moduleBarLineHeight,
+      moduleNoteFontSize,
+      moduleLineSpacing
+    } = this.data;
     
     // 验证行数
     const lineCount = parseInt(moduleLineCount) || 0;
     if (!lineCount || lineCount < 1 || lineCount > 20) {
       this.setData({ moduleLineCountError: '请输入1-20之间的整数' });
+      return;
+    }
+
+    // 验证样式参数
+    if (isNaN(moduleBarLineHeight) || moduleBarLineHeight < 50 || moduleBarLineHeight > 200) {
+      this.setData({ moduleBarLineHeightError: '小节线高度请输入50-200之间的数值' });
+      return;
+    }
+    if (isNaN(moduleNoteFontSize) || moduleNoteFontSize < 14 || moduleNoteFontSize > 50) {
+      this.setData({ moduleNoteFontSizeError: '音符字体大小请输入14-50之间的数值' });
+      return;
+    }
+    if (isNaN(moduleLineSpacing) || moduleLineSpacing < 30 || moduleLineSpacing > 150) {
+      this.setData({ moduleLineSpacingError: '行间距请输入30-150之间的数值' });
       return;
     }
 
@@ -1465,9 +1543,31 @@ Page({
       return;
     }
 
-    // 直接修改notation数据
-    // 首先应用行数变化
-    this.updateModuleLineCount(notation, lineCount, sanitizedModuleTemplate);
+    // 应用样式设置
+    if (!notation.style) {
+      notation.style = {};
+    }
+    notation.style.barLineHeight = moduleBarLineHeight;
+    notation.style.noteFontSize = moduleNoteFontSize;
+    notation.style.lineSpacing = moduleLineSpacing;
+
+    // 应用行数变化
+    const storedPerRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
+    const currentLines = Math.max(1, Math.ceil((notation.measures || []).length / storedPerRow));
+
+    if (lineCount > currentLines) {
+      // 增加行数
+      const addLines = lineCount - currentLines;
+      const addMeasures = addLines * storedPerRow;
+      for (let i = 0; i < addMeasures; i++) {
+        const template = sanitizedModuleTemplate || this.convertBeatsCountToTemplate(moduleTimeSignatureBeats === 'custom' ? 4 : moduleTimeSignatureBeats);
+        notation.measures.push(this.createMeasureFromCustomTemplate(template));
+      }
+    } else if (lineCount < currentLines) {
+      // 减少行数
+      const keepMeasures = Math.max(0, lineCount * storedPerRow);
+      notation.measures = notation.measures.slice(0, keepMeasures);
+    }
 
     // 然后应用拍号变化（如果有）
     if (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4) {
@@ -1609,50 +1709,73 @@ Page({
     }
   },
 
-  // 修改模块行数
-  updateModuleLineCount(notation, newLineCount, overrideTemplate = '') {
-    const storedPerRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
-    const currentLines = Math.max(1, Math.ceil((notation.measures || []).length / storedPerRow));
-
-    // 统一的模板化处理：模块自定义 > 传入模板 > 全局自定义 > 推断模板 > 标准拍号模板
-    let template = '';
-    if (notation.moduleTimeSignature === 'custom' && notation.moduleCustomTemplate) {
-      template = notation.moduleCustomTemplate;
-    } else if (overrideTemplate) {
-      template = overrideTemplate;
-    } else {
-      const globalCustom = wx.getStorageSync('customTimeSignature') || {};
-      if (this.data.currentTimeSignatureType === 'custom' && globalCustom.template) {
-        template = globalCustom.template;
-      } else {
-        template = this.inferTemplateFromNotation(notation) || this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4);
-      }
+  // 输入模块小节线高度
+  onModuleBarLineHeightInput(e) {
+    const value = parseInt(e.detail.value);
+    let error = '';
+    if (isNaN(value) || value < 50 || value > 200) {
+      error = '请输入50-200之间的数值';
     }
+    this.setData({
+      moduleBarLineHeight: value,
+      moduleBarLineHeightError: error
+    });
+  },
 
-    // 确保模板有效并移除空小节
-    template = this.sanitizeTemplateString(template);
-    if (!template) {
-      template = this.sanitizeTemplateString(this.convertBeatsCountToTemplate(this.data.timeSignatureBeats || 4));
+  // 确认模块小节线高度
+  confirmModuleBarLineHeight() {
+    const value = this.data.moduleBarLineHeight;
+    if (isNaN(value) || value < 50 || value > 200) {
+      this.setData({ moduleBarLineHeightError: '请输入50-200之间的数值' });
+      return;
     }
+    this.setData({ moduleBarLineHeightError: '' });
+  },
 
-    const templateMeasures = this.splitTemplateIntoMeasures(template);
-    const perRowFromTemplate = templateMeasures.length > 0 ? templateMeasures.length : storedPerRow;
-    const effectivePerRow = Math.max(1, perRowFromTemplate);
-
-    // 同步每行小节数，便于后续分页与导出
-    notation.measuresPerRow = effectivePerRow;
-
-    if (newLineCount > currentLines) {
-      const addLines = newLineCount - currentLines;
-      const addMeasures = addLines * effectivePerRow;
-      for (let i = 0; i < addMeasures; i++) {
-        const tpl = templateMeasures.length ? templateMeasures[i % templateMeasures.length] : template;
-        notation.measures.push(this.createMeasureFromCustomTemplate(tpl));
-      }
-    } else if (newLineCount < currentLines) {
-      const keepMeasures = Math.max(0, newLineCount * effectivePerRow);
-      notation.measures = notation.measures.slice(0, keepMeasures);
+  // 输入模块音符字体大小
+  onModuleNoteFontSizeInput(e) {
+    const value = parseInt(e.detail.value);
+    let error = '';
+    if (isNaN(value) || value < 14 || value > 50) {
+      error = '请输入14-50之间的数值';
     }
+    this.setData({
+      moduleNoteFontSize: value,
+      moduleNoteFontSizeError: error
+    });
+  },
+
+  // 确认模块音符字体大小
+  confirmModuleNoteFontSize() {
+    const value = this.data.moduleNoteFontSize;
+    if (isNaN(value) || value < 14 || value > 50) {
+      this.setData({ moduleNoteFontSizeError: '请输入14-50之间的数值' });
+      return;
+    }
+    this.setData({ moduleNoteFontSizeError: '' });
+  },
+
+  // 输入模块行间距
+  onModuleLineSpacingInput(e) {
+    const value = parseInt(e.detail.value);
+    let error = '';
+    if (isNaN(value) || value < 30 || value > 150) {
+      error = '请输入30-150之间的数值';
+    }
+    this.setData({
+      moduleLineSpacing: value,
+      moduleLineSpacingError: error
+    });
+  },
+
+  // 确认模块行间距
+  confirmModuleLineSpacing() {
+    const value = this.data.moduleLineSpacing;
+    if (isNaN(value) || value < 30 || value > 150) {
+      this.setData({ moduleLineSpacingError: '请输入30-150之间的数值' });
+      return;
+    }
+    this.setData({ moduleLineSpacingError: '' });
   },
 
   // 同步 barLineAfter 标记与当前模板（根据模块或全局拍号）
@@ -3723,7 +3846,43 @@ Page({
     };
   },
 
-  // 打开谱式转换模态框
+  // 打开模块设置模态框
+  openModuleSettings(e) {
+    const moduleId = parseInt(e.currentTarget.dataset.id);
+    const notation = this.data.notations.find(n => n.id === moduleId);
+    
+    if (!notation) {
+      wx.showToast({ title: '未找到模块', icon: 'none' });
+      return;
+    }
+
+    // 初始化设置值
+    const perRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    const moduleLineCount = notation.measures ? Math.ceil(notation.measures.length / perRow) : 4;
+    const moduleTimeSignatureBeats = notation.moduleTimeSignature || this.data.timeSignatureBeats;
+    const moduleCustomTemplate = notation.moduleCustomTemplate || '';
+    const moduleBarLineHeight = notation.style ? parseInt(notation.style.barLineHeight) || 100 : 100;
+    const moduleNoteFontSize = notation.style ? parseInt(notation.style.noteFontSize) || 28 : 28;
+    const moduleLineSpacing = notation.style ? parseInt(notation.style.lineSpacing) || 65 : 65;
+
+    this.setData({
+      showModuleSettingsModal: true,
+      currentModuleId: moduleId,
+      moduleLineCount: moduleLineCount,
+      moduleLineCountError: '',
+      moduleTimeSignatureBeats: moduleTimeSignatureBeats,
+      moduleCustomTemplate: moduleCustomTemplate,
+      moduleCustomTemplateError: '',
+      moduleBarLineHeight: moduleBarLineHeight,
+      moduleBarLineHeightError: '',
+      moduleNoteFontSize: moduleNoteFontSize,
+      moduleNoteFontSizeError: '',
+      moduleLineSpacing: moduleLineSpacing,
+      moduleLineSpacingError: ''
+    });
+  },
+
+  // 打开记谱类型选择模态框
   openNotationTypeModal() {
     const currentType = this.data.notationType || 'digital';
     this.setData({
