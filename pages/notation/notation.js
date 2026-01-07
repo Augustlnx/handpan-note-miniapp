@@ -54,8 +54,8 @@ Page({
     moduleTimeSignatureBeats: 4,
     moduleCustomTemplate: '',
     moduleCustomTemplateError: '',
-    moduleBarLineHeight: 100,
-    moduleBarLineHeightError: '',
+    moduleMeasureHeight: 160,
+    moduleMeasureHeightError: '',
     moduleNoteFontSize: 28,
     moduleNoteFontSizeError: '',
     moduleLineSpacing: 65,
@@ -103,6 +103,11 @@ Page({
     showExportPreview: false,
     exportPreviewImages: [],
     currentPreviewPage: 0,
+    // 导出格式选择相关
+    showExportFormatPicker: false, // 显示PNG/PDF格式选择弹窗
+    showPdfSuccessModal: false, // PDF导出成功弹窗
+    exportedPdfPath: '', // 导出的PDF文件路径
+    exportedPdfFileName: '', // 导出的PDF文件名
     // 导出为代码相关
     showExportCodeModal: false,
     exportedCode: '',
@@ -165,6 +170,7 @@ Page({
     this.initOrientationListener();
     this.loadImportHelpSettings();
     this.loadNotationType();
+    this.loadLibraryFileInfo(); // 加载库文件关联信息
     this.calculatePages(); // 初始化分页
     this.checkAndShowSplashModal(); // 检查是否显示开屏弹窗
   },
@@ -190,7 +196,9 @@ Page({
   applyLibraryPayload(payload) {
     if (!payload || !payload.code) return;
 
-    const orientation = (payload.rotation || '').includes('横') ? 'landscape' : 'portrait';
+    // 无论当前什么模式，打开新文件时先切换回竖屏模式，避免横屏布局错误
+    // 文件的orientation设置会在导入后生效
+    const orientation = 'portrait';
     const timingText = payload.timing || `${payload.timeSignatureBeats || 4}/${payload.timeSignatureBottom || 4}`;
     const [beatsStr, bottomStr] = (timingText || '4/4').split('/');
     const beats = parseInt(beatsStr, 10) || 4;
@@ -212,6 +220,7 @@ Page({
     }, () => {
       this.saveTitles();
       this.saveGlobalTempo();
+      this.saveLibraryFileInfo(); // 保存库文件关联信息
       this.saveNotationsScoped([]);
       this.setNotations([]);
       const result = this.performImport(payload.code, 'add', null);
@@ -294,6 +303,45 @@ Page({
   // 保存全局速度
   saveGlobalTempo() {
     wx.setStorageSync('globalTempo', this.data.globalTempo);
+  },
+
+  // 加载库文件关联信息（使刷新后不丢失存储位置）
+  loadLibraryFileInfo() {
+    const libraryInfo = wx.getStorageSync('libraryFileInfo');
+    if (libraryInfo) {
+      this.setData({
+        libraryFileId: libraryInfo.id || null,
+        libraryFilePath: libraryInfo.path || null,
+        libraryFileName: libraryInfo.fileName || null
+      });
+      this.updateStorageDisplay(false);
+    }
+  },
+
+  // 保存库文件关联信息
+  saveLibraryFileInfo() {
+    const { libraryFileId, libraryFilePath, libraryFileName } = this.data;
+    if (libraryFileId) {
+      wx.setStorageSync('libraryFileInfo', {
+        id: libraryFileId,
+        path: libraryFilePath,
+        fileName: libraryFileName
+      });
+    } else {
+      // 如果没有关联库文件，清除存储
+      wx.removeStorageSync('libraryFileInfo');
+    }
+  },
+
+  // 清除库文件关联信息（重置时使用）
+  clearLibraryFileInfo() {
+    this.setData({
+      libraryFileId: null,
+      libraryFilePath: null,
+      libraryFileName: null
+    });
+    wx.removeStorageSync('libraryFileInfo');
+    this.updateStorageDisplay(false);
   },
 
   // 加载谱面数据
@@ -433,7 +481,7 @@ Page({
       // 确保有 style 属性（旧数据可能没有）
       if (!newNotation.style) {
         newNotation.style = {
-          barLineHeight: '100%', // 小节线高度，默认100%
+          measureHeight: 160, // 单行高度，默认160rpx
           noteFontSize: 28, // 音符字体大小，默认28rpx
           lineSpacing: 65 // 行间距，默认65rpx
         };
@@ -630,7 +678,7 @@ Page({
       measuresPerRowPortrait: portraitRow,
       measuresPerRow: portraitRow * factor,
       style: { // 默认样式参数
-        barLineHeight: '100%', // 小节线高度，默认100%
+        measureHeight: 160, // 单行高度，默认160rpx
         noteFontSize: 28, // 音符字体大小，默认28rpx
         lineSpacing: 65 // 行间距，默认65rpx
       }
@@ -748,7 +796,7 @@ Page({
     const that = this;
     wx.showModal({
       title: '删除谱面',
-      content: '确定删除该谱面吗？此操作不可撤销。',
+      content: '确定删除吗？此操作可能无法恢复。',
       success(res) {
         if (res.confirm) {
           // 先备份当前状态
@@ -848,7 +896,7 @@ Page({
     const that = this;
     wx.showModal({
       title: '确认清空',
-      content: '将清空所有谱面数据，此操作不可撤销，是否继续？',
+      content: '将清空所有谱面数据，此操作可能无法恢复，是否继续？',
       success(res) {
         if (res.confirm) {
           // 先备份当前状态
@@ -891,6 +939,8 @@ Page({
     const withOffsets = that.updateMeasureOffsets(rebuilt);
     that.saveNotationsScoped(withOffsets);
     that.setNotations(withOffsets);
+    // 不再断开与库文件的关联，只标记为未保存状态
+    // that.clearLibraryFileInfo(); 
     that.markNotationChanged(); // 标记为有更改（未保存）
     wx.showToast({ title: '已清空谱面', icon: 'success' });
   },
@@ -900,7 +950,7 @@ Page({
     const that = this;
     wx.showModal({
       title: '确认加载示例',
-      content: '将清空现有谱面并加载示例，此操作不可撤销，是否继续？',
+      content: '将清空现有谱面并加载示例，此操作可能无法恢复，是否继续？',
       success(res) {
         if (res.confirm) {
           // 先备份当前状态
@@ -951,6 +1001,9 @@ Page({
         const notations = that.updateMeasureOffsets(exampleNotations);
         that.saveNotationsScoped(notations);
         that.setNotations(notations);
+        // 不再断开与库文件的关联，只标记为未保存状态
+        // that.clearLibraryFileInfo();
+        that.markNotationChanged(); // 标记为有更改（未保存）
 
         wx.showToast({
           title: `成功加载`,
@@ -1292,10 +1345,22 @@ Page({
     const perRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
     const lineCount = Math.max(1, Math.ceil(((notation.measures || []).length || 0) / perRow));
 
+    // 获取样式设置的当前值
+    const style = notation.style || {};
+    const measureHeight = style.measureHeight || 160;
+    const noteFontSize = style.noteFontSize || 28;
+    const lineSpacing = style.lineSpacing || 65;
+
     this.setData({
       showModuleSettingsModal: true,
       currentModuleId: id,
       moduleLineCount: lineCount,
+      moduleMeasureHeight: measureHeight,
+      moduleNoteFontSize: noteFontSize,
+      moduleLineSpacing: lineSpacing,
+      moduleMeasureHeightError: '',
+      moduleNoteFontSizeError: '',
+      moduleLineSpacingError: '',
       moduleTimeSignatureBeats: showBeats,
       moduleCustomTemplate: moduleTemplate,
       exportModuleCode: '' // 打开模态框时不立即生成代码
@@ -1461,7 +1526,7 @@ Page({
 
     // 重置为默认设置
     notation.style = {
-      barLineHeight: '100%',
+      measureHeight: 160,
       noteFontSize: 28,
       lineSpacing: 65
     };
@@ -1486,7 +1551,7 @@ Page({
       moduleLineCount, 
       moduleTimeSignatureBeats, 
       moduleCustomTemplate,
-      moduleBarLineHeight,
+      moduleMeasureHeight,
       moduleNoteFontSize,
       moduleLineSpacing
     } = this.data;
@@ -1499,8 +1564,8 @@ Page({
     }
 
     // 验证样式参数
-    if (isNaN(moduleBarLineHeight) || moduleBarLineHeight < 50 || moduleBarLineHeight > 200) {
-      this.setData({ moduleBarLineHeightError: '小节线高度请输入50-200之间的数值' });
+    if (isNaN(moduleMeasureHeight) || moduleMeasureHeight < 80 || moduleMeasureHeight > 300) {
+      this.setData({ moduleMeasureHeightError: '单行高度请输入80-300之间的数值' });
       return;
     }
     if (isNaN(moduleNoteFontSize) || moduleNoteFontSize < 14 || moduleNoteFontSize > 50) {
@@ -1547,7 +1612,7 @@ Page({
     if (!notation.style) {
       notation.style = {};
     }
-    notation.style.barLineHeight = moduleBarLineHeight;
+    notation.style.measureHeight = moduleMeasureHeight;
     notation.style.noteFontSize = moduleNoteFontSize;
     notation.style.lineSpacing = moduleLineSpacing;
 
@@ -1709,27 +1774,27 @@ Page({
     }
   },
 
-  // 输入模块小节线高度
-  onModuleBarLineHeightInput(e) {
+  // 输入模块单行高度
+  onModuleMeasureHeightInput(e) {
     const value = parseInt(e.detail.value);
     let error = '';
-    if (isNaN(value) || value < 50 || value > 200) {
-      error = '请输入50-200之间的数值';
+    if (isNaN(value) || value < 80 || value > 300) {
+      error = '请输入80-300之间的数值';
     }
     this.setData({
-      moduleBarLineHeight: value,
-      moduleBarLineHeightError: error
+      moduleMeasureHeight: value,
+      moduleMeasureHeightError: error
     });
   },
 
-  // 确认模块小节线高度
-  confirmModuleBarLineHeight() {
-    const value = this.data.moduleBarLineHeight;
-    if (isNaN(value) || value < 50 || value > 200) {
-      this.setData({ moduleBarLineHeightError: '请输入50-200之间的数值' });
+  // 确认模块单行高度
+  confirmModuleMeasureHeight() {
+    const value = this.data.moduleMeasureHeight;
+    if (isNaN(value) || value < 80 || value > 300) {
+      this.setData({ moduleMeasureHeightError: '请输入80-300之间的数值' });
       return;
     }
-    this.setData({ moduleBarLineHeightError: '' });
+    this.setData({ moduleMeasureHeightError: '' });
   },
 
   // 输入模块音符字体大小
@@ -1977,29 +2042,40 @@ Page({
   },
 
   // 更新排版视角
+  // 核心逻辑：横屏模式下将每行小节数翻倍（相当于将两行合并为一行显示）
+  // 切换回竖屏时恢复原始的每行小节数设置
   updateOrientation(newOrientation) {
     const currentOrientation = this.data.orientation;
     if (newOrientation === currentOrientation) return;
 
     const toLandscape = newOrientation === 'landscape';
-    const factor = toLandscape ? 2 : 1;
-    const globalPortrait = this.data.measuresPerRowPortrait || this.data.measuresPerRow || 1;
-
+    
+    // 更新每个notation的measuresPerRow
     const updatedNotations = (this.data.notations || []).map(n => {
-      const portraitBase = n.measuresPerRowPortrait || n.measuresPerRow || globalPortrait;
-      return {
-        ...n,
-        measuresPerRowPortrait: portraitBase,
-        measuresPerRow: portraitBase * factor
-      };
+      if (toLandscape) {
+        // 切换到横屏：保存原始值，翻倍显示
+        const portraitBase = n.measuresPerRowPortrait || n.measuresPerRow || 1;
+        return {
+          ...n,
+          measuresPerRowPortrait: portraitBase, // 保存原始值
+          measuresPerRow: portraitBase * 2 // 横屏显示翻倍
+        };
+      } else {
+        // 切换回竖屏：恢复原始值
+        const portraitBase = n.measuresPerRowPortrait || Math.floor(n.measuresPerRow / 2) || n.measuresPerRow || 1;
+        return {
+          ...n,
+          measuresPerRow: portraitBase // 恢复为原始值
+          // 保留measuresPerRowPortrait以便下次切换
+        };
+      }
     });
 
     this.setData({
       orientation: newOrientation,
-      measuresPerRowPortrait: globalPortrait,
-      measuresPerRow: globalPortrait * factor,
       notations: updatedNotations
     });
+    
     this.calculatePages();
   },
 
@@ -2540,6 +2616,7 @@ Page({
         libraryFilePath: created.path,
         libraryFileName: created.file_name
       });
+      this.saveLibraryFileInfo(); // 持久化库文件关联信息
       this.markNotationSaved(); // 标记为已保存
       
       this.closeSaveToLibraryModal(true);
@@ -2997,6 +3074,146 @@ Page({
     };
     
     saveNext(0);
+  },
+
+  // 显示导出格式选择弹窗
+  showExportFormatModal() {
+    this.setData({ showExportFormatPicker: true });
+  },
+
+  // 关闭导出格式选择弹窗
+  closeExportFormatPicker() {
+    this.setData({ showExportFormatPicker: false });
+  },
+
+  // 保存为PNG图片
+  saveAsImages() {
+    this.setData({ showExportFormatPicker: false });
+    this.saveExportImages();
+  },
+
+  // 保存为PDF
+  saveAsPDF() {
+    this.setData({ showExportFormatPicker: false });
+    
+    const images = this.data.exportPreviewImages;
+    if (!images || images.length === 0) {
+      wx.showToast({ title: '没有可导出的图片', icon: 'none' });
+      return;
+    }
+    
+    wx.showLoading({ title: '生成PDF中...' });
+    
+    const exportUtil = require('../../utils/pdfExport.js');
+    const fileName = `${this.data.mainTitle || 'notation'}_${Date.now()}.pdf`;
+    
+    exportUtil.imagesToPDF(images, fileName)
+      .then((pdfPath) => {
+        wx.hideLoading();
+        this.setData({
+          exportedPdfPath: pdfPath,
+          exportedPdfFileName: fileName,
+          showPdfSuccessModal: true
+        });
+      })
+      .catch((err) => {
+        wx.hideLoading();
+        console.error('PDF导出失败:', err);
+        wx.showToast({ title: 'PDF生成失败: ' + (err.message || '未知错误'), icon: 'none' });
+      });
+  },
+
+  // 关闭PDF成功弹窗
+  closePdfSuccessModal() {
+    this.setData({ showPdfSuccessModal: false });
+  },
+
+  // 关闭PDF成功弹窗并关闭预览
+  closePdfSuccessAndPreview() {
+    this.setData({ 
+      showPdfSuccessModal: false,
+      showExportPreview: false,
+      exportPreviewImages: [],
+      currentPreviewPage: 0
+    });
+  },
+
+  // 打开导出的PDF
+  openExportedPdf() {
+    const path = this.data.exportedPdfPath;
+    if (!path) {
+      wx.showToast({ title: '文件路径无效', icon: 'none' });
+      return;
+    }
+    
+    wx.openDocument({
+      filePath: path,
+      showMenu: true, // 显示右上角菜单，包含转发、保存等
+      success: () => {
+        console.log('PDF打开成功');
+      },
+      fail: (err) => {
+        console.error('打开PDF失败:', err);
+        wx.showToast({ title: '打开失败', icon: 'none' });
+      }
+    });
+  },
+
+  // 分享导出的PDF
+  shareExportedPdf() {
+    const path = this.data.exportedPdfPath;
+    if (!path) {
+      wx.showToast({ title: '文件路径无效', icon: 'none' });
+      return;
+    }
+    
+    wx.shareFileMessage({
+      filePath: path,
+      success: () => {
+        wx.showToast({ title: '分享成功', icon: 'success' });
+      },
+      fail: (err) => {
+        console.error('分享PDF失败:', err);
+        // 如果分享失败，尝试使用 openDocument 的菜单分享
+        wx.showModal({
+          title: '提示',
+          content: '直接分享不支持，请点击"打开"后使用右上角菜单分享',
+          showCancel: false
+        });
+      }
+    });
+  },
+
+  // 保存PDF到文件管理器
+  saveExportedPdfToFiles() {
+    const path = this.data.exportedPdfPath;
+    const fileName = this.data.exportedPdfFileName;
+    if (!path) {
+      wx.showToast({ title: '文件路径无效', icon: 'none' });
+      return;
+    }
+    
+    // 使用 wx.getFileSystemManager 复制到用户可访问的位置
+    wx.saveFileToDisk({
+      filePath: path,
+      success: () => {
+        wx.showToast({ title: '已保存', icon: 'success' });
+      },
+      fail: (err) => {
+        console.error('保存到磁盘失败:', err);
+        // 如果 saveFileToDisk 不支持，使用 openDocument
+        wx.openDocument({
+          filePath: path,
+          showMenu: true,
+          success: () => {
+            wx.showToast({ title: '请使用右上角菜单保存', icon: 'none' });
+          },
+          fail: () => {
+            wx.showToast({ title: '保存失败', icon: 'none' });
+          }
+        });
+      }
+    });
   },
 
   // 导出为 PNG（旧版本，保留兼容）
@@ -3861,7 +4078,7 @@ Page({
     const moduleLineCount = notation.measures ? Math.ceil(notation.measures.length / perRow) : 4;
     const moduleTimeSignatureBeats = notation.moduleTimeSignature || this.data.timeSignatureBeats;
     const moduleCustomTemplate = notation.moduleCustomTemplate || '';
-    const moduleBarLineHeight = notation.style ? parseInt(notation.style.barLineHeight) || 100 : 100;
+    const moduleMeasureHeight = notation.style ? parseInt(notation.style.measureHeight) || 160 : 160;
     const moduleNoteFontSize = notation.style ? parseInt(notation.style.noteFontSize) || 28 : 28;
     const moduleLineSpacing = notation.style ? parseInt(notation.style.lineSpacing) || 65 : 65;
 
@@ -3873,8 +4090,8 @@ Page({
       moduleTimeSignatureBeats: moduleTimeSignatureBeats,
       moduleCustomTemplate: moduleCustomTemplate,
       moduleCustomTemplateError: '',
-      moduleBarLineHeight: moduleBarLineHeight,
-      moduleBarLineHeightError: '',
+      moduleMeasureHeight: moduleMeasureHeight,
+      moduleMeasureHeightError: '',
       moduleNoteFontSize: moduleNoteFontSize,
       moduleNoteFontSizeError: '',
       moduleLineSpacing: moduleLineSpacing,

@@ -14,8 +14,43 @@ var getFontSize = function(orientation, style) {
   }
   return baseSize;
 }
+
+// 计算音符槽位高度（根据单行高度按比例缩放）
+// 默认: measureHeight=160rpx, slotHeight=36rpx, 比例=0.225
+var getSlotHeight = function(style, isMultiMeasure) {
+  var defaultHeight = isMultiMeasure ? 110 : 160;
+  var measureHeight = (style && style.measureHeight) ? parseInt(style.measureHeight, 10) : defaultHeight;
+  if (isNaN(measureHeight)) {
+    measureHeight = defaultHeight;
+  }
+  // 默认槽位高度比例: 36/160 = 0.225
+  var height = Math.round(measureHeight * 0.225);
+  // 限制最小和最大值
+  if (height < 18) height = 18;
+  if (height > 60) height = 60;
+  return height;
+}
+
+// 计算音符列间距（根据单行高度按比例缩放）
+// 默认: measureHeight=160rpx, gap=8rpx, 比例=0.05
+var getColumnGap = function(style, isMultiMeasure) {
+  var defaultHeight = isMultiMeasure ? 110 : 160;
+  var measureHeight = (style && style.measureHeight) ? parseInt(style.measureHeight, 10) : defaultHeight;
+  if (isNaN(measureHeight)) {
+    measureHeight = defaultHeight;
+  }
+  // 默认间距比例: 8/160 = 0.05
+  var gap = Math.round(measureHeight * 0.05);
+  // 限制最小和最大值
+  if (gap < 4) gap = 4;
+  if (gap > 16) gap = 16;
+  return gap;
+}
+
 module.exports = {
-  getFontSize: getFontSize
+  getFontSize: getFontSize,
+  getSlotHeight: getSlotHeight,
+  getColumnGap: getColumnGap
 };
 </wxs>
 
@@ -94,11 +129,11 @@ module.exports = {
 
             <!-- 谱面内容 -->
             <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}" style="{{(notation.style && notation.style.lineSpacing) ? 'row-gap: ' + notation.style.lineSpacing + 'rpx;' : ''}}">
-              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%;">
+              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%; {{(notation.style && notation.style.measureHeight) ? 'height: ' + notation.style.measureHeight + 'rpx;' : ''}}">
                 <!-- 小节编号（上方居中） -->
                 <view class="measure-index">{{(notation.measureOffset || 0) + measureIndex + 1}}</view>
                 <!-- 小节线（左侧） -->
-                <view wx:if="{{measureIndex % (notation.measuresPerRow || measuresPerRow) === 0}}" class="bar-line bar-line-left" style="{{(notation.style && notation.style.barLineHeight) ? 'height: ' + notation.style.barLineHeight + '%;' : ''}}"></view>
+                <view wx:if="{{measureIndex % (notation.measuresPerRow || measuresPerRow) === 0}}" class="bar-line bar-line-left"></view>
 
                 <!-- 拍子 -->
                 <view wx:for="{{measure.beats}}" wx:key="index" wx:for-item="beat" wx:for-index="beatIndex" class="beat">
@@ -114,8 +149,8 @@ module.exports = {
                     <view class="note-grid">
                       <!-- 右手音符（上） -->
                       <view class="note-box note-box-top">
-                        <view class="note-column">
-                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-right' : ''}}">
+                        <view class="note-column" style="gap: {{utils.getColumnGap(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-right' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -130,7 +165,7 @@ module.exports = {
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
-                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-right' : ''}}">
+                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-right' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -150,8 +185,8 @@ module.exports = {
 
                       <!-- 左手音符（下） -->
                       <view class="note-box note-box-bottom">
-                        <view class="note-column">
-                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-left' : ''}}">
+                        <view class="note-column" style="gap: {{utils.getColumnGap(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-left' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -166,7 +201,7 @@ module.exports = {
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
-                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-left' : ''}}">
+                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-left' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -190,11 +225,11 @@ module.exports = {
                   <view wx:if="{{beatIndex < measure.beats.length - 1 && !beat.barLineAfter}}" class="beat-line beat-line-right"></view>
 
                   <!-- 中间小节线（自定义拍子模式中的分组间分隔线，使用小节线样式） -->
-                  <view wx:if="{{beat.barLineAfter}}" class="bar-line bar-line-middle" style="{{(notation.style && notation.style.barLineHeight) ? 'height: ' + notation.style.barLineHeight + '%;' : ''}}"></view>
+                  <view wx:if="{{beat.barLineAfter}}" class="bar-line bar-line-middle"></view>
                 </view>
 
                 <!-- 小节线（右侧） -->
-                <view class="bar-line bar-line-right" style="{{(notation.style && notation.style.barLineHeight) ? 'height: ' + notation.style.barLineHeight + '%;' : ''}}"></view>
+                <view class="bar-line bar-line-right"></view>
               </view>
             </view>
             
@@ -460,89 +495,79 @@ module.exports = {
           <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
           <text class="settings-label">样式设置</text>
         </view>
-        <view class="settings-item-content">
-          <view class="line-count-row">
-            <text class="style-label">行数：</text>
-            <text class="settings-default-label">默认：{{orientation === 'landscape' ? 2 : 4}} 行</text>
-            <view class="module-line-input-group">
+        <view class="settings-item-content style-settings-content">
+          <!-- 行数设置 -->
+          <view class="style-setting-row">
+            <text class="style-label">行数</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 2 : 4}}</text>
               <input 
-                class="module-line-input"
+                class="style-input"
                 type="number"
                 value="{{moduleLineCount}}" 
                 placeholder="1-20"
                 bindinput="onModuleLineCountInput"
                 bindconfirm="confirmModuleLineCount"
                 bindblur="confirmModuleLineCount"
-                min="1"
-                max="20"
               />
-              <text class="input-hint">行</text>
+              <text class="style-unit">行</text>
             </view>
           </view>
           <view wx:if="{{moduleLineCountError}}" class="error-message">{{moduleLineCountError}}</view>
           
+          <!-- 单行高度设置 -->
           <view class="style-setting-row">
-            <view class="style-label-with-default">
-              <text class="style-label">小节线高度：</text>
-              <text class="settings-default-label">默认：100</text>
-            </view>
-            <view class="module-line-input-group">
+            <text class="style-label">单行高度</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认160</text>
               <input 
-                class="module-line-input"
+                class="style-input"
                 type="number"
-                value="{{moduleBarLineHeight}}" 
-                placeholder="50-200"
-                bindinput="onModuleBarLineHeightInput"
-                bindconfirm="confirmModuleBarLineHeight"
-                bindblur="confirmModuleBarLineHeight"
-                min="50"
-                max="200"
+                value="{{moduleMeasureHeight}}" 
+                placeholder="80-300"
+                bindinput="onModuleMeasureHeightInput"
+                bindconfirm="confirmModuleMeasureHeight"
+                bindblur="confirmModuleMeasureHeight"
               />
-              <text class="input-hint">%</text>
+              <text class="style-unit">rpx</text>
             </view>
           </view>
-          <view wx:if="{{moduleBarLineHeightError}}" class="error-message">{{moduleBarLineHeightError}}</view>
+          <view wx:if="{{moduleMeasureHeightError}}" class="error-message">{{moduleMeasureHeightError}}</view>
           
+          <!-- 音符字体大小设置 -->
           <view class="style-setting-row">
-            <view class="style-label-with-default">
-              <text class="style-label">音符字体大小：</text>
-              <text class="settings-default-label">默认：28rpx</text>
-            </view>
-            <view class="module-line-input-group">
+            <text class="style-label">音符字号</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认28</text>
               <input 
-                class="module-line-input"
+                class="style-input"
                 type="number"
                 value="{{moduleNoteFontSize}}" 
                 placeholder="14-50"
                 bindinput="onModuleNoteFontSizeInput"
                 bindconfirm="confirmModuleNoteFontSize"
                 bindblur="confirmModuleNoteFontSize"
-                min="14"
-                max="50"
               />
-              <text class="input-hint">rpx</text>
+              <text class="style-unit">rpx</text>
             </view>
           </view>
           <view wx:if="{{moduleNoteFontSizeError}}" class="error-message">{{moduleNoteFontSizeError}}</view>
           
+          <!-- 行间距设置 -->
           <view class="style-setting-row">
-            <view class="style-label-with-default">
-              <text class="style-label">行间距：</text>
-              <text class="settings-default-label">默认：65rpx</text>
-            </view>
-            <view class="module-line-input-group">
+            <text class="style-label">行间距</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认65</text>
               <input 
-                class="module-line-input"
+                class="style-input"
                 type="number"
                 value="{{moduleLineSpacing}}" 
                 placeholder="30-150"
                 bindinput="onModuleLineSpacingInput"
                 bindconfirm="confirmModuleLineSpacing"
                 bindblur="confirmModuleLineSpacing"
-                min="30"
-                max="150"
               />
-              <text class="input-hint">rpx</text>
+              <text class="style-unit">rpx</text>
             </view>
           </view>
           <view wx:if="{{moduleLineSpacingError}}" class="error-message">{{moduleLineSpacingError}}</view>
@@ -845,7 +870,63 @@ module.exports = {
       
       <view class="preview-actions">
         <button class="btn-secondary" bindtap="closeExportPreview">取消</button>
-        <button class="btn-primary" bindtap="saveExportImages">保存到相册</button>
+        <button class="btn-primary" bindtap="showExportFormatModal">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导出格式选择弹窗 -->
+  <view wx:if="{{showExportFormatPicker}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation" bindtap="closeExportFormatPicker">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-title">选择保存格式</view>
+      
+      <view class="export-format-options">
+        <view class="export-format-option" bindtap="saveAsImages">
+          <image class="format-icon" src="/assets/icons/download.png"></image>
+          <view class="format-info">
+            <text class="format-title">PNG 图片</text>
+            <text class="format-desc">保存{{exportPreviewImages.length}}张图片到相册</text>
+          </view>
+        </view>
+        
+        <view class="export-format-option" bindtap="saveAsPDF">
+          <image class="format-icon" src="/assets/icons/output.png"></image>
+          <view class="format-info">
+            <text class="format-title">PDF 文档</text>
+            <text class="format-desc">合并为单个PDF文件，便于打印分享</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeExportFormatPicker">取消</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- PDF导出成功弹窗 -->
+  <view wx:if="{{showPdfSuccessModal}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation" bindtap="closePdfSuccessModal">
+    <view class="modal-content pdf-success-modal" catchtap="stopPropagation">
+      <view class="pdf-success-header">
+        <image class="pdf-success-icon" src="/assets/icons/check.png"></image>
+        <text class="pdf-success-title">PDF导出成功</text>
+      </view>
+      
+      <view class="pdf-file-info">
+        <text class="pdf-file-name">{{exportedPdfFileName}}</text>
+        <text class="pdf-file-size">共 {{exportPreviewImages.length}} 页</text>
+      </view>
+      
+      <view class="pdf-action-buttons">
+        <view class="pdf-action-btn" bindtap="openExportedPdf">
+          <image class="pdf-action-icon" src="/assets/icons/library/文件夹-开_folder-open.png"></image>
+          <text class="pdf-action-text">打开</text>
+        </view>
+        
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-primary" bindtap="closePdfSuccessAndPreview">完成</button>
       </view>
     </view>
   </view>
@@ -931,7 +1012,7 @@ module.exports = {
   <!-- 保存模式选择弹窗 -->
   <view class="modal-overlay {{showSaveModeModal ? 'show' : ''}}" bindtap="closeSaveModeModal" wx:if="{{showSaveModeModal}}">
     <view class="modal-content" catchtap="stopPropagation">
-      <text class="modal-title">保存方式</text>
+      <text class="modal-title">保存方式</text><br/>
       <text class="modal-description">当前谱面来自曲库文件：{{libraryFileName}}</text>
       
       <view class="save-mode-buttons">

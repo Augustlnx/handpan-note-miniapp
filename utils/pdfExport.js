@@ -110,12 +110,12 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     
     // 获取样式设置来计算高度
     const style = notation.style || {};
-    const barLineHeightPercent = style.barLineHeight || 100;
+    const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
     const lineSpacing = style.lineSpacing || 65;
     const lineSpacingPx = Math.round(lineSpacing * 0.5);
     
-    const baseMeasureHeight = 70;
-    const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+    // 将rpx转换为px（假设1rpx ≈ 0.5px）
+    const measureHeight = Math.round(measureHeightRpx * 0.5);
     const rowGap = lineSpacingPx;
     
     const totalRowsHeight = (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap;
@@ -151,8 +151,10 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     preloadWatermarkImages(canvas).then(function(images) {
       var watermarkImg = images.watermarkImg;
       var bgImg = images.bgImg;
+      var brandingImg = images.brandingImg;
       addTopRightWatermarkWithLabel(ctx, watermarkImg, width, totalHeight);
       addCornerBackgroundImage(ctx, bgImg, width, totalHeight, 0.1);
+      addBottomCenterBranding(ctx, brandingImg, width, totalHeight);
       wx.canvasToTempFilePath({
         canvas,
         success: (res) => resolve(res.tempFilePath),
@@ -162,6 +164,7 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       console.warn('水印/背景图片加载失败，使用文字水印', readableError(err));
       // 回退为文字水印
       addTextWatermark(ctx, width / 2, totalHeight / 2);
+      addBottomCenterBranding(ctx, null, width, totalHeight);
       wx.canvasToTempFilePath({
         canvas,
         success: (res) => resolve(res.tempFilePath),
@@ -173,15 +176,16 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     preloadWatermarkImages(canvas).then(function(images) {
       var watermarkImg = images.watermarkImg;
       var bgImg = images.bgImg;
+      var brandingImg = images.brandingImg;
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-        rightHandColor, leftHandColor, resolve, reject, watermarkImg, bgImg);
+        rightHandColor, leftHandColor, resolve, reject, watermarkImg, bgImg, brandingImg);
     }).catch((err) => {
       console.warn('水印/背景图片加载失败，分页模式使用文字水印', readableError(err));
       // 图片加载失败则使用文字水印回退
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-        rightHandColor, leftHandColor, resolve, reject, null, null);
+        rightHandColor, leftHandColor, resolve, reject, null, null, null);
     });
   }
 }
@@ -217,7 +221,7 @@ function drawTitleBlock(ctx, mainTitle, subTitle, globalTempo, mainTitleColor, s
 function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow) {
   // 获取样式设置，默认值与界面保持一致
   const style = notation.style || {};
-  const barLineHeightPercent = style.barLineHeight || 100; // 默认100%
+  const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
   const noteFontSize = style.noteFontSize || 28; // 默认28rpx，转换为px约为14px
   const lineSpacing = style.lineSpacing || 65; // 默认65rpx，转换为px约为32.5px
   
@@ -225,9 +229,8 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
   const noteFontSizePx = Math.round(noteFontSize * 0.5);
   const lineSpacingPx = Math.round(lineSpacing * 0.5);
   
-  // 根据样式调整measure高度
-  const baseMeasureHeight = 70;
-  const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+  // 将rpx转换为px
+  const measureHeight = Math.round(measureHeightRpx * 0.5);
   const rowGap = lineSpacingPx; // 使用自定义行间距
   
   const measureCount = notation.measures ? notation.measures.length : 4;
@@ -265,7 +268,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
 function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel) {
   // 获取样式设置，默认值与界面保持一致
   const style = notation.style || {};
-  const barLineHeightPercent = style.barLineHeight || 100; // 默认100%
+  const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
   const noteFontSize = style.noteFontSize || 28; // 默认28rpx，转换为px约为14px
   const lineSpacing = style.lineSpacing || 65; // 默认65rpx，转换为px约为32.5px
   
@@ -273,9 +276,8 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
   const noteFontSizePx = Math.round(noteFontSize * 0.5);
   const lineSpacingPx = Math.round(lineSpacing * 0.5);
   
-  // 根据样式调整measure高度
-  const baseMeasureHeight = 70;
-  const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+  // 将rpx转换为px
+  const measureHeight = Math.round(measureHeightRpx * 0.5);
   const rowGap = lineSpacingPx; // 使用自定义行间距
   
   const measureCount = notation.measures ? notation.measures.length : 4;
@@ -323,7 +325,7 @@ function drawNotationSheet(ctx, notation, x, y, width, rightHandColor, leftHandC
 function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
                              mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
                              rightHandColor, leftHandColor, resolve, reject,
-                             watermarkImg, bgImg) {
+                             watermarkImg, bgImg, brandingImg) {
   const pageWidth = A4_WIDTH / dpr;
   const pageHeight = A4_HEIGHT / dpr;
   const leftMargin = CONTENT_PADDING / dpr;
@@ -375,12 +377,12 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     
     // 获取样式设置来计算高度
     const style = notation.style || {};
-    const barLineHeightPercent = style.barLineHeight || 100;
+    const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
     const lineSpacing = style.lineSpacing || 65;
     const lineSpacingPx = Math.round(lineSpacing * 0.5);
     
-    const baseMeasureHeight = 70;
-    const measureHeight = Math.round(baseMeasureHeight * (barLineHeightPercent / 100));
+    // 将rpx转换为px
+    const measureHeight = Math.round(measureHeightRpx * 0.5);
     const rowGap = lineSpacingPx;
     
     let rowStart = 0;
@@ -487,6 +489,8 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
       // 图片都不可用时回退文字
       addTextWatermark(ctx, pageWidth / 2, pageHeight / 2);
     }
+    // 底部居中添加 Orbit Note 品牌标识
+    addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight);
     
     // 导出当前页
     wx.canvasToTempFilePath({
@@ -506,7 +510,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
 }
 
 /**
- * 预加载水印与背景图片
+ * 预加载水印、背景图片和品牌 Logo
  */
 function preloadWatermarkImages(canvas) {
   var wmCandidates = [
@@ -521,11 +525,18 @@ function preloadWatermarkImages(canvas) {
     '../../assets/img/bg2.png',
     '../assets/img/bg2.png'
   ];
+  var brandingCandidates = [
+    '/assets/img/logo3.png',
+    'assets/img/logo3.png',
+    '../../assets/img/logo3.png',
+    '../assets/img/logo3.png'
+  ];
   return Promise.all([
     resolveImageFromCandidates(canvas, wmCandidates),
-    resolveImageFromCandidates(canvas, bgCandidates)
+    resolveImageFromCandidates(canvas, bgCandidates),
+    resolveImageFromCandidates(canvas, brandingCandidates).catch(function() { return null; })
   ]).then(function(results){
-    return { watermarkImg: results[0], bgImg: results[1] };
+    return { watermarkImg: results[0], bgImg: results[1], brandingImg: results[2] };
   });
 }
 
@@ -684,6 +695,37 @@ function addTextWatermark(ctx, centerX, centerY) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('Handpan Note', centerX, centerY);
+  ctx.restore();
+}
+
+/**
+ * 底部居中添加品牌 Logo 图片
+ * 使用 logo3.png 替代文字
+ */
+function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight) {
+  if (!brandingImg) {
+    // 如果图片加载失败，回退到文字方式
+    ctx.save();
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#DBCC97';
+    ctx.font = 'italic 28px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Orbit Note', pageWidth / 2, pageHeight - 20);
+    ctx.restore();
+    return;
+  }
+  
+  // 绘制品牌 Logo 图片
+  ctx.save();
+  // 图片高度固定为 24px，宽度按比例缩放
+  var imgHeight = 24;
+  var aspect = brandingImg.width / brandingImg.height;
+  var imgWidth = imgHeight * aspect;
+  // 水平居中，距离底部 15px
+  var x = (pageWidth - imgWidth) / 2;
+  var y = pageHeight - imgHeight - 15;
+  ctx.drawImage(brandingImg, x, y, imgWidth, imgHeight);
   ctx.restore();
 }
 
@@ -852,6 +894,156 @@ function downloadPDF(fileID) {
 module.exports = {
   exportNotationToPNG,
   exportNotationToPDF,
-  downloadPDF
+  downloadPDF,
+  imagesToPDF
 };
+
+/**
+ * 将多张图片转换为 PDF 文件
+ * 使用 pdf-lib 库（需要先在微信开发者工具中执行"构建 npm"）
+ * @param {Array<string>} imagePaths - 图片临时路径数组
+ * @param {string} fileName - 输出文件名
+ * @returns {Promise<string>} - PDF文件路径
+ */
+async function imagesToPDF(imagePaths, fileName) {
+  if (!imagePaths || imagePaths.length === 0) {
+    throw new Error('没有图片可导出');
+  }
+  
+  console.log('开始生成PDF，图片数量:', imagePaths.length);
+  console.log('图片路径:', imagePaths);
+  
+  try {
+    // 动态导入 pdf-lib（需要先构建 npm）
+    let PDFDocument;
+    try {
+      const pdfLib = require('pdf-lib');
+      PDFDocument = pdfLib.PDFDocument;
+      console.log('pdf-lib 加载成功');
+    } catch (e) {
+      console.error('pdf-lib 导入失败:', e);
+      throw new Error('请先在微信开发者工具中执行"工具 -> 构建 npm"');
+    }
+    
+    // 创建 PDF 文档
+    const pdfDoc = await PDFDocument.create();
+    let successCount = 0;
+    
+    // 逐个处理图片
+    for (let i = 0; i < imagePaths.length; i++) {
+      const imagePath = imagePaths[i];
+      console.log(`处理第${i + 1}张图片:`, imagePath);
+      
+      try {
+        // 读取图片文件为 ArrayBuffer
+        const imageData = await readFileAsArrayBuffer(imagePath);
+        console.log(`图片${i + 1}读取成功，大小:`, imageData.byteLength);
+        
+        // 转换为 Uint8Array（pdf-lib 需要这个格式）
+        const uint8Array = new Uint8Array(imageData);
+        console.log(`转换为 Uint8Array，长度:`, uint8Array.length);
+        
+        // 微信小程序 Canvas 导出的临时文件通常是 PNG 格式
+        // 但文件路径可能没有扩展名，需要尝试两种格式
+        let image;
+        try {
+          // 先尝试 PNG
+          image = await pdfDoc.embedPng(uint8Array);
+          console.log(`图片${i + 1}作为PNG嵌入成功`);
+        } catch (pngErr) {
+          console.log(`PNG嵌入失败，尝试JPG:`, pngErr.message);
+          try {
+            // PNG 失败则尝试 JPG
+            image = await pdfDoc.embedJpg(uint8Array);
+            console.log(`图片${i + 1}作为JPG嵌入成功`);
+          } catch (jpgErr) {
+            console.error(`图片${i + 1}嵌入失败:`, jpgErr.message);
+            throw new Error('不支持的图片格式');
+          }
+        }
+        
+        // 计算页面尺寸
+        // A4 尺寸 (points): 595.28 x 841.89
+        // 保持图片比例
+        const imgWidth = image.width;
+        const imgHeight = image.height;
+        const pageWidth = 595.28;
+        const pageHeight = (imgHeight / imgWidth) * pageWidth;
+        
+        console.log(`图片${i + 1}尺寸: ${imgWidth}x${imgHeight}, 页面尺寸: ${pageWidth}x${pageHeight}`);
+        
+        // 添加页面并绘制图片
+        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: pageWidth,
+          height: pageHeight
+        });
+        
+        successCount++;
+        console.log(`第${i + 1}张图片处理成功`);
+      } catch (imgErr) {
+        console.error(`处理第${i + 1}张图片失败:`, imgErr);
+        // 继续处理其他图片
+      }
+    }
+    
+    console.log(`成功处理 ${successCount}/${imagePaths.length} 张图片`);
+    
+    // 检查是否有成功添加的页面
+    if (pdfDoc.getPageCount() === 0) {
+      throw new Error('没有成功处理任何图片');
+    }
+    
+    // 保存 PDF 为 Uint8Array
+    console.log('开始保存PDF...');
+    const pdfBytes = await pdfDoc.save();
+    console.log('PDF生成成功，大小:', pdfBytes.length);
+    
+    // 写入文件
+    const fs = wx.getFileSystemManager();
+    const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+    
+    return new Promise((resolve, reject) => {
+      fs.writeFile({
+        filePath: filePath,
+        data: pdfBytes.buffer,
+        success: () => {
+          console.log('PDF文件保存成功:', filePath);
+          resolve(filePath);
+        },
+        fail: (err) => {
+          console.error('写入PDF文件失败:', err);
+          reject(new Error('写入PDF文件失败: ' + readableError(err)));
+        }
+      });
+    });
+    
+  } catch (err) {
+    console.error('PDF生成失败:', err);
+    throw err;
+  }
+}
+
+/**
+ * 读取文件为 ArrayBuffer
+ */
+function readFileAsArrayBuffer(filePath) {
+  return new Promise((resolve, reject) => {
+    const fs = wx.getFileSystemManager();
+    fs.readFile({
+      filePath: filePath,
+      encoding: '', // 不指定编码，返回 ArrayBuffer
+      success: (res) => {
+        console.log('文件读取成功，数据类型:', typeof res.data, res.data instanceof ArrayBuffer);
+        resolve(res.data);
+      },
+      fail: (err) => {
+        console.error('读取文件失败:', err);
+        reject(new Error('读取图片失败: ' + readableError(err)));
+      }
+    });
+  });
+}
 
