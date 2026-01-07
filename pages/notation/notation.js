@@ -116,6 +116,9 @@ Page({
     libraryFileName: null, // 文件名
     showSaveModeModal: false, // 保存模式选择弹窗
     
+    // 存储状态显示
+    storageDisplay: '未保存', // 显示的存储位置，如 "文件夹/文件名" 或 "文件夹/文件名（未保存）" 或 "未保存"
+    
     // 分页相关
     currentPage: 0, // 当前页码
     pages: [], // 每页的modules列表 [{modules: [...], startMeasureCount: 0}, ...]
@@ -173,6 +176,7 @@ Page({
       this.applyLibraryPayload(pending);
     } else {
       wx.hideLoading();
+      this.updateStorageDisplay(false); // 更新存储显示
     }
   },
 
@@ -211,6 +215,7 @@ Page({
         wx.showToast({ title: `载入失败: ${result.message}`, icon: 'none' });
       }
       this.calculatePages();
+      this.updateStorageDisplay(false); // 更新存储显示
       wx.hideLoading();
       this.hidePageLoadingOverlay();
     });
@@ -867,6 +872,7 @@ Page({
     const withOffsets = that.updateMeasureOffsets(rebuilt);
     that.saveNotationsScoped(withOffsets);
     that.setNotations(withOffsets);
+    that.markNotationChanged(); // 标记为有更改（未保存）
     wx.showToast({ title: '已清空谱面', icon: 'success' });
   },
 
@@ -2183,6 +2189,7 @@ Page({
     // 异步保存
     setTimeout(() => {
       this.saveNotationsScoped(this.data.notations);
+      this.markNotationChanged(); // 标记为有更改
     }, 100);
   },
 
@@ -2268,6 +2275,13 @@ Page({
   // 阻止冒泡
   stopPropagation() {},
 
+  // 清除编辑状态（点击空白区域时调用）
+  clearEditing() {
+    if (this.data.editing) {
+      this.setData({ editing: null, editingValue: '' });
+    }
+  },
+
   // 导出选择
   exportPDF() {
     // 直接打开新的导出选项
@@ -2348,6 +2362,7 @@ Page({
       const success = libraryManager.updateFile(this.data.libraryFileId, updatePayload);
       if (success) {
         wx.showToast({ title: '已更新原文件', icon: 'success' });
+        this.markNotationSaved(); // 标记为已保存
       } else {
         wx.showToast({ title: '未找到原文件', icon: 'none' });
       }
@@ -2395,6 +2410,15 @@ Page({
       const created = libraryManager.addFile(this.data.saveTargetPath || [], payload);
       wx.setStorageSync('latest_notation_snapshot_for_library', created);
       wx.showToast({ title: `已保存：${created.file_name}`, icon: 'success' });
+      
+      // 更新当前文件的library关联信息
+      this.setData({
+        libraryFileId: created.id,
+        libraryFilePath: created.path,
+        libraryFileName: created.file_name
+      });
+      this.markNotationSaved(); // 标记为已保存
+      
       this.closeSaveToLibraryModal(true);
     } catch (err) {
       wx.showToast({ title: '保存失败: ' + err.message, icon: 'none' });
@@ -4251,19 +4275,67 @@ Page({
     // 阻止事件冒泡
   },
 
-  // ========== 开屏弹窗相关方法 ==========
+  // ========== 存储状态显示相关方法 ==========
 
-  // 检查是否需要显示开屏弹窗
-  checkAndShowSplashModal() {
-    const dismissed = wx.getStorageSync('splashModalDismissed');
-    if (!dismissed) {
-      this.setData({ showSplashModal: true });
+  // 更新存储状态显示
+  updateStorageDisplay(hasUnsavedChanges = false) {
+    let display = '未保存';
+    
+    if (this.data.libraryFileId && this.data.libraryFileName) {
+      // 构建路径字符串
+      const pathNames = [];
+      if (this.data.libraryFilePath && this.data.libraryFilePath.length > 0) {
+        for (const folderId of this.data.libraryFilePath) {
+          const folder = libraryManager.getFolderById(folderId);
+          if (folder && folder.name) {
+            // 检查是否是ID格式（时间戳_随机串），如果是则跳过或使用默认名称
+            if (/^\d+_[a-z0-9]+$/.test(folder.name)) {
+              pathNames.push('文件夹'); // 使用默认名称
+            } else {
+              pathNames.push(folder.name);
+            }
+          } else {
+            pathNames.push('文件夹'); // 默认名称
+          }
+        }
+      }
+      
+      // 添加文件名
+      pathNames.push(this.data.libraryFileName);
+      
+      // 构建显示字符串
+      display = pathNames.join('/');
+      
+      // 如果有未保存的更改，添加后缀
+      if (hasUnsavedChanges) {
+        display += '（未保存）';
+      }
     }
+    
+    this.setData({ storageDisplay: display });
+  },
+
+  // 标记谱面有更改（用于显示未保存状态）
+  markNotationChanged() {
+    this.updateStorageDisplay(true);
+  },
+
+  // 标记谱面已保存（移除未保存状态）
+  markNotationSaved() {
+    this.updateStorageDisplay(false);
   },
 
   // 关闭开屏弹窗
   closeSplashModal() {
     this.setData({ showSplashModal: false });
+  },
+
+  // 检查是否显示开屏弹窗
+  checkAndShowSplashModal() {
+    const dismissed = wx.getStorageSync('splashModalDismissed');
+    if (!dismissed) {
+      this.setData({ showSplashModal: true });
+    }
   },
 
   // 开屏弹窗：不再显示
@@ -4296,6 +4368,31 @@ Page({
         }
       });
     }, 200);
+  },
+
+  // ========== 分享功能 ==========
+
+  // 分享给好友
+  onShareAppMessage() {
+    const title = this.data.mainTitle || 'Handpan Note 记谱';
+    const code = this.generateNotationCode();
+    
+    return {
+      title: `${title} - Handpan Note`,
+      path: '/pages/notation/notation',
+      // 可以传递当前谱面的代码作为参数，但由于长度限制，这里只传递基本信息
+      // 实际分享时会使用小程序的默认分享
+    };
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    const title = this.data.mainTitle || 'Handpan Note 记谱';
+    
+    return {
+      title: `${title} - Handpan Note`,
+      // 朋友圈分享不支持path参数
+    };
   }
 });
 

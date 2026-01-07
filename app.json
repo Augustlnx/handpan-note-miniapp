@@ -15,7 +15,9 @@
     "navigationBarBackgroundColor": "#304859",
     "navigationBarTitleText": "Handpan Note",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#fffffff1"
+    "backgroundColor": "#fffffff1",
+    "enableShareAppMessage": true,
+    "enableShareTimeline": true
   },
   "tabBar": {
     "color": "black",

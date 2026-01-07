@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "Orbit Note",
+  "navigationStyle": "custom",
   "pageOrientation": "auto",
   "onReachBottomDistance": 50,
   "usingComponents": {}

@@ -1,5 +1,12 @@
 
-<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}}">
+<!-- 自定义导航栏 -->
+<view class="custom-nav-bar">
+  <view class="nav-bar-content">
+    <text class="nav-bar-title">Orbit Note</text>
+  </view>
+</view>
+
+<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}}" catchtap="clearEditing">
   <!-- 背景图片装饰（固定右下角，半透明，层级低于菜单栏） -->
   <image class="background-image" src="/assets/img/bg2.png" mode="widthFix" style="opacity: {{backgroundOpacity}}"></image>
   
@@ -35,6 +42,13 @@
         <view class="header-help-wrap" catchtap="showTimeSignatureHelp">
           <image class="header-help-icon" src="/assets/icons/help.png"></image>
         </view>
+      </view>
+
+      <!-- 存储位置 -->
+      <view class="header-action-row">
+        <image class="header-action-icon" src="/assets/icons/location.png"></image>
+        <text class="header-action-label">存储：</text>
+        <text class="header-action-value">{{storageDisplay}}</text>
       </view>
     </view>
 
@@ -861,12 +875,11 @@
       </view>
 
       <!-- Logo 图片 -->
-      <image class="splash-logo" src="/assets/img/logo1.png" mode="aspectFit"></image>
-
+      <image class="splash-logo" src="/assets/img/logo5.webp"></image>
       <!-- 弹窗描述 -->
       <view class="splash-description">
         <text class="splash-text">Orbit Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
-        <text class="splash-text">谱面为前端渲染，部分数据加载可能较慢，请耐心等待啦。导出图片有可能因为缓存失败，可以尝试重启一下小程序多尝试几次。欢迎分享给其他朋友使用~</text>
+        <text class="splash-text">谱面为前端渲染，部分数据加载可能较慢，请耐心等待啦。导出图片有可能因为缓存失败，可以尝试点击“右上角的更多-重新进入小程序”多尝试几次。欢迎分享给其他朋友使用~</text>
         <text class="splash-text"></text>
       </view>
 

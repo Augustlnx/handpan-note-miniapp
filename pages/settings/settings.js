@@ -179,5 +179,22 @@ Page({
   },
 
   // 阻止冒泡
-  stopPropagation() {}
+  stopPropagation() {},
+
+  // ========== 分享功能 ==========
+
+  // 分享给好友
+  onShareAppMessage() {
+    return {
+      title: 'Handpan Note 设置 - 个性化配置',
+      path: '/pages/settings/settings'
+    };
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: 'Handpan Note 设置 - 个性化配置'
+    };
+  }
 });

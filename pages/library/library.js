@@ -403,12 +403,12 @@ Page({
 
         // 创建默认谱面数据（空模块 A-1，四行占位）
         const defaultCode = `\\begin{module}{A-1}
-      [----|----|----|----]\\
-      [----|----|----|----]\\
-      [----|----|----|----]\\
-      [----|----|----|----]
-      \\end{module}
-      `;
+[----|----|----|----]\\\\
+[----|----|----|----]\\\\
+[----|----|----|----]\\\\
+[----|----|----|----]
+\\end{module}
+`;
 
         const newFile = {
           file_name: name,
@@ -807,5 +807,22 @@ Page({
 
   stopPropagation() {
     // 阻止事件冒泡
+  },
+
+  // ========== 分享功能 ==========
+
+  // 分享给好友
+  onShareAppMessage() {
+    return {
+      title: 'Handpan Note 曲库 - 发现更多手碟音乐',
+      path: '/pages/library/library'
+    };
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: 'Handpan Note 曲库 - 发现更多手碟音乐'
+    };
   }
 });

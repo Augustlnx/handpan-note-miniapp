@@ -212,5 +212,22 @@ Page({
       this.lowAudioCtx.destroy();
       this.lowAudioCtx = null;
     }
+  },
+
+  // ========== 分享功能 ==========
+
+  // 分享给好友
+  onShareAppMessage() {
+    return {
+      title: 'Handpan Note 节拍器 - 精准的练习工具',
+      path: '/pages/metronome/metronome'
+    };
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: 'Handpan Note 节拍器 - 精准的练习工具'
+    };
   }
 })

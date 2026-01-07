@@ -4,6 +4,8 @@
   padding: 40rpx 30rpx 200rpx;
   position: relative;
   overflow: hidden;
+  /* 使用全局自定义导航栏样式 */
+  padding-top: 128rpx; /* 为自定义导航栏留出空间 (88rpx + 40rpx) */
 }
 
 /* 背景图片装饰（固定右下角，半透明，不随滚动改变，低于菜单栏） */
@@ -22,9 +24,9 @@
 .header-section {
   text-align: center;
   margin-bottom: 20rpx;
-  margin-top: -40rpx; 
+  margin-top: 0rpx; 
   background-color: white;
-  padding: 40rpx 40rpx 5rpx 40rpx;
+  padding: 0rpx 40rpx 5rpx 40rpx;
   border-radius: 6rpx;
   position: relative;
   width: 100%;
@@ -554,7 +556,7 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 32rpx;
+  gap: 12rpx;
   align-items: center;
   z-index: 105;
   padding: 24rpx 40rpx;
@@ -562,7 +564,7 @@
   border-radius: 60rpx;
   box-shadow: 0 8rpx 24rpx rgba(49, 77, 99, 0.15);
   animation: slideUp 0.3s ease-out;
-  max-width: 90vw; /* 自适应页面宽度 */
+  max-width: 100vw; /* 自适应页面宽度 */
   box-sizing: border-box;
 }
 
@@ -2059,6 +2061,7 @@
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
   opacity: 1;
   transform: translateX(0);
+  padding-top: 50rpx;
 }
 
 /* 页面切换：淡出 */
@@ -2283,7 +2286,7 @@
 
 .splash-title {
   display: block;
-  font-size: 40rpx;
+  font-size: 50rpx;
   font-weight: bold;
   color: #314D63;
   margin-bottom: 8rpx;
@@ -2291,9 +2294,10 @@
 
 .splash-subtitle {
   display: block;
-  font-size: 32rpx;
+  font-size: 40rpx;
   font-weight: 600;
   color: #DBCC97;
+  font-family: 'Tangerine', sans-serif;
 }
 
 .splash-logo {

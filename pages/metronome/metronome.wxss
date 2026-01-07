@@ -4,6 +4,8 @@
   background-color: #ffffffcf;
   position: relative;
   overflow: hidden;
+  /* 使用全局自定义导航栏样式 */
+  padding-top: 168rpx; /* 为自定义导航栏留出空间 (88rpx + 40rpx) */
 }
 
 /* 背景图片装饰 */

@@ -1,9 +1,11 @@
 .settings-container {
   min-height: 100vh;
-  padding: 40rpx;
+  padding: 100rpx 40rpx;
   background-color: #fffffff1;
   position: relative;
   overflow: hidden;
+  /* 使用全局自定义导航栏样式 */
+  padding-top: 168rpx; /* 为自定义导航栏留出空间 (88rpx + 40rpx) */
 }
 
 /* 背景图片装饰 */
@@ -42,6 +44,14 @@
 .setting-title {
   display: block;
   font-size: 32rpx;
+  font-weight: bold;
+  color: #314D63;
+  margin-bottom: 30rpx;
+}
+
+.about-title {
+  display: block;
+  font-size: 40rpx;
   font-weight: bold;
   color: #314D63;
   margin-bottom: 30rpx;
@@ -136,9 +146,11 @@
 
 .about-text {
   display: block;
-  font-size: 26rpx;
-  color: #8FB9AB;
+  font-size: 35rpx;
+  color: #DBCC97;
   margin-top: 15rpx;
+  font-family: 'Tangerine', sans-serif;
+  font-weight: bold;
 }
 
 .about-links {
@@ -146,6 +158,13 @@
   justify-content: center;
   gap: 40rpx;
   margin-top: 30rpx;
+}
+
+.about-logo {
+  width: 400rpx;
+  height: 400rpx;
+  margin: 30rpx auto 0; /* 上30rpx，左右自动（水平居中），下0 */
+  display: block;
 }
 
 .about-link {

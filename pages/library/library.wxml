@@ -1,3 +1,10 @@
+<!-- 自定义导航栏 -->
+<view class="custom-nav-bar">
+  <view class="nav-bar-content">
+    <text class="nav-bar-title">Orbit Note</text>
+  </view>
+</view>
+
 <!-- 曲库页面 -->
 <view class="library-container">
   <!-- 顶部标签方框 -->

@@ -1,3 +1,10 @@
+<!-- 自定义导航栏 -->
+<view class="custom-nav-bar">
+  <view class="nav-bar-content">
+    <text class="nav-bar-title">Orbit Note</text>
+  </view>
+</view>
+
 <view class="settings-container">
   <!-- 背景图片装饰 -->
   <image class="background-image" src="/assets/img/bg2.png" mode="widthFix"></image>
@@ -72,9 +79,9 @@
 
   <!-- 关于 -->
   <view class="card about-section">
-    <text class="setting-title">关于</text>
-    <text class="about-text">Handpan Note v2.0</text>
-    <text class="about-text">手碟记谱工具</text>    <view class="about-links">
+    <text class="about-title">关于</text>
+    <text class="about-text"> </text>
+    <text class="about-text">Orbit Note 星轨手碟记谱 v3.0.2</text>    <view class="about-links">
       <view class="about-link" bindtap="showUserManual">
         <image class="about-icon" src="/assets/icons/problem.png"></image>
         <text>用户手册</text>
@@ -84,6 +91,7 @@
         <text>更新日志</text>
       </view>
     </view>
+    <image class="about-logo" src="/assets/img/logo5.webp"></image>
   </view>
 
   <!-- 用户手册弹窗 -->

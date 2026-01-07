@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "Orbit Note",
+  "navigationStyle": "custom",
   "usingComponents": {}
 }

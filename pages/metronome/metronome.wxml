@@ -1,3 +1,10 @@
+<!-- 自定义导航栏 -->
+<view class="custom-nav-bar">
+  <view class="nav-bar-content">
+    <text class="nav-bar-title">Orbit Note</text>
+  </view>
+</view>
+
 <view class="metronome-container">
   <!-- 背景图片装饰 -->
   <image class="background-image" src="/assets/img/bg2.png" mode="widthFix"></image>
