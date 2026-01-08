@@ -48,6 +48,8 @@ Page({
   },
 
   onLoad() {
+    // 初始化示例数据（仅首次使用时）
+    libraryManager.initSampleData();
     this.loadLibraryData();
   },
 

@@ -178,6 +178,26 @@ Page({
     this.setData({ showChangelog: false });
   },
 
+  // 清除缓存
+  clearCache() {
+    wx.showModal({
+      title: '确认清除',
+      content: '确定要清除所有缓存数据吗？此操作不可撤销。',
+      success: (res) => {
+        if (res.confirm) {
+          wx.clearStorageSync();
+          wx.showToast({
+            title: '缓存已清除，请重新启动小程序',
+            icon: 'none',
+            duration: 3000
+          });
+          // 清除后重新加载设置
+          this.loadSettings();
+        }
+      }
+    });
+  },
+
   // 阻止冒泡
   stopPropagation() {},
 

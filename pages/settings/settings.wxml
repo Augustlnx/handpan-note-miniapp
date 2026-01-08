@@ -81,7 +81,7 @@
   <view class="card about-section">
     <text class="about-title">关于</text>
     <text class="about-text"> </text>
-    <text class="about-text">Orbit Note 星轨手碟记谱 v3.0.2</text>    <view class="about-links">
+    <text class="about-text">Orbit Note 星轨手碟记谱 v3.1.1</text>    <view class="about-links">
       <view class="about-link" bindtap="showUserManual">
         <image class="about-icon" src="/assets/icons/problem.png"></image>
         <text>用户手册</text>
@@ -90,8 +90,12 @@
         <image class="about-icon" src="/assets/icons/calendar.png"></image>
         <text>更新日志</text>
       </view>
+      <view class="about-link" bindtap="clearCache">
+        <image class="about-icon" src="/assets/icons/refresh.png"></image>
+        <text>清除缓存</text>
+      </view>
     </view>
-    <image class="about-logo" src="/assets/img/logo5.webp"></image>
+    <image class="about-logo" src="/assets/img/logo5.png"></image>
   </view>
 
   <!-- 用户手册弹窗 -->
@@ -212,7 +216,7 @@
           
 
           <view class="changelog-item">
-            <text class="version-tag future">v2.1.0 （计划中）</text>
+            <text class="version-tag future">v?.?.? （计划中）</text>
             <view class="changelog-content">
               <text class="change-title">🔮 可能推出</text>
               <text class="change-text">• 云同步功能</text>

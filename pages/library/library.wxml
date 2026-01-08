@@ -34,7 +34,7 @@
     <!-- 工具栏 -->
     <view class="toolbar">
       <view class="breadcrumb">
-        <text class="breadcrumb-item" bindtap="navigateToRoot">根目录</text>
+        <text class="breadcrumb-item" bindtap="navigateToRoot">主目录</text>
         <block wx:for="{{breadcrumbs}}" wx:key="index">
           <text class="breadcrumb-separator">/</text>
           <text class="breadcrumb-item" bindtap="navigateToFolder" data-index="{{index}}">{{item.name}}</text>
@@ -88,7 +88,7 @@
       <!-- 文件夹和文件列表 -->
       <block wx:for="{{displayItems}}" wx:key="id">
           <!-- 文件夹项 -->
-          <view class="list-item folder-item" wx:if="{{item.type === 'folder'}}" bindtap="enterFolder" data-item="{{item}}" bindlongpress="showItemMenu" data-item="{{item}}">
+          <view class="list-item folder-item" wx:if="{{item.type === 'folder'}}" catchtap="enterFolder" data-item="{{item}}" bindlongpress="showItemMenu" data-item="{{item}}">
           <view class="item-checkbox" wx:if="{{editMode}}" catchtap="toggleSelect" data-id="{{item.id}}">
             <view class="checkbox {{item.selected ? 'checked' : ''}}"></view>
           </view>
@@ -104,7 +104,7 @@
 
        
         <!-- 文件项 -->
-        <view class="list-item file-item" wx:if="{{item.type === 'file'}}" bindtap="openFile" data-item="{{item}}" bindlongpress="showItemMenu" data-item="{{item}}">
+        <view class="list-item file-item" wx:if="{{item.type === 'file'}}" catchtap="openFile" data-item="{{item}}" bindlongpress="showItemMenu" data-item="{{item}}">
           <view class="item-checkbox" wx:if="{{editMode}}" catchtap="toggleSelect" data-id="{{item.id}}">
             <view class="checkbox {{item.selected ? 'checked' : ''}}"></view>
           </view>
@@ -195,7 +195,7 @@
       <scroll-view class="folder-list" scroll-y>
         <view class="folder-option" bindtap="selectTargetFolder" data-path="[]">
           <image class="folder-icon-img" src="/assets/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
-          <text class="folder-name">根目录</text>
+          <text class="folder-name">主目录</text>
         </view>
         <view class="folder-option" wx:for="{{allFolders}}" wx:key="id" bindtap="selectTargetFolder" data-path="{{item.path}}">
           <image class="folder-icon-img" src="/assets/icons/library/文件夹-开_folder-open.png" mode="aspectFit"></image>
@@ -221,7 +221,7 @@
 
       <view class="save-path-bar">
         <view class="save-breadcrumb">
-          <text class="save-breadcrumb-item" bindtap="navigateImportRoot">根目录</text>
+          <text class="save-breadcrumb-item" bindtap="navigateImportRoot">主目录</text>
           <block wx:for="{{importFolderBreadcrumbs}}" wx:key="id">
             <text class="save-breadcrumb-separator">/</text>
             <text class="save-breadcrumb-item" bindtap="navigateImportBreadcrumb" data-index="{{index}}">{{item.name}}</text>

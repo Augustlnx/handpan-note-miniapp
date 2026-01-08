@@ -246,13 +246,15 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
   const measureWidth = width / measuresPerRow;
   
   // 绘制谱面小节
+  const measureOffset = notation.measureOffset || 0;
   notation.measures.forEach((measure, mIdx) => {
     const rowIdx = Math.floor(mIdx / measuresPerRow);
     const colIdx = mIdx % measuresPerRow;
     const measureX = x + (colIdx * measureWidth);
     const measureY = currentY + (rowIdx * (measureHeight + rowGap));
+    const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor, 
-                measureHeight, noteFontSizePx);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow);
   });
   
   const sectionHeight = 25 + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + 15;
@@ -297,14 +299,16 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
   const startMeasureIndex = rowStart * measuresPerRow;
   const endMeasureIndex = Math.min(measureCount, startMeasureIndex + drawRows * measuresPerRow);
 
+  const measureOffset = notation.measureOffset || 0;
   for (let mIdx = startMeasureIndex; mIdx < endMeasureIndex; mIdx++) {
     const localIndex = mIdx - startMeasureIndex;
     const rowIdx = Math.floor(localIndex / measuresPerRow);
     const colIdx = localIndex % measuresPerRow;
     const measureX = x + (colIdx * measureWidth);
     const measureY = y + (rowIdx * (measureHeight + rowGap));
+    const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor,
-                measureHeight, noteFontSizePx);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow);
   }
 
   const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + 15;
@@ -737,7 +741,7 @@ function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight) {
  * - 左手第一个轨道：70%
  * - 左手第二个轨道：90%
  */
-function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx) {
+function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow) {
   const beatCount = Array.isArray(measure.beats) ? measure.beats.length : 4;
   const beatWidth = width / (beatCount || 4);
   const lineHeight = measureHeight || 70; // 使用传入的高度或默认值
@@ -747,6 +751,23 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
   const trackRightHand2 = 0.43;   // 43%
   const trackLeftHand1 = 0.7;     // 70%
   const trackLeftHand2 = 0.9;     // 90%
+  
+  // 绘制小节编号（在左侧小节线附近）
+  if (typeof measureIndex === 'number') {
+    ctx.fillStyle = '#9AA0A6';
+    const isMultiMeasure = measuresPerRow && measuresPerRow > 1;
+    if (isMultiMeasure) {
+      // 多小节模式：编号在左侧小节线正上方
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(measureIndex), x + 6, y - 5);
+    } else {
+      // 单小节模式：编号在左侧小节线左边
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(String(measureIndex), x - 4, y + lineHeight / 2 + 4);
+    }
+  }
   
   // 小节线（左侧）
   ctx.strokeStyle = '#000000';
@@ -903,17 +924,31 @@ module.exports = {
  * 使用 pdf-lib 库（需要先在微信开发者工具中执行"构建 npm"）
  * @param {Array<string>} imagePaths - 图片临时路径数组
  * @param {string} fileName - 输出文件名
+ * @param {Function} onProgress - 进度回调函数 (percent, stage) => boolean，返回false表示取消
  * @returns {Promise<string>} - PDF文件路径
  */
-async function imagesToPDF(imagePaths, fileName) {
+async function imagesToPDF(imagePaths, fileName, onProgress) {
   if (!imagePaths || imagePaths.length === 0) {
     throw new Error('没有图片可导出');
   }
+  
+  // 默认进度回调（不做任何事）
+  const reportProgress = onProgress || (() => true);
+  
+  // 检查是否取消
+  const checkCancelled = (percent, stage) => {
+    const shouldContinue = reportProgress(percent, stage);
+    if (shouldContinue === false) {
+      throw new Error('USER_CANCELLED');
+    }
+  };
   
   console.log('开始生成PDF，图片数量:', imagePaths.length);
   console.log('图片路径:', imagePaths);
   
   try {
+    checkCancelled(5, '正在加载PDF库...');
+    
     // 动态导入 pdf-lib（需要先构建 npm）
     let PDFDocument;
     try {
@@ -925,19 +960,28 @@ async function imagesToPDF(imagePaths, fileName) {
       throw new Error('请先在微信开发者工具中执行"工具 -> 构建 npm"');
     }
     
+    checkCancelled(10, '正在创建PDF文档...');
+    
     // 创建 PDF 文档
     const pdfDoc = await PDFDocument.create();
     let successCount = 0;
+    const totalImages = imagePaths.length;
     
     // 逐个处理图片
-    for (let i = 0; i < imagePaths.length; i++) {
+    for (let i = 0; i < totalImages; i++) {
       const imagePath = imagePaths[i];
+      const basePercent = 10 + Math.floor((i / totalImages) * 70); // 10-80%
+      
+      checkCancelled(basePercent, `正在处理第 ${i + 1}/${totalImages} 页...`);
+      
       console.log(`处理第${i + 1}张图片:`, imagePath);
       
       try {
         // 读取图片文件为 ArrayBuffer
         const imageData = await readFileAsArrayBuffer(imagePath);
         console.log(`图片${i + 1}读取成功，大小:`, imageData.byteLength);
+        
+        checkCancelled(basePercent + 2, `正在嵌入第 ${i + 1}/${totalImages} 页...`);
         
         // 转换为 Uint8Array（pdf-lib 需要这个格式）
         const uint8Array = new Uint8Array(imageData);
@@ -984,6 +1028,9 @@ async function imagesToPDF(imagePaths, fileName) {
         successCount++;
         console.log(`第${i + 1}张图片处理成功`);
       } catch (imgErr) {
+        if (imgErr.message === 'USER_CANCELLED') {
+          throw imgErr;
+        }
         console.error(`处理第${i + 1}张图片失败:`, imgErr);
         // 继续处理其他图片
       }
@@ -996,10 +1043,14 @@ async function imagesToPDF(imagePaths, fileName) {
       throw new Error('没有成功处理任何图片');
     }
     
+    checkCancelled(85, '正在生成PDF文件...');
+    
     // 保存 PDF 为 Uint8Array
     console.log('开始保存PDF...');
     const pdfBytes = await pdfDoc.save();
     console.log('PDF生成成功，大小:', pdfBytes.length);
+    
+    checkCancelled(95, '正在写入文件...');
     
     // 写入文件
     const fs = wx.getFileSystemManager();
@@ -1011,6 +1062,7 @@ async function imagesToPDF(imagePaths, fileName) {
         data: pdfBytes.buffer,
         success: () => {
           console.log('PDF文件保存成功:', filePath);
+          reportProgress(100, '导出完成！');
           resolve(filePath);
         },
         fail: (err) => {

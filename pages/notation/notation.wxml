@@ -1,5 +1,8 @@
 
 <wxs module="utils">
+// 横屏缩放比例：18/28
+var LANDSCAPE_SCALE = 18 / 28;
+
 var getFontSize = function(orientation, style) {
   var baseSize = 28;
   if (style && style.noteFontSize) {
@@ -10,19 +13,43 @@ var getFontSize = function(orientation, style) {
   }
   
   if (orientation === 'landscape') {
-    return (baseSize * 18 / 28);
+    return (baseSize * LANDSCAPE_SCALE);
   }
   return baseSize;
 }
 
-// 计算音符槽位高度（根据单行高度按比例缩放）
-// 默认: measureHeight=160rpx, slotHeight=36rpx, 比例=0.225
-var getSlotHeight = function(style, isMultiMeasure) {
+// 获取单行高度（根据横竖屏自动缩放）
+// 存储的是竖屏基准值，横屏时按18/28缩放
+var getMeasureHeight = function(orientation, style, isMultiMeasure) {
   var defaultHeight = isMultiMeasure ? 110 : 160;
   var measureHeight = (style && style.measureHeight) ? parseInt(style.measureHeight, 10) : defaultHeight;
   if (isNaN(measureHeight)) {
     measureHeight = defaultHeight;
   }
+  if (orientation === 'landscape') {
+    return Math.round(measureHeight * LANDSCAPE_SCALE);
+  }
+  return measureHeight;
+}
+
+// 获取行间距（根据横竖屏自动缩放）
+// 存储的是竖屏基准值，横屏时按18/28缩放
+var getLineSpacing = function(orientation, style) {
+  var defaultSpacing = 65;
+  var lineSpacing = (style && style.lineSpacing) ? parseInt(style.lineSpacing, 10) : defaultSpacing;
+  if (isNaN(lineSpacing)) {
+    lineSpacing = defaultSpacing;
+  }
+  if (orientation === 'landscape') {
+    return Math.round(lineSpacing * LANDSCAPE_SCALE);
+  }
+  return lineSpacing;
+}
+
+// 计算音符槽位高度（根据单行高度按比例缩放）
+// 默认: measureHeight=160rpx, slotHeight=36rpx, 比例=0.225
+var getSlotHeight = function(orientation, style, isMultiMeasure) {
+  var measureHeight = getMeasureHeight(orientation, style, isMultiMeasure);
   // 默认槽位高度比例: 36/160 = 0.225
   var height = Math.round(measureHeight * 0.225);
   // 限制最小和最大值
@@ -33,12 +60,8 @@ var getSlotHeight = function(style, isMultiMeasure) {
 
 // 计算音符列间距（根据单行高度按比例缩放）
 // 默认: measureHeight=160rpx, gap=8rpx, 比例=0.05
-var getColumnGap = function(style, isMultiMeasure) {
-  var defaultHeight = isMultiMeasure ? 110 : 160;
-  var measureHeight = (style && style.measureHeight) ? parseInt(style.measureHeight, 10) : defaultHeight;
-  if (isNaN(measureHeight)) {
-    measureHeight = defaultHeight;
-  }
+var getColumnGap = function(orientation, style, isMultiMeasure) {
+  var measureHeight = getMeasureHeight(orientation, style, isMultiMeasure);
   // 默认间距比例: 8/160 = 0.05
   var gap = Math.round(measureHeight * 0.05);
   // 限制最小和最大值
@@ -49,6 +72,8 @@ var getColumnGap = function(style, isMultiMeasure) {
 
 module.exports = {
   getFontSize: getFontSize,
+  getMeasureHeight: getMeasureHeight,
+  getLineSpacing: getLineSpacing,
   getSlotHeight: getSlotHeight,
   getColumnGap: getColumnGap
 };
@@ -128,8 +153,8 @@ module.exports = {
             </view>
 
             <!-- 谱面内容 -->
-            <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}" style="{{(notation.style && notation.style.lineSpacing) ? 'row-gap: ' + notation.style.lineSpacing + 'rpx;' : ''}}">
-              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%; {{(notation.style && notation.style.measureHeight) ? 'height: ' + notation.style.measureHeight + 'rpx;' : ''}}">
+            <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}" style="row-gap: {{utils.getLineSpacing(orientation, notation.style)}}rpx;">
+              <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%; height: {{utils.getMeasureHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                 <!-- 小节编号（上方居中） -->
                 <view class="measure-index">{{(notation.measureOffset || 0) + measureIndex + 1}}</view>
                 <!-- 小节线（左侧） -->
@@ -149,8 +174,8 @@ module.exports = {
                     <view class="note-grid">
                       <!-- 右手音符（上） -->
                       <view class="note-box note-box-top">
-                        <view class="note-column" style="gap: {{utils.getColumnGap(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
-                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-right' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                        <view class="note-column" style="gap: {{utils.getColumnGap(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-right' : ''}}" style="height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -165,7 +190,7 @@ module.exports = {
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
-                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-right' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                          <view class="note-slot {{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-right' : ''}}" style="height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -185,8 +210,8 @@ module.exports = {
 
                       <!-- 左手音符（下） -->
                       <view class="note-box note-box-bottom">
-                        <view class="note-column" style="gap: {{utils.getColumnGap(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
-                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-left' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                        <view class="note-column" style="gap: {{utils.getColumnGap(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0 ? 'editing editing-left' : ''}}" style="height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -201,7 +226,7 @@ module.exports = {
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
-                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-left' : ''}}" style="height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
+                          <view class="note-slot {{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1 ? 'editing editing-left' : ''}}" style="height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; min-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx; line-height: {{utils.getSlotHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                             <view wx:if="{{!(editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1)}}"
                               class="slot-click-overlay"
                               catchtap="onSlotTap"
@@ -519,12 +544,12 @@ module.exports = {
           <view class="style-setting-row">
             <text class="style-label">单行高度</text>
             <view class="style-input-area">
-              <text class="style-default-hint">默认160</text>
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 103 : 160}}</text>
               <input 
                 class="style-input"
                 type="number"
                 value="{{moduleMeasureHeight}}" 
-                placeholder="80-300"
+                placeholder="{{orientation === 'landscape' ? '51-193' : '80-300'}}"
                 bindinput="onModuleMeasureHeightInput"
                 bindconfirm="confirmModuleMeasureHeight"
                 bindblur="confirmModuleMeasureHeight"
@@ -538,12 +563,12 @@ module.exports = {
           <view class="style-setting-row">
             <text class="style-label">音符字号</text>
             <view class="style-input-area">
-              <text class="style-default-hint">默认28</text>
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 18 : 28}}</text>
               <input 
                 class="style-input"
                 type="number"
                 value="{{moduleNoteFontSize}}" 
-                placeholder="14-50"
+                placeholder="{{orientation === 'landscape' ? '9-32' : '14-50'}}"
                 bindinput="onModuleNoteFontSizeInput"
                 bindconfirm="confirmModuleNoteFontSize"
                 bindblur="confirmModuleNoteFontSize"
@@ -557,12 +582,12 @@ module.exports = {
           <view class="style-setting-row">
             <text class="style-label">行间距</text>
             <view class="style-input-area">
-              <text class="style-default-hint">默认65</text>
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 42 : 65}}</text>
               <input 
                 class="style-input"
                 type="number"
                 value="{{moduleLineSpacing}}" 
-                placeholder="30-150"
+                placeholder="{{orientation === 'landscape' ? '19-96' : '30-150'}}"
                 bindinput="onModuleLineSpacingInput"
                 bindconfirm="confirmModuleLineSpacing"
                 bindblur="confirmModuleLineSpacing"
@@ -776,7 +801,7 @@ module.exports = {
         <!-- 使用技巧 -->
         <view class="help-section">
           <text class="help-section-title">💡 使用技巧</text>
-          <text class="help-item">• 使用 T 表示数字10</text>
+     
           <text class="help-item">• 空格会被自动忽略</text>
           <text class="help-item">• 小节线支持 ][ 连写</text>
           <text class="help-item">• 可使用 % 添加注释说明</text>
@@ -904,6 +929,38 @@ module.exports = {
     </view>
   </view>
 
+  <!-- PDF导出进度弹窗 -->
+  <view wx:if="{{showPdfProgressModal}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation">
+    <view class="modal-content pdf-progress-modal" catchtap="stopPropagation">
+      <!-- Logo 图片 -->
+      <image class="splash-logo" src="/assets/img/logo5.png"></image>
+     
+      <view class="pdf-progress-header">
+        <image class="pdf-progress-icon" src="/assets/icons/library/文件-PDF_file-pdf.png" mode="aspectFit"></image>
+        <text class="pdf-progress-title">正在生成PDF</text>
+      </view>
+      
+      <view class="pdf-progress-info">
+        <text class="pdf-progress-stage">{{pdfProgressStage}}</text>
+      </view>
+      
+      <view class="pdf-progress-bar-container">
+        <view class="pdf-progress-bar-bg">
+          <view class="pdf-progress-bar-fill" style="width: {{pdfProgressPercent}}%;"></view>
+        </view>
+        <text class="pdf-progress-percent">{{pdfProgressPercent}}%</text>
+      </view>
+      
+      <view class="pdf-progress-hint">
+        <text>如长时间无响应，可点击取消后重试</text>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="cancelPdfExport">取消</button>
+      </view>
+    </view>
+  </view>
+
   <!-- PDF导出成功弹窗 -->
   <view wx:if="{{showPdfSuccessModal}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation" bindtap="closePdfSuccessModal">
     <view class="modal-content pdf-success-modal" catchtap="stopPropagation">
@@ -923,6 +980,10 @@ module.exports = {
           <text class="pdf-action-text">打开</text>
         </view>
         
+      </view>
+      
+      <view class="pdf-save-hint">
+        <text class="pdf-save-hint-text">建议打开后转发或另存，避免文件找不到</text>
       </view>
       
       <view class="modal-buttons">
@@ -967,7 +1028,7 @@ module.exports = {
 
       <view class="save-path-bar">
         <view class="save-breadcrumb">
-          <text class="save-breadcrumb-item" bindtap="navigateSaveRoot">根目录</text>
+          <text class="save-breadcrumb-item" bindtap="navigateSaveRoot">主目录</text>
           <block wx:for="{{saveFolderBreadcrumbs}}" wx:key="id">
             <text class="save-breadcrumb-separator">/</text>
             <text class="save-breadcrumb-item" bindtap="navigateSaveBreadcrumb" data-index="{{index}}">{{item.name}}</text>
@@ -1043,7 +1104,7 @@ module.exports = {
       </view>
 
       <!-- Logo 图片 -->
-      <image class="splash-logo" src="/assets/img/logo5.webp"></image>
+      <image class="splash-logo" src="/assets/img/logo5.png"></image>
       <!-- 弹窗描述 -->
       <view class="splash-description">
         <text class="splash-text">Orbit Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>

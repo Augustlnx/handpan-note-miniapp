@@ -108,6 +108,11 @@ Page({
     showPdfSuccessModal: false, // PDF导出成功弹窗
     exportedPdfPath: '', // 导出的PDF文件路径
     exportedPdfFileName: '', // 导出的PDF文件名
+    // PDF导出进度条相关
+    showPdfProgressModal: false, // 显示PDF导出进度弹窗
+    pdfProgressPercent: 0, // 进度百分比 0-100
+    pdfProgressStage: '', // 当前阶段描述
+    pdfExportCancelled: false, // 用户是否取消导出
     // 导出为代码相关
     showExportCodeModal: false,
     exportedCode: '',
@@ -724,8 +729,91 @@ Page({
     const match = prevLabel.match(/^([A-Z]+)-/);
     const prefix = match ? match[1] : 'A';
 
-    // 创建新模块（标签先留空，稍后统一重排）
-    const newNotation = this.createNotation('', false);
+    // 获取当前模块的样式和拍号设置，用于继承
+    const sourceNotation = notations[afterIndex];
+    const sourceStyle = sourceNotation.style || {};
+    const sourceCustomTemplate = sourceNotation.customTemplate || sourceNotation.moduleCustomTemplate;
+
+    // 获取源模块的每行小节数（用于计算4个视觉行需要多少个小节）
+    const sourceMeasuresPerRowPortrait = sourceNotation.measuresPerRowPortrait || 1;
+
+    let newNotation;
+    
+    // 目标：4个视觉行
+    const targetVisualLines = 4;
+    // 需要的小节总数 = 视觉行数 × 每行小节数
+    const totalMeasuresNeeded = targetVisualLines * sourceMeasuresPerRowPortrait;
+    
+    if (sourceCustomTemplate) {
+      // 自定义模板模式
+      // 模板如 [--|--|--][--|--|--][--|--|--] 表示一行有3个小节
+      // 每个方括号组是一个独立的小节
+      const bracketGroups = sourceCustomTemplate.match(/\[[^\]]*\]/g) || [];
+      
+      if (bracketGroups.length > 0) {
+        // 为每个方括号组创建对应的小节结构
+        const measuresPerLine = [];
+        for (const group of bracketGroups) {
+          const singleTemplate = group; // 单个方括号组如 [--|--|--]
+          const parsed = this.parseCustomTemplate(singleTemplate);
+          measuresPerLine.push({
+            beats: parsed.beatStructure.map(beat => ({
+              subdivisions: Array.from({ length: beat.noteCount }).map(() => ({
+                rightHand: ['', ''],
+                leftHand: ['', '']
+              })),
+              barLineAfter: beat.barLineAfter
+            }))
+          });
+        }
+        
+        // 创建4个视觉行的小节
+        const measures = [];
+        for (let line = 0; line < targetVisualLines; line++) {
+          for (const measureTemplate of measuresPerLine) {
+            measures.push(JSON.parse(JSON.stringify(measureTemplate)));
+          }
+        }
+        
+        newNotation = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          label: '',
+          measures: measures,
+          timeSignature: '自由/自由',
+          customTemplate: sourceCustomTemplate,
+          measuresPerRowPortrait: sourceMeasuresPerRowPortrait,
+          measuresPerRow: this.data.orientation === 'landscape' ? sourceMeasuresPerRowPortrait * 2 : sourceMeasuresPerRowPortrait
+        };
+      } else {
+        // 无有效的方括号组，回退到标准创建
+        newNotation = this.createNotation('', false);
+      }
+    } else {
+      // 标准拍号模式
+      const beatsMatch = (sourceNotation.timeSignature || '').match(/^(\d+)\//);
+      const beatsCount = beatsMatch ? parseInt(beatsMatch[1], 10) : this.data.timeSignatureBeats || 4;
+      
+      // 创建4个视觉行所需的小节
+      const measures = Array.from({ length: totalMeasuresNeeded }).map(() => this.createEmptyMeasure(beatsCount));
+      
+      newNotation = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        label: '',
+        measures: measures,
+        timeSignature: sourceNotation.timeSignature || `${beatsCount}/4`,
+        collapsed: false,
+        measuresPerRowPortrait: sourceMeasuresPerRowPortrait,
+        measuresPerRow: this.data.orientation === 'landscape' ? sourceMeasuresPerRowPortrait * 2 : sourceMeasuresPerRowPortrait,
+        style: {}
+      };
+    }
+
+    // 继承当前模块的样式设置
+    newNotation.style = {
+      measureHeight: sourceStyle.measureHeight || 160,
+      noteFontSize: sourceStyle.noteFontSize || 28,
+      lineSpacing: sourceStyle.lineSpacing || 65
+    };
     
     // 在指定位置后插入
     notations.splice(afterIndex + 1, 0, newNotation);
@@ -1190,7 +1278,7 @@ Page({
     }
 
     this.closeCustomTimeSignatureModal();
-    wx.showToast({ title: '自由设定已应用，所有模块已更新', icon: 'success' });
+    wx.showToast({ title: '自由设定已应用，所有模块已更新', icon: 'none' });
   },
 
   // 根据自定义模板创建谱面
@@ -1343,13 +1431,27 @@ Page({
       : (notation.moduleCustomTemplate || defaultTemplate);
 
     const perRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
-    const lineCount = Math.max(1, Math.ceil(((notation.measures || []).length || 0) / perRow));
+    // 计算行数时考虑横竖屏模式：横屏模式下行数显示为竖屏的一半
+    const isLandscape = this.data.orientation === 'landscape';
+    const rawLineCount = Math.max(1, Math.ceil(((notation.measures || []).length || 0) / perRow));
+    const lineCount = isLandscape ? Math.max(1, Math.ceil(rawLineCount / 2)) : rawLineCount;
 
-    // 获取样式设置的当前值
+    // 获取样式设置的当前值（存储的是竖屏基准值）
     const style = notation.style || {};
-    const measureHeight = style.measureHeight || 160;
-    const noteFontSize = style.noteFontSize || 28;
-    const lineSpacing = style.lineSpacing || 65;
+    let storedMeasureHeight = style.measureHeight || 160;
+    let storedNoteFontSize = style.noteFontSize || 28;
+    let storedLineSpacing = style.lineSpacing || 65;
+
+    // 横竖屏切换时，始终以竖屏基准值为源，横屏显示时自动缩放
+    const scaleRatio = 18 / 28; // 横屏缩放比例
+    let measureHeight = storedMeasureHeight;
+    let noteFontSize = storedNoteFontSize;
+    let lineSpacing = storedLineSpacing;
+    if (isLandscape) {
+      measureHeight = Math.round(storedMeasureHeight * scaleRatio);
+      noteFontSize = Math.round(storedNoteFontSize * scaleRatio);
+      lineSpacing = Math.round(storedLineSpacing * scaleRatio);
+    }
 
     this.setData({
       showModuleSettingsModal: true,
@@ -1439,7 +1541,7 @@ Page({
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
     this.closeModuleSettingsModal();
-    wx.showToast({ title: '已恢复模块到默认拍号', icon: 'success' });
+    wx.showToast({ title: '已恢复默认拍号', icon: 'success' });
   },
 
   // 行数输入变化（实时保存，不验证）
@@ -1563,17 +1665,26 @@ Page({
       return;
     }
 
+    // 根据横竖屏模式确定验证范围（按18/28缩放）
+    const isLandscape = this.data.orientation === 'landscape';
+    const heightMin = isLandscape ? 51 : 80;
+    const heightMax = isLandscape ? 193 : 300;
+    const fontMin = isLandscape ? 9 : 14;
+    const fontMax = isLandscape ? 32 : 50;
+    const spacingMin = isLandscape ? 19 : 30;
+    const spacingMax = isLandscape ? 96 : 150;
+
     // 验证样式参数
-    if (isNaN(moduleMeasureHeight) || moduleMeasureHeight < 80 || moduleMeasureHeight > 300) {
-      this.setData({ moduleMeasureHeightError: '单行高度请输入80-300之间的数值' });
+    if (isNaN(moduleMeasureHeight) || moduleMeasureHeight < heightMin || moduleMeasureHeight > heightMax) {
+      this.setData({ moduleMeasureHeightError: `单行高度请输入${heightMin}-${heightMax}之间的数值` });
       return;
     }
-    if (isNaN(moduleNoteFontSize) || moduleNoteFontSize < 14 || moduleNoteFontSize > 50) {
-      this.setData({ moduleNoteFontSizeError: '音符字体大小请输入14-50之间的数值' });
+    if (isNaN(moduleNoteFontSize) || moduleNoteFontSize < fontMin || moduleNoteFontSize > fontMax) {
+      this.setData({ moduleNoteFontSizeError: `音符字体大小请输入${fontMin}-${fontMax}之间的数值` });
       return;
     }
-    if (isNaN(moduleLineSpacing) || moduleLineSpacing < 30 || moduleLineSpacing > 150) {
-      this.setData({ moduleLineSpacingError: '行间距请输入30-150之间的数值' });
+    if (isNaN(moduleLineSpacing) || moduleLineSpacing < spacingMin || moduleLineSpacing > spacingMax) {
+      this.setData({ moduleLineSpacingError: `行间距请输入${spacingMin}-${spacingMax}之间的数值` });
       return;
     }
 
@@ -1608,29 +1719,41 @@ Page({
       return;
     }
 
-    // 应用样式设置
+    // 横屏模式下需要将用户输入的值转换回竖屏基准值存储
+    // isLandscape 已在上方验证部分定义
+    // 横屏输入值 * 28/18 = 竖屏存储值（反向缩放）
+    const reverseScaleRatio = 28 / 18; // 反向缩放比例
+    const storedMeasureHeight = isLandscape ? Math.round(moduleMeasureHeight * reverseScaleRatio) : moduleMeasureHeight;
+    const storedNoteFontSize = isLandscape ? Math.round(moduleNoteFontSize * reverseScaleRatio) : moduleNoteFontSize;
+    const storedLineSpacing = isLandscape ? Math.round(moduleLineSpacing * reverseScaleRatio) : moduleLineSpacing;
+
+    // 应用样式设置（存储竖屏基准值）
     if (!notation.style) {
       notation.style = {};
     }
-    notation.style.measureHeight = moduleMeasureHeight;
-    notation.style.noteFontSize = moduleNoteFontSize;
-    notation.style.lineSpacing = moduleLineSpacing;
+    notation.style.measureHeight = storedMeasureHeight;
+    notation.style.noteFontSize = storedNoteFontSize;
+    notation.style.lineSpacing = storedLineSpacing;
 
-    // 应用行数变化
+    // 应用行数变化（横屏模式下行数需要乘以2还原为实际小节数）
     const storedPerRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
-    const currentLines = Math.max(1, Math.ceil((notation.measures || []).length / storedPerRow));
+    const currentMeasureCount = (notation.measures || []).length;
+    const currentLines = Math.max(1, Math.ceil(currentMeasureCount / storedPerRow));
+    
+    // 横屏模式下用户输入的行数是竖屏的一半，需要乘以2
+    const actualLineCount = isLandscape ? lineCount * 2 : lineCount;
 
-    if (lineCount > currentLines) {
+    if (actualLineCount > currentLines) {
       // 增加行数
-      const addLines = lineCount - currentLines;
+      const addLines = actualLineCount - currentLines;
       const addMeasures = addLines * storedPerRow;
       for (let i = 0; i < addMeasures; i++) {
         const template = sanitizedModuleTemplate || this.convertBeatsCountToTemplate(moduleTimeSignatureBeats === 'custom' ? 4 : moduleTimeSignatureBeats);
         notation.measures.push(this.createMeasureFromCustomTemplate(template));
       }
-    } else if (lineCount < currentLines) {
+    } else if (actualLineCount < currentLines) {
       // 减少行数
-      const keepMeasures = Math.max(0, lineCount * storedPerRow);
+      const keepMeasures = Math.max(0, actualLineCount * storedPerRow);
       notation.measures = notation.measures.slice(0, keepMeasures);
     }
 
@@ -1777,9 +1900,13 @@ Page({
   // 输入模块单行高度
   onModuleMeasureHeightInput(e) {
     const value = parseInt(e.detail.value);
+    const isLandscape = this.data.orientation === 'landscape';
+    // 横屏模式下验证范围按18/28缩放：80*18/28≈51, 300*18/28≈193
+    const minVal = isLandscape ? 51 : 80;
+    const maxVal = isLandscape ? 193 : 300;
     let error = '';
-    if (isNaN(value) || value < 80 || value > 300) {
-      error = '请输入80-300之间的数值';
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      error = `请输入${minVal}-${maxVal}之间的数值`;
     }
     this.setData({
       moduleMeasureHeight: value,
@@ -1790,8 +1917,11 @@ Page({
   // 确认模块单行高度
   confirmModuleMeasureHeight() {
     const value = this.data.moduleMeasureHeight;
-    if (isNaN(value) || value < 80 || value > 300) {
-      this.setData({ moduleMeasureHeightError: '请输入80-300之间的数值' });
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 51 : 80;
+    const maxVal = isLandscape ? 193 : 300;
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      this.setData({ moduleMeasureHeightError: `请输入${minVal}-${maxVal}之间的数值` });
       return;
     }
     this.setData({ moduleMeasureHeightError: '' });
@@ -1800,9 +1930,13 @@ Page({
   // 输入模块音符字体大小
   onModuleNoteFontSizeInput(e) {
     const value = parseInt(e.detail.value);
+    const isLandscape = this.data.orientation === 'landscape';
+    // 横屏模式下验证范围按18/28缩放：14*18/28≈9, 50*18/28≈32
+    const minVal = isLandscape ? 9 : 14;
+    const maxVal = isLandscape ? 32 : 50;
     let error = '';
-    if (isNaN(value) || value < 14 || value > 50) {
-      error = '请输入14-50之间的数值';
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      error = `请输入${minVal}-${maxVal}之间的数值`;
     }
     this.setData({
       moduleNoteFontSize: value,
@@ -1813,8 +1947,11 @@ Page({
   // 确认模块音符字体大小
   confirmModuleNoteFontSize() {
     const value = this.data.moduleNoteFontSize;
-    if (isNaN(value) || value < 14 || value > 50) {
-      this.setData({ moduleNoteFontSizeError: '请输入14-50之间的数值' });
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 9 : 14;
+    const maxVal = isLandscape ? 32 : 50;
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      this.setData({ moduleNoteFontSizeError: `请输入${minVal}-${maxVal}之间的数值` });
       return;
     }
     this.setData({ moduleNoteFontSizeError: '' });
@@ -1823,9 +1960,13 @@ Page({
   // 输入模块行间距
   onModuleLineSpacingInput(e) {
     const value = parseInt(e.detail.value);
+    const isLandscape = this.data.orientation === 'landscape';
+    // 横屏模式下验证范围按18/28缩放：30*18/28≈19, 150*18/28≈96
+    const minVal = isLandscape ? 19 : 30;
+    const maxVal = isLandscape ? 96 : 150;
     let error = '';
-    if (isNaN(value) || value < 30 || value > 150) {
-      error = '请输入30-150之间的数值';
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      error = `请输入${minVal}-${maxVal}之间的数值`;
     }
     this.setData({
       moduleLineSpacing: value,
@@ -1836,8 +1977,11 @@ Page({
   // 确认模块行间距
   confirmModuleLineSpacing() {
     const value = this.data.moduleLineSpacing;
-    if (isNaN(value) || value < 30 || value > 150) {
-      this.setData({ moduleLineSpacingError: '请输入30-150之间的数值' });
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 19 : 30;
+    const maxVal = isLandscape ? 96 : 150;
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      this.setData({ moduleLineSpacingError: `请输入${minVal}-${maxVal}之间的数值` });
       return;
     }
     this.setData({ moduleLineSpacingError: '' });
@@ -2015,7 +2159,7 @@ Page({
       const withOffsets = this.updateMeasureOffsets(migrated);
       this.saveNotationsScoped(withOffsets);
       this.setNotations(withOffsets);
-      wx.showToast({ title: `已切换为 ${beatsCount}/4，所有模块已更新`, icon: 'success' });
+      wx.showToast({ title: `已切换为 ${beatsCount}/4，所有模块已更新`, icon: 'none' });
       return;
     }
     
@@ -2035,10 +2179,57 @@ Page({
       const newOrientation = windowInfo.windowHeight > windowInfo.windowWidth ? 'portrait' : 'landscape';
       that.updateOrientation(newOrientation);
     });
-    // 初始值
-    const windowInfo = wx.getWindowInfo();
-    const initOrientation = windowInfo.windowHeight > windowInfo.windowWidth ? 'portrait' : 'landscape';
-    this.updateOrientation(initOrientation);
+    // 无论当前窗口方向如何，小程序重新启动时始终初始化为竖屏模式
+    // 这可以避免横屏模式下退出后重新进入时布局错乱
+    this.forcePortraitOnInit();
+  },
+
+  // 强制初始化为竖屏模式（小程序启动时调用）
+  // 确保所有notation的measuresPerRow都是竖屏基准值，避免横屏模式下退出后重新进入时布局错乱
+  forcePortraitOnInit() {
+    // 重置manualOrientation标志，允许后续手动切换
+    this.setData({ manualOrientation: false });
+    
+    // 无论orientation状态如何，都需要检查并校正每个notation的measuresPerRow
+    // 因为存储的数据可能是横屏模式下的翻倍值
+    const notations = this.data.notations || [];
+    let needsUpdate = false;
+    
+    const updatedNotations = notations.map(n => {
+      // 检查是否有保存的竖屏基准值
+      if (n.measuresPerRowPortrait && n.measuresPerRow !== n.measuresPerRowPortrait) {
+        // 如果measuresPerRow不等于竖屏基准值，说明是横屏模式下的值，需要恢复
+        needsUpdate = true;
+        return {
+          ...n,
+          measuresPerRow: n.measuresPerRowPortrait
+        };
+      }
+      // 如果measuresPerRow大于1且没有保存竖屏基准值，可能是横屏模式遗留
+      // 保守处理：检查是否是偶数且大于1，可能需要除以2
+      if (!n.measuresPerRowPortrait && n.measuresPerRow > 1 && n.measuresPerRow % 2 === 0) {
+        // 假设竖屏模式下每行1个小节是默认值
+        // 如果measuresPerRow是2，可能是横屏翻倍后的结果，恢复为1
+        needsUpdate = true;
+        const portraitBase = Math.max(1, Math.floor(n.measuresPerRow / 2));
+        return {
+          ...n,
+          measuresPerRow: portraitBase,
+          measuresPerRowPortrait: portraitBase
+        };
+      }
+      return n;
+    });
+
+    if (needsUpdate || this.data.orientation !== 'portrait') {
+      this.setData({
+        orientation: 'portrait',
+        notations: updatedNotations
+      });
+      // 同步保存修正后的数据
+      this.saveNotationsScoped(updatedNotations);
+      this.calculatePages();
+    }
   },
 
   // 更新排版视角
@@ -2095,7 +2286,7 @@ Page({
         }
       });
     } else {
-      wx.showToast({ title: '已切换为横屏排版', icon: 'success' });
+      wx.showToast({ title: '已切换横屏排版', icon: 'success' });
     }
   },
 
@@ -2115,7 +2306,7 @@ Page({
         }
       });
     } else {
-      wx.showToast({ title: '已切换为竖屏排版', icon: 'success' });
+      wx.showToast({ title: '已切换竖屏排版', icon: 'success' });
     }
   },
 
@@ -2890,7 +3081,7 @@ Page({
       this.setNotations(notations);
       
       wx.hideLoading();
-      wx.showToast({ title: '已撤销上一步操作', icon: 'success' });
+      wx.showToast({ title: '已撤销上一步', icon: 'success' });
     } catch (error) {
       wx.hideLoading();
       wx.showToast({ title: '撤销失败: ' + error.message, icon: 'none' });
@@ -3102,25 +3293,56 @@ Page({
       return;
     }
     
-    wx.showLoading({ title: '生成PDF中...' });
+    // 显示进度弹窗
+    this.setData({
+      showPdfProgressModal: true,
+      pdfProgressPercent: 0,
+      pdfProgressStage: '准备导出...',
+      pdfExportCancelled: false
+    });
     
     const exportUtil = require('../../utils/pdfExport.js');
     const fileName = `${this.data.mainTitle || 'notation'}_${Date.now()}.pdf`;
+    const that = this;
     
-    exportUtil.imagesToPDF(images, fileName)
+    // 进度回调函数
+    const onProgress = (percent, stage) => {
+      if (that.data.pdfExportCancelled) {
+        return false; // 返回false表示取消
+      }
+      that.setData({
+        pdfProgressPercent: percent,
+        pdfProgressStage: stage
+      });
+      return true; // 返回true表示继续
+    };
+    
+    exportUtil.imagesToPDF(images, fileName, onProgress)
       .then((pdfPath) => {
-        wx.hideLoading();
-        this.setData({
+        that.setData({
+          showPdfProgressModal: false,
           exportedPdfPath: pdfPath,
           exportedPdfFileName: fileName,
           showPdfSuccessModal: true
         });
       })
       .catch((err) => {
-        wx.hideLoading();
-        console.error('PDF导出失败:', err);
-        wx.showToast({ title: 'PDF生成失败: ' + (err.message || '未知错误'), icon: 'none' });
+        that.setData({ showPdfProgressModal: false });
+        if (err.message === 'USER_CANCELLED') {
+          wx.showToast({ title: '已取消导出', icon: 'none' });
+        } else {
+          console.error('PDF导出失败:', err);
+          wx.showToast({ title: 'PDF生成失败: ' + (err.message || '未知错误'), icon: 'none' });
+        }
       });
+  },
+
+  // 取消PDF导出
+  cancelPdfExport() {
+    this.setData({
+      pdfExportCancelled: true,
+      pdfProgressStage: '正在取消...'
+    });
   },
 
   // 关闭PDF成功弹窗
@@ -4061,42 +4283,6 @@ Page({
       measuresPerRowPortrait: portraitRow,
       measuresPerRow: portraitRow * factor
     };
-  },
-
-  // 打开模块设置模态框
-  openModuleSettings(e) {
-    const moduleId = parseInt(e.currentTarget.dataset.id);
-    const notation = this.data.notations.find(n => n.id === moduleId);
-    
-    if (!notation) {
-      wx.showToast({ title: '未找到模块', icon: 'none' });
-      return;
-    }
-
-    // 初始化设置值
-    const perRow = this.getMeasuresPerRowForNotation(notation) || 1;
-    const moduleLineCount = notation.measures ? Math.ceil(notation.measures.length / perRow) : 4;
-    const moduleTimeSignatureBeats = notation.moduleTimeSignature || this.data.timeSignatureBeats;
-    const moduleCustomTemplate = notation.moduleCustomTemplate || '';
-    const moduleMeasureHeight = notation.style ? parseInt(notation.style.measureHeight) || 160 : 160;
-    const moduleNoteFontSize = notation.style ? parseInt(notation.style.noteFontSize) || 28 : 28;
-    const moduleLineSpacing = notation.style ? parseInt(notation.style.lineSpacing) || 65 : 65;
-
-    this.setData({
-      showModuleSettingsModal: true,
-      currentModuleId: moduleId,
-      moduleLineCount: moduleLineCount,
-      moduleLineCountError: '',
-      moduleTimeSignatureBeats: moduleTimeSignatureBeats,
-      moduleCustomTemplate: moduleCustomTemplate,
-      moduleCustomTemplateError: '',
-      moduleMeasureHeight: moduleMeasureHeight,
-      moduleMeasureHeightError: '',
-      moduleNoteFontSize: moduleNoteFontSize,
-      moduleNoteFontSizeError: '',
-      moduleLineSpacing: moduleLineSpacing,
-      moduleLineSpacingError: ''
-    });
   },
 
   // 打开记谱类型选择模态框

@@ -2025,6 +2025,97 @@
   color: #888;
 }
 
+/* PDF导出进度弹窗 */
+.pdf-progress-modal {
+  padding: 40rpx;
+  min-width: 560rpx;
+}
+
+.pdf-progress-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.pdf-progress-icon {
+  width: 80rpx;
+  height: 80rpx;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+.pdf-progress-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.pdf-progress-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.pdf-progress-stage {
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+}
+
+.pdf-progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.pdf-progress-bar-bg {
+  flex: 1;
+  height: 16rpx;
+  background-color: #e8e8e8;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.pdf-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8FB9AB, #6a9a8c);
+  border-radius: 8rpx;
+  transition: width 0.3s ease;
+}
+
+.pdf-progress-percent {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #314D63;
+  min-width: 80rpx;
+  text-align: right;
+}
+
+.pdf-progress-hint {
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.pdf-progress-hint text {
+  font-size: 24rpx;
+  color: #999;
+}
+
 /* PDF导出成功弹窗 */
 .pdf-success-modal {
   padding: 40rpx;
@@ -2104,6 +2195,17 @@
   font-size: 26rpx;
   color: #314D63;
   font-weight: 500;
+}
+
+/* PDF保存提示文字 */
+.pdf-save-hint {
+  margin-bottom: 24rpx;
+  text-align: center;
+}
+
+.pdf-save-hint-text {
+  font-size: 22rpx;
+  color: #9AA0A6;
 }
 
 /* 导出代码模态框 */
