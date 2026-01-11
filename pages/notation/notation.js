@@ -89,23 +89,29 @@ Page({
     customConversionTable: false, // 是否使用自定义转换表
     conversionTableText: '', // 自定义转换表文本
     conversionTableError: '', // 转换表验证错误
+    conversionMappings: [], // 转换映射数组 [{key: '1', value: '3'}, ...]
+    conversionMappingError: '', // 映射验证错误
+    hasEmptyConversionMapping: false, // 是否有空的映射
     defaultConversionTable: { // 默认转换表（数字谱到简谱）
+      'D': 'D',
       '1': '3',
       '2': '4',
       '3': '5',
       '4': '6',
       '5': '7',
-      '6': '1^.',
-      '7': '2^.',
-      '8': '3^.',
-      '9': '5^.',
-      'D': '6_.',
-      'T': '6_.' // T也作为10的表示
+      '6': '1^',
+      '7': '2^',
+      '8': '3^',
+      '9': '5^',
+      'd': 'd',
+      's': 's',
+      'P': 'P'
     },
     customConversionTableObj: {}, // 解析后的自定义转换表
     // 导出功能相关
     showExportOptionsModal: false,
     exportMode: 'long', // 'long' 长图模式, 'paged' 分页模式
+    exportLayoutMode: 'compact', // 'compact' 紧凑模式, 'loose' 宽松模式
     a4Orientation: 'portrait', // A4纸张方向: 'portrait' 纵向, 'landscape' 横向
     showExportPreview: false,
     exportPreviewImages: [],
@@ -230,6 +236,7 @@ Page({
       timeSignatureBottom: bottom,
       timeSignatureDisplay: timingText,
       currentTimeSignatureType: 'standard',
+      notationType: payload.notationType || 'digital', // 恢复谱式类型
       // 保存文件来源信息
       libraryFileId: payload.id || null,
       libraryFilePath: payload.path || null,
@@ -237,6 +244,7 @@ Page({
     }, () => {
       this.saveTitles();
       this.saveGlobalTempo();
+      wx.setStorageSync('notationType', payload.notationType || 'digital'); // 保存谱式类型到存储
       this.saveLibraryFileInfo(); // 保存库文件关联信息
       this.saveNotationsScoped([]);
       this.setNotations([]);
@@ -1072,6 +1080,12 @@ Page({
       const subtitle = exampleData.subtitle || '';
       const tempo = exampleData.tempo || 120;
       const code = exampleData.code || '';
+      
+      // 先切换到数字谱，因为示例数据是按照数字谱格式制作的
+      that.setData({
+        notationType: 'digital'
+      });
+      wx.setStorageSync('notationType', 'digital');
       
       // 保存标题等信息
       wx.setStorageSync('mainTitle', title);
@@ -2904,6 +2918,7 @@ Page({
         tempo: this.data.globalTempo || 60,
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
+        notationType: this.data.notationType || 'digital', // 保存谱式类型
         code
       };
 
@@ -3228,11 +3243,85 @@ Page({
     });
   },
 
-  // 选择A4方向
+  // 选择A4方向（可被导出规格弹窗复用）
   selectA4Orientation(e) {
     const orientation = e.currentTarget.dataset.orientation;
     this.setData({
-      a4Orientation: orientation
+      exportA4Orientation: orientation,
+      a4Orientation: orientation // 保持原有字段以兼容历史逻辑
+    });
+  },
+
+  // 选择导出排版模式（compact: 紧凑, loose: 宽松）
+  selectExportLayoutMode(e) {
+    const mode = e.currentTarget.dataset.mode;
+    this.setData({
+      exportLayoutMode: mode
+    });
+  },
+
+  // 关闭导出规格弹窗
+  closeExportSpecsModal() {
+    this.setData({ showExportSpecsModal: false });
+  },
+
+  // 确认导出规格并开始导出（仅用于分页模式）
+  confirmExportSpecs() {
+    // 关闭弹窗并开始导出
+    this.setData({ showExportSpecsModal: false });
+
+    // 紧凑模式对应横屏排版，宽松模式对应竖屏排版
+    const orientationOverride = (this.data.exportLayoutMode === 'compact') ? 'landscape' : 'portrait';
+    const isExportLandscape = (orientationOverride === 'landscape');
+    
+    // 根据排版模式重新计算每个模块的 measuresPerRow
+    // 紧凑模式(横屏)：每行小节数 = 基准值 * 2
+    // 宽松模式(竖屏)：每行小节数 = 基准值
+    const exportNotations = this.data.notations.map(notation => {
+      // 使用模块的竖屏基准值，如果没有则回退到当前值或默认值1
+      const portraitBase = notation.measuresPerRowPortrait || 
+                           (this.data.orientation === 'landscape' ? Math.floor(notation.measuresPerRow / 2) : notation.measuresPerRow) || 
+                           1;
+      const exportMeasuresPerRow = isExportLandscape ? portraitBase * 2 : portraitBase;
+      return {
+        ...notation,
+        measuresPerRow: exportMeasuresPerRow,
+        measuresPerRowPortrait: portraitBase // 保留基准值供导出工具参考
+      };
+    });
+
+    wx.showLoading({ title: '生成图片中...' });
+    const exportUtil = require('../../utils/pdfExport.js');
+    exportUtil.exportNotationToPNG({
+      notations: exportNotations,
+      mainTitle: this.data.mainTitle,
+      subTitle: this.data.subTitle,
+      globalTempo: this.data.globalTempo,
+      mainTitleColor: this.data.mainTitleColor,
+      subTitleColor: this.data.subTitleColor,
+      rightHandColor: this.data.rightHandColor,
+      leftHandColor: this.data.leftHandColor,
+      // 覆盖导出时使用的方向（不改变页面的实际 orientation）
+      orientation: orientationOverride,
+      exportMode: 'paged',
+      a4Orientation: this.data.exportA4Orientation || 'portrait',
+      exportLayoutMode: this.data.exportLayoutMode || 'compact'
+    }).then(result => {
+      wx.hideLoading();
+
+      if (Array.isArray(result)) {
+        // 分页模式：显示预览窗口
+        this.setData({
+          showExportPreview: true,
+          exportPreviewImages: result,
+          currentPreviewPage: 0
+        });
+      } else {
+        wx.showToast({ title: '导出失败：未能生成分页图片', icon: 'none' });
+      }
+    }).catch(err => {
+      wx.hideLoading();
+      wx.showToast({ title: '导出失败: ' + (err.message || err), icon: 'none' });
     });
   },
 
@@ -3250,6 +3339,18 @@ Page({
       return;
     }
 
+    // 分页模式需要先弹出导出规格设置
+    if (exportMode === 'paged') {
+      this.setData({
+        showExportSpecsModal: true,
+        // 初始化选项使用当前值
+        exportA4Orientation: this.data.a4Orientation || 'portrait',
+        exportLayoutMode: this.data.exportLayoutMode || 'compact'
+      });
+      return;
+    }
+
+    // 非分页直接导出（长图）
     wx.showLoading({ title: '生成图片中...' });
     
     const exportUtil = require('../../utils/pdfExport.js');
@@ -4114,9 +4215,11 @@ Page({
   // 解析单个拍
   parseBeat(beatStr) {
     // 首先处理隐含的+号：在token之间自动插入+
-    // token 包括：{...}、完整格式6/D、token/、/token、(...)/(...) 格式、- 、单个数字或字母、·
+    // token 包括：{...}、完整格式6/D、token/、/token、(...)/(...) 格式、- 、单个数字或字母（可选^/_后缀）、·
     // 注意顺序很重要：完整手指定必须先匹配，否则会被拆成两个token
-    const tokenRegex = /{[^}]+}|[0-9A-Za-z]+\/[0-9A-Za-z]+|[0-9A-Za-z]+\/|\/[0-9A-Za-z]+|\/\{[^}]+\}|\{[^}]+\}\/|\([^)]*\)\/\([^)]*\)|-|[0-9A-Za-z]|·/g;
+    // 简谱格式：支持 1^、5_ 等带八度标记的音符
+    // 修改：多位数音符需要用{}包裹，如{12}；不带{}的连续数字如8765会被识别为多个单音符8+7+6+5
+    const tokenRegex = /{[^}]+}|[0-9A-Za-z][\^_]?\/[0-9A-Za-z][\^_]?|[0-9A-Za-z][\^_]?\/|\/[0-9A-Za-z][\^_]?|\/\{[^}]+\}|\{[^}]+\}\/|\([^)]*\)\/\([^)]*\)|-|[0-9A-Za-z][\^_]?|·/g;
     const tokens = beatStr.match(tokenRegex) || [];
     
     // 用 + 连接所有 token
@@ -4148,8 +4251,9 @@ Page({
       }
     }
     
-    // 匹配 4/1 形式的完整简写（右手/左手）- 包括 6/D 这样的字母格式
-    const fullShorthandMatch = subStr.match(/^({[^}]+}|[0-9A-Za-z]+)\/({[^}]+}|[0-9A-Za-z]+)$/);
+    // 匹配 4/1 形式的完整简写（右手/左手）- 包括 6/D 这样的字母格式，以及简谱格式如 1^/5_
+    // 注意：单字符匹配，多位数需要用{}包裹
+    const fullShorthandMatch = subStr.match(/^({[^}]+}|[0-9A-Za-z][\^_]?)\/({[^}]+}|[0-9A-Za-z][\^_]?)$/);
     if (fullShorthandMatch) {
       const rightToken = fullShorthandMatch[1];
       const leftToken = fullShorthandMatch[2];
@@ -4163,9 +4267,10 @@ Page({
     
     // 处理手动指定左右手的格式：数字/ 和 /数字 以及 {token}/、/{token}
     // 例如：1/ → (1)/()（右手only），/1 → ()/(1)（左手only），{12/} → {12}/()（右手only），/{12} → ()/{12}（左手only）
+    // 支持简谱格式如 1^/、/5_
     
-    // 匹配 {token}/ 或 数字/ 形式（右手指定）
-    const rightHandSpecificMatch = subStr.match(/^({[^}]+}|[0-9A-Za-z]+)\/$/);
+    // 匹配 {token}/ 或 单个数字/ 形式（右手指定）
+    const rightHandSpecificMatch = subStr.match(/^({[^}]+}|[0-9A-Za-z][\^_]?)\/$/);
     if (rightHandSpecificMatch) {
       const token = rightHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
@@ -4176,8 +4281,8 @@ Page({
       };
     }
     
-    // 匹配 /{token} 或 /数字 形式（左手指定）
-    const leftHandSpecificMatch = subStr.match(/^\/({[^}]+}|[0-9A-Za-z]+)$/);
+    // 匹配 /{token} 或 /单个数字 形式（左手指定）
+    const leftHandSpecificMatch = subStr.match(/^\/({[^}]+}|[0-9A-Za-z][\^_]?)$/);
     if (leftHandSpecificMatch) {
       const token = leftHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
@@ -4251,9 +4356,13 @@ Page({
         return buildFromSingleBracket(singleBracketMatch[1]);
       }
 
-      // 简写2：单个数字或字母或·，奇数→右手，偶数/字母/·→左手
-      if (/^[0-9A-Za-z·]+$/.test(subStr)) {
-        const n = parseInt(subStr, 10);
+      // 简写2：单个数字或字母或·（可选^/_后缀），奇数→右手，偶数/字母/·→左手
+      // 支持简谱格式如 1^、5_
+      // 注意：这里只匹配单个字符+可选后缀，多位数需要用{}包裹
+      if (/^[0-9A-Za-z·][\^_]?$/.test(subStr)) {
+        // 提取基础音符（去掉^/_后缀）用于判断奇偶
+        const baseNote = subStr.replace(/[\^_]$/, '');
+        const n = parseInt(baseNote, 10);
         if (!Number.isNaN(n)) {
           if (n % 2 === 0) {
             const leftHand = this.parseHandNotes(subStr, 'left');
@@ -4339,12 +4448,13 @@ Page({
       return '';
     }
     
-    // 在简谱模式下，保留装饰符号（^. 或 _.）和·
+    // 在简谱模式下，保留装饰符号（^ 或 _）和·
     // 在数字谱模式下，移除装饰符号但保留·
     if (this.data.notationType === 'simplified') {
       // 简谱模式：保留修饰符，允许字母/数字/·
       let cleaned = noteStr.replace(/\{_(.+?)_\}/, '$1');
-      const match = cleaned.match(/^([0-9A-Za-z·]+)([\^_]\.)?/);
+      // 匹配 数字/字母 + 可选的 ^ 或 _（支持新格式，不带 .）
+      const match = cleaned.match(/^([0-9A-Za-z·]+)([\^_])?/);
       if (match) {
         return (match[1] || '') + (match[2] || '');
       }
@@ -4355,7 +4465,8 @@ Page({
       // 数字谱模式：移除修饰符，但允许字母/数字/·
       let cleaned = noteStr;
       cleaned = cleaned.replace(/\{_(.+?)_\}/, '$1');
-      cleaned = cleaned.replace(/[\^_]\./g, '');
+      // 移除 ^ 或 _（支持带点和不带点的格式）
+      cleaned = cleaned.replace(/[\^_]\.?/g, '');
 
       if (!/^[0-9A-Za-z·]+$/.test(cleaned)) {
         const tokenMatch = cleaned.match(/[0-9A-Za-z·]+/);
@@ -4418,14 +4529,169 @@ Page({
 
   // 打开记谱类型选择模态框
   openNotationTypeModal() {
+    // 确保获取最新的谱面数据（防止文件切换后数据未更新）
+    const currentNotations = this.data.notations;
+    if (!currentNotations || currentNotations.length === 0) {
+      wx.showToast({
+        title: '谱面为空，无法进行转换',
+        icon: 'none'
+      });
+      return;
+    }
+
     const currentType = this.data.notationType || 'digital';
+    
+    // 扫描当前谱面中的所有音符类型
+    const noteSet = this.collectAllNoteTypes();
+    
+    // 生成转换映射数组
+    const conversionMappings = this.generateConversionMappings(noteSet, currentType);
+    
+    // 检查是否有空的映射
+    const hasEmpty = conversionMappings.some(m => !m.value || m.value.trim() === '');
+    
     this.setData({
       showNotationTypeModal: true,
-      notationTypeTemp: currentType,
-      migrateMeasures: true,
-      customConversionTable: false,
-      conversionTableText: '',
-      conversionTableError: ''
+      notationTypeTemp: currentType === 'digital' ? 'simplified' : 'digital',
+      conversionMappings: conversionMappings,
+      conversionMappingError: '',
+      hasEmptyConversionMapping: hasEmpty
+    });
+  },
+
+  // 扫描谱面中所有音符类型（非重集合）
+  collectAllNoteTypes() {
+    const noteSet = new Set();
+    const notations = this.data.notations || [];
+    
+    // 辅助函数：拆分多位数音符为单个字符
+    const splitNote = (note) => {
+      if (!note || note.trim() === '' || note === '-') return [];
+      const trimmed = note.trim();
+      // 如果是单个字符（可选^/_后缀），直接返回
+      if (/^[0-9A-Za-z·][\^_]?$/.test(trimmed)) {
+        return [trimmed];
+      }
+      // 否则拆分为单个字符（保留^/_后缀）
+      const result = [];
+      let i = 0;
+      while (i < trimmed.length) {
+        const char = trimmed[i];
+        if (/[0-9A-Za-z·]/.test(char)) {
+          // 检查下一个字符是否是^/_后缀
+          if (i + 1 < trimmed.length && /[\^_]/.test(trimmed[i + 1])) {
+            result.push(char + trimmed[i + 1]);
+            i += 2;
+          } else {
+            result.push(char);
+            i++;
+          }
+        } else {
+          i++;
+        }
+      }
+      return result;
+    };
+    
+    notations.forEach(notation => {
+      if (!notation.measures) return;
+      notation.measures.forEach(measure => {
+        if (!measure.beats) return;
+        measure.beats.forEach(beat => {
+          if (!beat.subdivisions) return;
+          beat.subdivisions.forEach(sub => {
+            // 收集右手音符
+            if (sub.rightHand) {
+              sub.rightHand.forEach(note => {
+                splitNote(note).forEach(n => noteSet.add(n));
+              });
+            }
+            // 收集左手音符
+            if (sub.leftHand) {
+              sub.leftHand.forEach(note => {
+                splitNote(note).forEach(n => noteSet.add(n));
+              });
+            }
+          });
+        });
+      });
+    });
+    
+    return noteSet;
+  },
+
+  // 生成转换映射数组
+  generateConversionMappings(noteSet, currentType) {
+    const defaultTable = this.data.defaultConversionTable;
+    const mappings = [];
+    
+    // 将Set转换为数组并排序
+    const noteArray = Array.from(noteSet).sort((a, b) => {
+      // 特殊排序：D在最前面，然后是数字1-9
+      if (a === 'D' || a === 'd') return -1;
+      if (b === 'D' || b === 'd') return 1;
+      // 提取基础数字进行比较
+      const baseA = a.replace(/[\^_]/g, '');
+      const baseB = b.replace(/[\^_]/g, '');
+      return baseA.localeCompare(baseB, undefined, { numeric: true });
+    });
+    
+    noteArray.forEach(note => {
+      let defaultValue = '';
+      
+      if (currentType === 'digital') {
+        // 数字谱转简谱：查找默认转换值
+        defaultValue = defaultTable[note] || '';
+      } else {
+        // 简谱转数字谱：反向查找
+        // 需要从简谱值找到对应的数字谱键
+        for (const key in defaultTable) {
+          if (defaultTable[key] === note) {
+            defaultValue = key;
+            break;
+          }
+        }
+        // 如果没找到精确匹配，尝试匹配不带·的版本
+        if (!defaultValue) {
+          const noteWithoutDot = note.replace(/\./g, '');
+          for (const key in defaultTable) {
+            const valueWithoutDot = defaultTable[key].replace(/\./g, '');
+            if (valueWithoutDot === noteWithoutDot) {
+              defaultValue = key;
+              break;
+            }
+          }
+        }
+      }
+      
+      mappings.push({
+        key: note,
+        value: defaultValue
+      });
+    });
+    
+    return mappings;
+  },
+
+  // 转换映射输入变化
+  onConversionMappingInput(e) {
+    const key = e.currentTarget.dataset.key;
+    const value = e.detail.value;
+    
+    const mappings = this.data.conversionMappings.map(m => {
+      if (m.key === key) {
+        return { ...m, value: value };
+      }
+      return m;
+    });
+    
+    // 检查是否有空的映射
+    const hasEmpty = mappings.some(m => !m.value || m.value.trim() === '');
+    
+    this.setData({
+      conversionMappings: mappings,
+      hasEmptyConversionMapping: hasEmpty,
+      conversionMappingError: hasEmpty ? '请填写所有转换映射' : ''
     });
   },
 
@@ -4433,9 +4699,9 @@ Page({
   closeNotationTypeModal() {
     this.setData({
       showNotationTypeModal: false,
-      notationTypeTemp: this.data.notationType,
-      conversionTableText: '',
-      conversionTableError: ''
+      conversionMappings: [],
+      conversionMappingError: '',
+      hasEmptyConversionMapping: false
     });
   },
 
@@ -4547,22 +4813,23 @@ Page({
     const oldType = this.data.notationType;
     const newType = this.data.notationTypeTemp;
 
-    // 验证转换表（如果使用自定义）
-    if (this.data.customConversionTable) {
-      if (!this.validateConversionTable(this.data.conversionTableText)) {
-        return;
-      }
-    }
-
-    // 如果从简谱转到数字谱，不需要特殊处理
-    // 如果从数字谱转到简谱，需要根据转换表转换数据
-    if (oldType === newType) {
-      wx.showToast({
-        title: '谱式未改变',
-        icon: 'none'
+    // 检查是否有空的转换映射
+    if (this.data.hasEmptyConversionMapping) {
+      this.setData({
+        conversionMappingError: '请填写所有转换映射'
       });
       return;
     }
+
+    // 构建转换表（从映射数组）
+    const conversionTable = {};
+    this.data.conversionMappings.forEach(m => {
+      conversionTable[m.key] = m.value.trim();
+    });
+
+    // 先关闭弹窗并显示加载界面
+    this.closeNotationTypeModal();
+    this.showPageLoadingOverlay();
 
     // 更新当前谱式
     this.setData({
@@ -4572,46 +4839,55 @@ Page({
     // 保存到存储
     wx.setStorageSync('notationType', newType);
 
-    // 处理数据
-    if (this.data.migrateMeasures) {
-      // 迁移数据：转换所有音符
-      if (newType === 'simplified') {
-        this.convertToSimplifiedNotation();
-      } else {
-        // 从简谱转到数字谱
-        this.convertToDigitalNotation();
-      }
+    // 延迟执行转换，让加载界面先显示
+    setTimeout(() => {
+      // 执行逐位转换
+      this.performNotationConversion(conversionTable);
+      
+      // 隐藏加载界面
+      this.hidePageLoadingOverlay();
+      
       wx.showToast({
         title: '已转换至' + (newType === 'simplified' ? '简谱' : '数字谱'),
         icon: 'success'
       });
-    } else {
-      // 清空所有谱面数据
-      const emptyNotations = this.data.notations.map(notation => ({
-        ...notation,
-        measures: notation.measures.map(measure => ({
-          beats: measure.beats.map(beat => ({
-            subdivisions: beat.subdivisions.map(() => ({
-              rightHand: ['', ''],
-              leftHand: ['', '']
-            })),
-            barLineAfter: beat.barLineAfter
-          }))
-        }))
-      }));
-      
-      this.setData({
-        notations: emptyNotations
-      });
-      this.saveNotationsScoped(emptyNotations);
-      
-      wx.showToast({
-        title: '已清空数据并转换至' + (newType === 'simplified' ? '简谱' : '数字谱'),
-        icon: 'success'
-      });
-    }
+    }, 100);
+  },
 
-    this.closeNotationTypeModal();
+  // 执行谱式转换（逐位转换，避免重复转换）
+  performNotationConversion(conversionTable) {
+    const newNotations = this.data.notations.map(notation => ({
+      ...notation,
+      measures: notation.measures.map(measure => ({
+        beats: measure.beats.map(beat => ({
+          subdivisions: beat.subdivisions.map(sub => ({
+            rightHand: sub.rightHand.map(note => this.convertSingleNote(note, conversionTable)),
+            leftHand: sub.leftHand.map(note => this.convertSingleNote(note, conversionTable))
+          })),
+          barLineAfter: beat.barLineAfter
+        }))
+      }))
+    }));
+
+    this.setNotations(newNotations);
+    this.saveNotationsScoped(newNotations);
+  },
+
+  // 转换单个音符（直接查表，不做链式转换）
+  convertSingleNote(note, conversionTable) {
+    if (!note || note.trim() === '' || note === '-') {
+      return note;
+    }
+    
+    const trimmedNote = note.trim();
+    
+    // 直接从转换表查找
+    if (conversionTable[trimmedNote]) {
+      return conversionTable[trimmedNote];
+    }
+    
+    // 未找到映射，保持原值
+    return note;
   },
 
   // 转换为简谱
@@ -4831,26 +5107,31 @@ Page({
   // 触摸移动：达到切页阈值时提前显示遮罩与节拍器，避免仅点击误触
   onTouchMove(e) {
     if (!this.data.enablePagination || this.data.totalPages <= 1) return;
-    const touches = e.touches;
-    if (touches.length === 0) return;
-    const moveX = touches[0].clientX;
-    const moveY = touches[0].clientY;
-    const deltaX = this.data.touchStartX - moveX; // 正数表示向左拖动
-    const deltaY = this.data.touchStartY - moveY;
-    const minDistance = 50;
+    try {
+      const touches = e.touches;
+      if (touches.length === 0) return;
+      const moveX = touches[0].clientX;
+      const moveY = touches[0].clientY;
+      const deltaX = this.data.touchStartX - moveX; // 正数表示向左拖动
+      const deltaY = this.data.touchStartY - moveY;
+      const minDistance = 50;
 
-    const atFirstPage = this.data.currentPage === 0;
-    const atLastPage = this.data.currentPage >= this.data.totalPages - 1;
-    // 首尾页不响应越界方向滑动
-    if ((atFirstPage && deltaX < 0) || (atLastPage && deltaX > 0)) {
-      return;
-    }
-
-    // 仅当明确是水平换页拖动且超过阈值时显示遮罩
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minDistance) {
-      if (!this.data.showPageLoadingOverlay && !this.data.pageTransitioning) {
-        this.showPageLoadingOverlay();
+      const atFirstPage = this.data.currentPage === 0;
+      const atLastPage = this.data.currentPage >= this.data.totalPages - 1;
+      // 首尾页不响应越界方向滑动
+      if ((atFirstPage && deltaX < 0) || (atLastPage && deltaX > 0)) {
+        return;
       }
+
+      // 仅当明确是水平换页拖动且超过阈值时显示遮罩
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minDistance) {
+        if (!this.data.showPageLoadingOverlay && !this.data.pageTransitioning) {
+          this.showPageLoadingOverlay();
+        }
+      }
+    } catch (err) {
+      // 忽略触摸事件错误，避免渲染层报错
+      console.warn('Touch move error ignored:', err.message);
     }
   },
 

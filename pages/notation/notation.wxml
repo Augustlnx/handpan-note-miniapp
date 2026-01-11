@@ -1,4 +1,4 @@
-
+﻿
 <wxs module="utils">
 // 横屏缩放比例：18/28
 var LANDSCAPE_SCALE = 18 / 28;
@@ -70,12 +70,82 @@ var getColumnGap = function(orientation, style, isMultiMeasure) {
   return gap;
 }
 
+// 解析简谱音符，提取基础音符和八度偏移量
+// 返回: { baseNote: '1', octaveUp: 1, octaveDown: 0 }
+var parseSimplifiedNote = function(note) {
+  if (!note || note === '') {
+    return { baseNote: '', octaveUp: 0, octaveDown: 0 };
+  }
+  
+  var octaveUp = 0;
+  var octaveDown = 0;
+  var baseNote = note;
+  
+  // 统计 ^ 的数量（升八度）
+  for (var i = 0; i < note.length; i++) {
+    if (note[i] === '^') {
+      octaveUp++;
+    }
+  }
+  
+  // 统计 _ 的数量（降八度）
+  for (var i = 0; i < note.length; i++) {
+    if (note[i] === '_') {
+      octaveDown++;
+    }
+  }
+  
+  // 提取基础音符（移除 ^ 和 _）
+  baseNote = '';
+  for (var i = 0; i < note.length; i++) {
+    if (note[i] !== '^' && note[i] !== '_') {
+      baseNote += note[i];
+    }
+  }
+  
+  return {
+    baseNote: baseNote,
+    octaveUp: octaveUp,
+    octaveDown: octaveDown
+  };
+}
+
+// 获取八度点的大小（根据字号缩放）
+var getOctaveDotSize = function(fontSize) {
+  // 默认字号28对应点大小6rpx，按比例缩放
+  // 调整倍数以获得更好的视觉效果：fontSize * 0.5（更大的点）
+  var size = Math.round(fontSize * 0.32);
+  if (size < 5) size = 5;   // 最小5rpx
+  if (size > 12) size = 12; // 最大12rpx
+  return size;
+}
+
+// 获取八度点的间距
+var getOctaveDotGap = function(fontSize) {
+  var gap = Math.round(fontSize * 0.12);
+  if (gap < 2) gap = 2;
+  if (gap > 6) gap = 6;
+  return gap;
+}
+
+// 获取八度点距离音符的偏移
+var getOctaveOffset = function(fontSize, isUp) {
+  var offset = Math.round(fontSize * 0.35);
+  if (offset < 6) offset = 6;
+  if (offset > 14) offset = 14;
+  return offset;
+}
+
 module.exports = {
   getFontSize: getFontSize,
   getMeasureHeight: getMeasureHeight,
   getLineSpacing: getLineSpacing,
   getSlotHeight: getSlotHeight,
-  getColumnGap: getColumnGap
+  getColumnGap: getColumnGap,
+  parseSimplifiedNote: parseSimplifiedNote,
+  getOctaveDotSize: getOctaveDotSize,
+  getOctaveDotGap: getOctaveDotGap,
+  getOctaveOffset: getOctaveOffset
 };
 </wxs>
 
@@ -130,6 +200,13 @@ module.exports = {
         <text class="header-action-label">存储：</text>
         <text class="header-action-value">{{storageDisplay}}</text>
       </view>
+
+      <!-- 谱式设置 -->
+      <view class="header-action-row" bindtap="openNotationTypeModal">
+        <image class="header-action-icon" src="/assets/icons/note_change.png"></image>
+        <text class="header-action-label">谱式：</text>
+        <text class="header-action-value">{{notationType === 'simplified' ? '简谱' : '数字谱'}}</text>
+      </view>
     </view>
 
     <!-- 谱面列表（仅显示当前页的modules） -->
@@ -183,11 +260,24 @@ module.exports = {
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="0"></view>
                             <input wx:if="{{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0}}"
                               class="note-input note-input-right" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
-                              maxlength="2"
+                              maxlength="{{notationType === 'simplified' ? 4 : 2}}"
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="0"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.rightHand[0]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.rightHand[0]}}</text>
+                              <!-- 简谱模式：显示带八度点的音符 -->
+                              <view wx:if="{{subdivision.rightHand[0] && notationType === 'simplified'}}" class="note-with-octave">
+                                <!-- 上加点（升八度） -->
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
+                                </view>
+                                <text class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.rightHand[0]).baseNote}}</text>
+                                <!-- 下加点（降八度） -->
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
+                                </view>
+                              </view>
+                              <!-- 数字谱模式：直接显示 -->
+                              <text wx:elif="{{subdivision.rightHand[0]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.rightHand[0]}}</text>
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
@@ -198,11 +288,21 @@ module.exports = {
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="1"></view>
                             <input wx:if="{{editing && editing.hand=='right' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1}}"
                               class="note-input note-input-right" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
-                              maxlength="2"
+                              maxlength="{{notationType === 'simplified' ? 4 : 2}}"
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="right" data-index="1"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.rightHand[1]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.rightHand[1]}}</text>
+                              <!-- 简谱模式：显示带八度点的音符 -->
+                              <view wx:if="{{subdivision.rightHand[1] && notationType === 'simplified'}}" class="note-with-octave">
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
+                                </view>
+                                <text class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.rightHand[1]).baseNote}}</text>
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
+                                </view>
+                              </view>
+                              <text wx:elif="{{subdivision.rightHand[1]}}" class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.rightHand[1]}}</text>
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
@@ -219,11 +319,21 @@ module.exports = {
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="0"></view>
                             <input wx:if="{{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==0}}"
                               class="note-input note-input-left" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
-                              maxlength="2"
+                              maxlength="{{notationType === 'simplified' ? 4 : 2}}"
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="0"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.leftHand[0]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.leftHand[0]}}</text>
+                              <!-- 简谱模式：显示带八度点的音符 -->
+                              <view wx:if="{{subdivision.leftHand[0] && notationType === 'simplified'}}" class="note-with-octave">
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
+                                </view>
+                                <text class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.leftHand[0]).baseNote}}</text>
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
+                                </view>
+                              </view>
+                              <text wx:elif="{{subdivision.leftHand[0]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.leftHand[0]}}</text>
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
@@ -234,11 +344,21 @@ module.exports = {
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="1"></view>
                             <input wx:if="{{editing && editing.hand=='left' && editing.sheet==notation.id && editing.measure==measureIndex && editing.beat==beatIndex && editing.subdivision==subdivisionIndex && editing.index==1}}"
                               class="note-input note-input-left" value="{{editingValue}}" focus="true" catchtap="stopPropagation"
-                              maxlength="2"
+                              maxlength="{{notationType === 'simplified' ? 4 : 2}}"
                               data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}" data-subdivision="{{subdivisionIndex}}" data-hand="left" data-index="1"
                               bindinput="onSlotInput" bindconfirm="onSlotConfirm" bindblur="onSlotBlur"/>
                             <block wx:else>
-                              <text wx:if="{{subdivision.leftHand[1]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.leftHand[1]}}</text>
+                              <!-- 简谱模式：显示带八度点的音符 -->
+                              <view wx:if="{{subdivision.leftHand[1] && notationType === 'simplified'}}" class="note-with-octave">
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
+                                </view>
+                                <text class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.leftHand[1]).baseNote}}</text>
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
+                                  <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
+                                </view>
+                              </view>
+                              <text wx:elif="{{subdivision.leftHand[1]}}" class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{subdivision.leftHand[1]}}</text>
                               <text wx:else class="note-number placeholder" style="font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">　</text>
                             </block>
                           </view>
@@ -895,17 +1015,7 @@ module.exports = {
           <image wx:if="{{exportMode === 'paged'}}" class="option-check" src="/assets/icons/check.png"></image>
         </view>
         
-        <!-- A4方向选择（仅在分页模式下显示） -->
-        <view class="a4-orientation-options" wx:if="{{exportMode === 'paged'}}">
-          <view class="a4-orientation-option {{a4Orientation === 'portrait' ? 'selected' : ''}}" bindtap="selectA4Orientation" data-orientation="portrait">
-            <view class="orientation-icon portrait-icon"></view>
-            <text class="orientation-label">A4纵向</text>
-          </view>
-          <view class="a4-orientation-option {{a4Orientation === 'landscape' ? 'selected' : ''}}" bindtap="selectA4Orientation" data-orientation="landscape">
-            <view class="orientation-icon landscape-icon"></view>
-            <text class="orientation-label">A4横向</text>
-          </view>
-        </view>
+
 
         <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
           <view class="option-content">
@@ -922,6 +1032,57 @@ module.exports = {
       </view>
     </view>
   </view>
+
+  <!-- 导出规格设置：在用户选择分页（A4）并点击确认导出时显示 -->
+  <view wx:if="{{showExportSpecsModal}}" class="modal-overlay" bindtap="closeExportSpecsModal">
+    <view class="modal-content export-specs-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">导出规格设置</text>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeExportSpecsModal"></image>
+      </view>
+
+      <!-- A4 方向选择 -->
+      <view class="export-spec-row spec-row-inline">
+        <text class="export-spec-label">A4 方向</text>
+        <view class="a4-orientation-options">
+          <view class="spec-option {{exportA4Orientation === 'portrait' ? 'selected' : ''}}" data-orientation="portrait" bindtap="selectA4Orientation">
+            <view class="spec-shape shape-portrait"></view>
+            <text class="spec-option-label">纵向</text>
+          </view>
+          <view class="spec-option {{exportA4Orientation === 'landscape' ? 'selected' : ''}}" data-orientation="landscape" bindtap="selectA4Orientation">
+            <view class="spec-shape shape-landscape"></view>
+            <text class="spec-option-label">横向</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 排版模式选择 -->
+      <view class="export-spec-row spec-row-inline" style="margin-top: 10rpx;">
+        <text class="export-spec-label">排版模式</text>
+        <view class="layout-mode-options">
+          <view class="spec-option {{exportLayoutMode === 'loose' ? 'selected' : ''}}" data-mode="loose" bindtap="selectExportLayoutMode">
+            <view class="spec-shape layout-loose"></view>
+            <text class="spec-option-label">宽松模式</text>
+          </view>
+          <view class="spec-option {{exportLayoutMode === 'compact' ? 'selected' : ''}}" data-mode="compact" bindtap="selectExportLayoutMode">
+            <view class="spec-shape layout-compact"></view>
+            <text class="spec-option-label">紧凑模式</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 提示文字（单独一行，允许换行） -->
+      <view class="export-spec-hint">
+        <text class="md-strong">宽松模式</text> 对应谱面视角的“手机竖屏”，<text class="md-strong">紧凑模式</text> 对应“手机横屏/平板模式”，通常导出推荐选择紧凑模式以充分利用空间。
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeExportSpecsModal">取消</button>
+        <button class="btn-primary" bindtap="confirmExportSpecs">确认导出</button>
+      </view>
+    </view>
+  </view>
+
 
   <!-- 导出预览窗口（分页模式） -->
   <view wx:if="{{showExportPreview}}" class="export-preview-overlay" bindtap="closeExportPreview">
@@ -951,7 +1112,7 @@ module.exports = {
       
       <view class="export-format-options">
         <view class="export-format-option" bindtap="saveAsImages">
-          <image class="format-icon" src="/assets/icons/download.png"></image>
+          <image class="format-icon" src="/assets/icons/图片文件_image-files.png"></image>
           <view class="format-info">
             <text class="format-title">PNG 图片</text>
             <text class="format-desc">保存{{exportPreviewImages.length}}张图片到相册</text>
@@ -959,7 +1120,7 @@ module.exports = {
         </view>
         
         <view class="export-format-option" bindtap="saveAsPDF">
-          <image class="format-icon" src="/assets/icons/output.png"></image>
+          <image class="format-icon" src="/assets/icons/文件-pdf_file-pdf.png"></image>
           <view class="format-info">
             <text class="format-title">PDF 文档</text>
             <text class="format-desc">合并为单个PDF文件，便于打印分享</text>
@@ -1135,6 +1296,68 @@ module.exports = {
     </view>
   </view>
 
+  <!-- 谱式转换弹窗 -->
+  <view wx:if="{{showNotationTypeModal}}" class="modal-overlay" bindtap="closeNotationTypeModal">
+    <view class="modal-content notation-type-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">谱式转换</text>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeNotationTypeModal"></image>
+      </view>
+      
+      <!-- 当前谱式提示 -->
+      <view class="notation-type-hint">
+        <text>当前谱式：</text>
+        <text class="notation-type-current">{{notationType === 'simplified' ? '简谱' : '数字谱'}}</text>
+        <text> → 转换为：</text>
+        <text class="notation-type-target">{{notationType === 'simplified' ? '数字谱' : '简谱'}}</text>
+      </view>
+
+      <!-- 转换表 -->
+      <view class="conversion-table-container">
+        <scroll-view class="conversion-table-scroll" scroll-y>
+          <view class="conversion-table-header">
+            <text class="conversion-col-header">数字谱</text>
+            <text class="conversion-col-sep">-</text>
+            <text class="conversion-col-header">简谱</text>
+          </view>
+          <view wx:for="{{conversionMappings}}" wx:key="key" class="conversion-row">
+            <!-- 数字谱转简谱：左列固定，右列输入 -->
+            <block wx:if="{{notationType === 'digital'}}">
+              <view class="conversion-col-fixed">{{item.key}}</view>
+              <text class="conversion-col-sep">-</text>
+              <input class="conversion-col-input" 
+                     value="{{item.value}}" 
+                     placeholder="输入对应简谱"
+                     data-key="{{item.key}}"
+                     bindinput="onConversionMappingInput"/>
+            </block>
+            <!-- 简谱转数字谱：左列输入，右列固定 -->
+            <block wx:else>
+              <input class="conversion-col-input" 
+                     value="{{item.value}}" 
+                     placeholder="输入对应数字"
+                     data-key="{{item.key}}"
+                     bindinput="onConversionMappingInput"/>
+              <text class="conversion-col-sep">-</text>
+              <view class="conversion-col-fixed">{{item.key}}</view>
+            </block>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 转换表提示 -->
+      <view class="conversion-hint">
+        <text wx:if="{{conversionMappingError}}" class="conversion-error">{{conversionMappingError}}</text>
+        <text wx:else class="conversion-tip">请填写所有转换映射，确保没有遗漏</text>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeNotationTypeModal">取消</button>
+        <button class="btn-primary" bindtap="confirmNotationTypeChange" disabled="{{!!conversionMappingError || hasEmptyConversionMapping}}">确认转换</button>
+      </view>
+    </view>
+  </view>
+
   <!-- 开屏弹窗 -->
   <view class="splash-modal-overlay {{showSplashModal ? 'show' : ''}} {{isTablet ? 'tablet' : ''}}" bindtap="closeSplashModal" wx:if="{{showSplashModal}}">
     <view class="splash-modal-content {{isTablet ? 'tablet' : ''}}" catchtap="stopPropagation">
@@ -1173,3 +1396,4 @@ module.exports = {
     </view>
   </view>
 </view>
+

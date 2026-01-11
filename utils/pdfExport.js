@@ -19,6 +19,55 @@ function readableError(err, fallback) {
   return fallback || '未知错误';
 }
 
+// 解析简谱音符，提取基础音符和八度标记
+// @param {string} note - 音符字符串，可能包含 ^ (上加点) 或 _ (下加点)
+// @returns {Object} {baseNote: string, hasOctaveUp: boolean, hasOctaveDown: boolean}
+function parseSimplifiedNote(note) {
+  if (!note || typeof note !== 'string') {
+    return { baseNote: '', hasOctaveUp: false, hasOctaveDown: false };
+  }
+  
+  let baseNote = '';
+  let hasOctaveUp = false;
+  let hasOctaveDown = false;
+  
+  for (let i = 0; i < note.length; i++) {
+    const char = note[i];
+    if (char === '^') {
+      hasOctaveUp = true;
+    } else if (char === '_') {
+      hasOctaveDown = true;
+    } else {
+      baseNote += char;
+    }
+  }
+  
+  return { baseNote, hasOctaveUp, hasOctaveDown };
+}
+
+// 绘制八度点（上加点或下加点）
+// @param {CanvasRenderingContext2D} ctx - Canvas 上下文
+// @param {number} x - 中心X坐标
+// @param {number} y - 中心Y坐标
+// @param {boolean} isUp - 是否是上加点（true=上加点，false=下加点）
+// @param {number} dotSize - 点的大小
+// @param {number} dotGap - 点之间的间距
+// @param {string} color - 点的颜色
+function drawOctaveDots(ctx, x, y, isUp, dotSize, dotGap, color) {
+  // 根据是否为上/下加点确定点数和方向
+  const dotCount = 1; // 每个位置绘制1个点
+  const startY = isUp ? y : y;
+  const direction = isUp ? -1 : 1; // 上加点向上，下加点向下
+  
+  ctx.fillStyle = color || '#000000';
+  for (let i = 0; i < dotCount; i++) {
+    const dotY = startY + (i * dotGap * direction);
+    ctx.beginPath();
+    ctx.arc(x, dotY, dotSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 // 弹窗提示导出失败原因，方便调试
 function notifyExportFailure(err) {
   const reason = readableError(err, '导出失败，原因未知');
@@ -99,14 +148,19 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   const titleBlockHeight = 80;
   const measureLineHeight = 70; // 每行小节的高度
   const rowGap = 12; // 行间距，避免上下行的竖线视觉连贯
-  const notationLabelHeight = 25; // 模块编号的高度
+  const notationLabelHeight = 45; // 模块编号的高度（增加间距，避免覆盖谱面）
   const sectionGap = 15; // 模块间距
   
   // 计算每个模块需要的行数（模块优先，其次全局，再回退默认）
   const isLandscape = orientation === 'landscape';
   const resolveMeasuresPerRow = (notation) => {
+    // 优先使用模块已计算好的 measuresPerRow（导出时已根据排版模式重新计算）
     if (notation && typeof notation.measuresPerRow === 'number' && notation.measuresPerRow > 0) {
       return notation.measuresPerRow;
+    }
+    // 如果模块有竖屏基准值，则根据导出方向计算
+    if (notation && typeof notation.measuresPerRowPortrait === 'number' && notation.measuresPerRowPortrait > 0) {
+      return isLandscape ? notation.measuresPerRowPortrait * 2 : notation.measuresPerRowPortrait;
     }
     if (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0) {
       return data.measuresPerRow;
@@ -247,23 +301,23 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
   const measureCount = notation.measures ? notation.measures.length : 4;
   const rowCount = Math.ceil(measureCount / measuresPerRow);
   
-  // 绘制模块编号（例如 A-1）
+  // 绘制模块编号（例如 A-1）- 增大字号
   ctx.fillStyle = '#314D63';
-  const labelFontSize = isLandscape ? 10 : 14;
+  const labelFontSize = isLandscape ? 14 : 18;
   ctx.font = `bold ${labelFontSize}px sans-serif`;
   ctx.textAlign = 'left';
-  ctx.fillText(notation.label || '', x, y + 15);
+  ctx.fillText(notation.label || '', x, y + 20);
   
-  // 绘制备注（如果存在）
+  // 绘制备注（如果存在）- 增大字号
   if (notation.remark) {
     const labelWidth = ctx.measureText(notation.label || '').width;
     ctx.fillStyle = '#999';
-    const remarkFontSize = isLandscape ? 8 : 12;
+    const remarkFontSize = isLandscape ? 12 : 16;
     ctx.font = `${remarkFontSize}px sans-serif`;
-    ctx.fillText(notation.remark, x + labelWidth + 10, y + 15);
+    ctx.fillText(notation.remark, x + labelWidth + 12, y + 20);
   }
   
-  let currentY = y + 25;
+  let currentY = y + 50; // 增加间距，避免与小节计数重叠（加大留白）
   const measureWidth = width / measuresPerRow;
   
   // 绘制谱面小节
@@ -278,7 +332,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
                 measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow);
   });
   
-  const sectionHeight = 25 + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + 15;
+  const sectionHeight = 50 + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + 15;
   return y + sectionHeight;
 }
 
@@ -307,24 +361,24 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
   const totalRows = Math.ceil(measureCount / measuresPerRow);
   const drawRows = Math.min(rows, Math.max(0, totalRows - rowStart));
 
-  // 标题（可选）
+  // 标题（可选）- 增大字号
   if (showLabel) {
     ctx.fillStyle = '#314D63';
-    const labelFontSize = isLandscape ? 10 : 14;
+    const labelFontSize = isLandscape ? 14 : 18;
     ctx.font = `bold ${labelFontSize}px sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText(notation.label || '', x, y + 15);
+    ctx.fillText(notation.label || '', x, y + 20);
     
-    // 绘制备注（如果存在）
+    // 绘制备注（如果存在）- 增大字号
     if (notation.remark) {
       const labelWidth = ctx.measureText(notation.label || '').width;
       ctx.fillStyle = '#999';
-      const remarkFontSize = isLandscape ? 8 : 12;
+      const remarkFontSize = isLandscape ? 12 : 16;
       ctx.font = `${remarkFontSize}px sans-serif`;
-      ctx.fillText(notation.remark, x + labelWidth + 10, y + 15);
+      ctx.fillText(notation.remark, x + labelWidth + 12, y + 20);
     }
     
-    y += 25;
+    y += 50; // 增加间距，避免与小节计数重叠（加大留白）
   }
 
   const measureWidth = width / measuresPerRow;
@@ -387,8 +441,13 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
   const sectionGap = 15;
 
   const resolveMeasuresPerRow = (notation) => {
+    // 优先使用模块已计算好的 measuresPerRow（导出时已根据排版模式重新计算）
     if (notation && typeof notation.measuresPerRow === 'number' && notation.measuresPerRow > 0) {
       return notation.measuresPerRow;
+    }
+    // 如果模块有竖屏基准值，则根据导出方向计算
+    if (notation && typeof notation.measuresPerRowPortrait === 'number' && notation.measuresPerRowPortrait > 0) {
+      return isLandscape ? notation.measuresPerRowPortrait * 2 : notation.measuresPerRowPortrait;
     }
     if (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0) {
       return data.measuresPerRow;
@@ -715,16 +774,29 @@ function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight, isA4La
  */
 function addCornerBackgroundImage(ctx, image, pageWidth, pageHeight, alpha) {
   if (alpha === undefined) alpha = 0.1;
-  const bgWidth = pageWidth * 2 / 3;
+  // 当页面为横向（A4 横向）时，使用更小的背景图比例，避免占用过多空间
+  const isLandscape = pageWidth > pageHeight;
+  const scale = isLandscape ? 0.35 : (2 / 3);
+  const bgWidth = pageWidth * scale;
   const aspect = image.height / image.width;
   const bgHeight = bgWidth * aspect;
+  // 若背景高度超出页面高度的1/2，则进一步缩小，避免覆盖主要内容
+  const maxHeight = pageHeight * 0.5;
+  let finalBgWidth = bgWidth;
+  let finalBgHeight = bgHeight;
+  if (bgHeight > maxHeight) {
+    const reduceScale = maxHeight / bgHeight;
+    finalBgHeight = Math.round(bgHeight * reduceScale);
+    finalBgWidth = Math.round(bgWidth * reduceScale);
+  }
+
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.drawImage(image,
-    pageWidth - bgWidth,
-    pageHeight - bgHeight,
-    bgWidth,
-    bgHeight);
+    pageWidth - finalBgWidth,
+    pageHeight - finalBgHeight,
+    finalBgWidth,
+    finalBgHeight);
   ctx.restore();
 }
 
@@ -792,21 +864,15 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
   const trackLeftHand1 = 0.7;     // 70%
   const trackLeftHand2 = 0.9;     // 90%
   
-  // 绘制小节编号（在左侧小节线附近）
+  // 绘制小节编号（统一在左侧小节线上方，水平居中对齐）
   if (typeof measureIndex === 'number') {
     ctx.fillStyle = '#9AA0A6';
     const isMultiMeasure = measuresPerRow && measuresPerRow > 1;
-    if (isMultiMeasure) {
-      // 多小节模式：编号在左侧小节线正上方
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(String(measureIndex), x + 6, y - 5);
-    } else {
-      // 单小节模式：编号在左侧小节线左边
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(String(measureIndex), x - 4, y + lineHeight / 2 + 4);
-    }
+    const fontSize = isMultiMeasure ? 10 : 11;
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    // 统一在小节线正上方，水平居中
+    ctx.fillText(String(measureIndex), x, y - 5);
   }
   
   // 小节线（左侧）
@@ -859,30 +925,82 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       const fontSize = noteFontSizePx || 14; // 使用传入的字体大小或默认值
       ctx.font = 'bold ' + fontSize + 'px sans-serif';
       ctx.textAlign = 'center';
-      ctx.baseline = 'middle';
+      ctx.textBaseline = 'middle';
       
       const noteX = subX + subdivisionWidth / 2;
+      const dotSize = Math.round(fontSize * 0.28);  // 点的大小
+      const dotGap = Math.round(fontSize * 0.08);   // 点与文字之间的间距
+      // 计算文字的顶部和底部位置（textBaseline='middle'时，文字中心在y坐标）
+      // 上加点位置 = 文字中心 - 文字高度/2 - 间距 - 点半径
+      // 下加点位置 = 文字中心 + 文字高度/2 + 间距 + 点半径
+      const textHalfHeight = fontSize * 0.45;  // 文字高度约等于字号的90%，取一半
+      const octaveUpOffset = textHalfHeight*1.1 + dotGap + dotSize / 2;    // 上加点：从中心向上
+      const octaveDownOffset = textHalfHeight*0.8 + dotGap + dotSize / 2;  // 下加点：从中心向下
       
       // 右手（上方）- 使用指定的颜色
       // 使用固定轨道位置，无论是否有两个音符
       if (subdivision.rightHand && subdivision.rightHand[0]) {
         ctx.fillStyle = rightHandColor || '#F4D096';
-        ctx.fillText(subdivision.rightHand[0], noteX, y + lineHeight * trackRightHand1);
+        const note0 = subdivision.rightHand[0];
+        const parsed0 = parseSimplifiedNote(note0);
+        const noteY0 = y + lineHeight * trackRightHand1;
+        ctx.fillText(parsed0.baseNote, noteX, noteY0);
+        
+        // 绘制八度点（简谱上加点/下加点）
+        if (parsed0.hasOctaveUp) {
+          drawOctaveDots(ctx, noteX, noteY0 - octaveUpOffset, true, dotSize, dotGap, rightHandColor);
+        }
+        if (parsed0.hasOctaveDown) {
+          drawOctaveDots(ctx, noteX, noteY0 + octaveDownOffset, false, dotSize, dotGap, rightHandColor);
+        }
       }
       if (subdivision.rightHand && subdivision.rightHand[1]) {
         ctx.fillStyle = rightHandColor || '#F4D096';
-        ctx.fillText(subdivision.rightHand[1], noteX, y + lineHeight * trackRightHand2);
+        const note1 = subdivision.rightHand[1];
+        const parsed1 = parseSimplifiedNote(note1);
+        const noteY1 = y + lineHeight * trackRightHand2;
+        ctx.fillText(parsed1.baseNote, noteX, noteY1);
+        
+        // 绘制八度点
+        if (parsed1.hasOctaveUp) {
+          drawOctaveDots(ctx, noteX, noteY1 - octaveUpOffset, true, dotSize, dotGap, rightHandColor);
+        }
+        if (parsed1.hasOctaveDown) {
+          drawOctaveDots(ctx, noteX, noteY1 + octaveDownOffset, false, dotSize, dotGap, rightHandColor);
+        }
       }
       
       // 左手（下方）- 使用指定的颜色
       // 使用固定轨道位置，无论是否有两个音符
       if (subdivision.leftHand && subdivision.leftHand[0]) {
         ctx.fillStyle = leftHandColor || '#314D63';
-        ctx.fillText(subdivision.leftHand[0], noteX, y + lineHeight * trackLeftHand1);
+        const note0 = subdivision.leftHand[0];
+        const parsed0 = parseSimplifiedNote(note0);
+        const noteY0 = y + lineHeight * trackLeftHand1;
+        ctx.fillText(parsed0.baseNote, noteX, noteY0);
+        
+        // 绘制八度点
+        if (parsed0.hasOctaveUp) {
+          drawOctaveDots(ctx, noteX, noteY0 - octaveUpOffset, true, dotSize, dotGap, leftHandColor);
+        }
+        if (parsed0.hasOctaveDown) {
+          drawOctaveDots(ctx, noteX, noteY0 + octaveDownOffset, false, dotSize, dotGap, leftHandColor);
+        }
       }
       if (subdivision.leftHand && subdivision.leftHand[1]) {
         ctx.fillStyle = leftHandColor || '#314D63';
-        ctx.fillText(subdivision.leftHand[1], noteX, y + lineHeight * trackLeftHand2);
+        const note1 = subdivision.leftHand[1];
+        const parsed1 = parseSimplifiedNote(note1);
+        const noteY1 = y + lineHeight * trackLeftHand2;
+        ctx.fillText(parsed1.baseNote, noteX, noteY1);
+        
+        // 绘制八度点
+        if (parsed1.hasOctaveUp) {
+          drawOctaveDots(ctx, noteX, noteY1 - octaveUpOffset, true, dotSize, dotGap, leftHandColor);
+        }
+        if (parsed1.hasOctaveDown) {
+          drawOctaveDots(ctx, noteX, noteY1 + octaveDownOffset, false, dotSize, dotGap, leftHandColor);
+        }
       }
     });
   });

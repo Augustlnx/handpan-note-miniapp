@@ -175,18 +175,22 @@
   font-weight: 500;
 }
 
-/* 当只有一行一小节时，小节计数在左侧小节线左侧居中 */
+/* 统一将小节计数显示在左侧小节线上方，水平居中对齐 */
 .staff-container.single-measure .measure-index {
-  left: -29rpx;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 0rpx;
+  top: -28rpx;
+  transform: translateX(-50%);
+  text-align: center;
+  min-width: 24rpx;
 }
 
 /* 当一行超过一小节时，小节计数在左侧小节线正上方 */
 .staff-container.multi-measure .measure-index {
   left: 0rpx;
-  top: -20rpx;
-  transform: translateX(-40%);
+  top: -25rpx;
+  transform: translateX(-50%);
+  text-align: center;
+  min-width: 24rpx;
   font-size: 15rpx;
 }
 
@@ -1025,6 +1029,133 @@
   max-height: 85vh;
   overflow-y: auto;
 }
+
+/* 导出规格设置弹窗样式 */
+.export-specs-modal {
+  max-width: 600rpx; /* 适中宽度 */
+}
+
+/* 行布局：左侧文本，右侧选项 */
+.export-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx; /* 增加间距，使布局更舒展 */
+  margin-bottom: 16rpx; /* 增加行间距 */
+}
+
+.spec-row-inline {
+  flex-wrap: wrap;
+}
+
+.export-spec-label {
+  font-size: 26rpx;
+  color: #314D63;
+  font-weight: 600;
+  flex: 0 0 25%; /* 减少占比，使选项有更多空间 */
+  min-width: 100rpx;
+  text-align: left;
+}
+
+.a4-orientation-options,
+.layout-mode-options {
+  display: flex;
+  gap: 16rpx; /* 适中间距 */
+  flex: 1 1 auto;
+  justify-content: space-around; /* 选项均匀分布 */
+  align-items: center;
+}
+
+/* option 块：图标 + 文本 */
+.spec-option {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 10rpx 16rpx; /* 适中内边距 */
+  border-radius: 12rpx;
+  border: 1rpx solid #E6E6E6;
+  background: #FFF;
+  cursor: pointer;
+  min-width: 120rpx; /* 适中宽度 */
+  height: 48rpx; /* 适中高度 */
+  box-sizing: border-box;
+  flex: 1; /* 使选项均匀伸缩 */
+}
+.spec-option:active {
+  opacity: 0.95;
+}
+
+.spec-option.selected {
+  background: #314D63;
+  color: #fff;
+  border-color: #314D63;
+}
+
+/* 图形尺寸放大 */
+.spec-shape {
+  width: 32rpx;
+  height: 36rpx;
+  border-radius: 4rpx;
+  border: 2rpx solid #D9D9D9;
+  background: #F8F8F8;
+}
+
+/* 纵向与横向形状 */
+.shape-portrait {
+  width: 20rpx;
+  height: 36rpx;
+}
+.shape-landscape {
+  width: 42rpx;
+  height: 18rpx;
+}
+
+/* 布局模式简化图（放大比例） */
+.layout-loose {
+  width: 30rpx;
+  height: 26rpx;
+  background: linear-gradient(90deg, #F4F4F4 0%, #E9E9E9 100%);
+  border: 1rpx solid #D9D9D9;
+}
+.layout-compact {
+  width: 38rpx;
+  height: 14rpx;
+  background: linear-gradient(90deg, #F4F4F4 0%, #E9E9E9 100%);
+  border: 1rpx solid #D9D9D9;
+}
+
+.spec-option-label {
+  font-size: 24rpx;
+  color: inherit;
+}
+
+/* 提示文字占满一行，允许换行 */
+.export-spec-hint {
+  font-size: 22rpx;
+  color: #777;
+  margin-top: 12rpx;
+  line-height: 1.5;
+  width: 100%;
+}
+
+/* 小屏时的适配：标签仍占一行，选项换行且居左 */
+@media (max-width: 420rpx) {
+  .export-spec-label {
+    flex: 0 0 100%;
+    min-width: 0;
+    margin-bottom: 8rpx;
+  }
+  .a4-orientation-options,
+  .layout-mode-options {
+    justify-content: flex-start;
+    width: 100%;
+    gap: 12rpx;
+    flex-wrap: wrap;
+  }
+  .spec-option {
+    min-width: 48%;
+  }
+}
+
 
 .custom-signature-help {
   background-color: #F9F9F9;
@@ -2917,3 +3048,170 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ========== 谱式转换弹窗样式 ========== */
+.notation-type-modal {
+  width: 90%;
+  max-width: 600rpx;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.notation-type-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 20rpx;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.notation-type-current {
+  font-weight: bold;
+  color: #314D63;
+}
+
+.notation-type-target {
+  font-weight: bold;
+  color: #8FB9AB;
+}
+
+.conversion-table-container {
+  flex: 1;
+  min-height: 200rpx;
+  max-height: 400rpx;
+  background: #fff;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.conversion-table-scroll {
+  height: 100%;
+  max-height: 400rpx;
+}
+
+.conversion-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  padding: 16rpx 20rpx;
+  background: #314D63;
+  color: white;
+  font-weight: bold;
+  font-size: 26rpx;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.conversion-col-header {
+  flex: 1;
+  text-align: center;
+}
+
+.conversion-col-sep {
+  width: 40rpx;
+  text-align: center;
+  font-weight: bold;
+  color: #999;
+}
+
+.conversion-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  padding: 12rpx 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.conversion-row:last-child {
+  border-bottom: none;
+}
+
+.conversion-col-fixed {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #314D63;
+  padding: 8rpx 0;
+}
+
+.conversion-col-input {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  padding: 12rpx 16rpx;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 8rpx;
+  background: #fafafa;
+}
+
+.conversion-col-input:focus {
+  border-color: #314D63;
+  background: #fff;
+}
+
+.conversion-hint {
+  padding: 16rpx 0;
+  text-align: center;
+  font-size: 24rpx;
+  min-height: 40rpx;
+}
+
+.conversion-tip {
+  color: #999;
+}
+
+.conversion-error {
+  color: #f44336;
+}
+
+/* 简谱音符八度点容器 */
+.note-with-octave {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.octave-dots-up {
+  position: absolute;
+  top: -8rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rpx;
+}
+
+.octave-dots-down {
+  position: absolute;
+  bottom: -8rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rpx;
+}
+
+.octave-dot {
+  width: 6rpx;
+  height: 6rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 注：octave-dot 的大小由 WXS 函数 getOctaveDotSize 动态计算，
+     通过 inline style 设置，无需使用下面的 CSS 类 */
