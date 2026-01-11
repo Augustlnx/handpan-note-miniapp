@@ -309,9 +309,10 @@
 /* 谱面信息 */
 .sheet-info {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   margin-bottom: 40rpx;
+  gap: 16rpx;
 }
 
 .sheet-label {
@@ -321,6 +322,13 @@
   font-size: 28rpx;
   font-weight: bold;
   color: #314D63;
+}
+
+/* 模块备注（label框外右侧淡灰色） */
+.sheet-remark {
+  font-size: 24rpx;
+  color: #999;
+  font-weight: 400;
 }
 
 .tempo-mark {
@@ -715,6 +723,11 @@
   border-width: 1.5rpx; /* 3 -> 1.5 */
 }
 
+/* 横屏模式下模块备注 */
+.landscape-mode .sheet-remark {
+  font-size: 12rpx; /* 24 -> 12 */
+}
+
 /* 模块图标：delete / add / refresh / tool / less 横屏下统一减半 */
 .landscape-mode .delete-icon,
 .landscape-mode .more-icon-top-right,
@@ -801,7 +814,7 @@
 /* 悬浮节拍器 */
 .floating-metronome {
   position: fixed;
-  top: 100rpx;
+  top: 180rpx;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -872,6 +885,42 @@
   padding: 40rpx;
   width: 80%;
   max-width: 500rpx;
+}
+
+/* 模块标签编辑弹窗 */
+.label-edit-modal {
+  max-width: 550rpx;
+}
+
+.label-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.label-edit-label {
+  font-size: 26rpx;
+  color: #666;
+  font-weight: 500;
+}
+
+/* 模块标签编辑弹窗的输入框 */
+.label-edit-modal .modal-input {
+  width: 100%;
+  height: 72rpx;
+  padding: 0 20rpx;
+  border: 2rpx solid #D9D9D9;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  line-height: 72rpx;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.label-edit-modal .modal-input:focus {
+  border-color: #8FB9AB;
+  box-shadow: 0 0 0 3rpx rgba(143, 185, 171, 0.1);
 }
 
 .modal-header {
@@ -1909,6 +1958,70 @@
   font-weight: bold;
 }
 
+/* A4方向选项 */
+.a4-orientation-options {
+  display: flex;
+  gap: 20rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 16rpx;
+  background-color: #fafafa;
+  border-radius: 8rpx;
+}
+
+.a4-orientation-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 16rpx;
+  background-color: #fff;
+  border-radius: 8rpx;
+  border: 2rpx solid #e0e0e0;
+  transition: all 0.2s;
+}
+
+.a4-orientation-option.selected {
+  background-color: #e8f4f1;
+  border-color: #8FB9AB;
+}
+
+.a4-orientation-option:active {
+  opacity: 0.8;
+}
+
+.orientation-icon {
+  border: 2rpx solid #666;
+  border-radius: 4rpx;
+  margin-bottom: 12rpx;
+  background-color: #fff;
+}
+
+.portrait-icon {
+  width: 36rpx;
+  height: 50rpx;
+}
+
+.landscape-icon {
+  width: 50rpx;
+  height: 36rpx;
+}
+
+.a4-orientation-option.selected .orientation-icon {
+  border-color: #8FB9AB;
+  background-color: #e8f4f1;
+}
+
+.orientation-label {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.a4-orientation-option.selected .orientation-label {
+  color: #314D63;
+  font-weight: 500;
+}
+
 /* 导出预览窗口 */
 .export-preview-overlay {
   position: fixed;
@@ -2546,6 +2659,12 @@
   background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* 平板模式下弹窗位置下移 */
+.splash-modal-overlay.tablet {
+  align-items: flex-start;
+  padding-top: 18vh;
+}
+
 .splash-modal-content {
   background: white;
   border-radius: 20rpx;
@@ -2558,6 +2677,46 @@
   gap: 30rpx;
   animation: splashSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
+}
+
+/* 平板设备适配 - 缩小弹窗 */
+.splash-modal-content.tablet {
+  max-width: 550rpx;
+  padding: 30rpx 24rpx;
+  gap: 20rpx;
+}
+
+.splash-modal-content.tablet .splash-title {
+  font-size: 38rpx;
+}
+
+.splash-modal-content.tablet .splash-subtitle {
+  font-size: 30rpx;
+}
+
+.splash-modal-content.tablet .splash-logo {
+  width: 240rpx;
+  height: 240rpx;
+  margin: -20rpx auto -20rpx auto;
+}
+
+.splash-modal-content.tablet .splash-text {
+  font-size: 22rpx;
+}
+
+.splash-modal-content.tablet .splash-btn {
+  height: 56rpx;
+}
+
+.splash-modal-content.tablet .splash-btn-label {
+  font-size: 22rpx;
+}
+
+.splash-modal-content.tablet .splash-close-btn {
+  width: 28rpx;
+  height: 28rpx;
+  top: 16rpx;
+  right: 16rpx;
 }
 
 @keyframes splashSlideIn {

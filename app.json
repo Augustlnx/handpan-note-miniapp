@@ -5,19 +5,12 @@
     "pages/settings/settings",
     "pages/library/library"
   ],
-  "permission": {
-    "scope.writePhotosAlbum": {
-      "desc": "需要您的授权以保存图片到相册"
-    }
-  },
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#304859",
     "navigationBarTitleText": "Handpan Note",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#fffffff1",
-    "enableShareAppMessage": true,
-    "enableShareTimeline": true
+    "backgroundColor": "#fffffff1"
   },
   "tabBar": {
     "color": "black",

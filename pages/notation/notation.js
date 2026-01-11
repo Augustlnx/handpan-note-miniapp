@@ -46,6 +46,12 @@ Page({
     showCustomTimeSignatureModal: false,
     customTimeSignatureTemplate: '',
     customTimeSignatureError: '',
+    // 模块标签编辑弹窗
+    showLabelEditModal: false,
+    labelEditModuleId: null,
+    labelEditName: '',
+    labelEditRemark: '',
+    
     // 模块设置
     showModuleSettingsModal: false,
     currentModuleId: null,
@@ -100,6 +106,7 @@ Page({
     // 导出功能相关
     showExportOptionsModal: false,
     exportMode: 'long', // 'long' 长图模式, 'paged' 分页模式
+    a4Orientation: 'portrait', // A4纸张方向: 'portrait' 纵向, 'landscape' 横向
     showExportPreview: false,
     exportPreviewImages: [],
     currentPreviewPage: 0,
@@ -155,6 +162,7 @@ Page({
 
     // 开屏弹窗相关
     showSplashModal: false,
+    isTablet: false, // 是否为平板设备
 
     // 阅读模式相关
     readingMode: false // false: 编辑模式, true: 阅读模式
@@ -177,7 +185,11 @@ Page({
     this.loadNotationType();
     this.loadLibraryFileInfo(); // 加载库文件关联信息
     this.calculatePages(); // 初始化分页
-    this.checkAndShowSplashModal(); // 检查是否显示开屏弹窗
+    
+    // 延迟检查开屏弹窗，不阻塞主流程，优化 onLoad 性能
+    setTimeout(() => {
+      this.checkAndShowSplashModal();
+    }, 100);
   },
 
   onShow() {
@@ -1133,6 +1145,9 @@ Page({
     const customTimeSignature = wx.getStorageSync('customTimeSignature');
     const template = customTimeSignature && customTimeSignature.template ? customTimeSignature.template : '';
     
+    // 使用实例变量存储临时值
+    this._customTimeSignatureTemplate = template;
+    
     this.setData({
       showCustomTimeSignatureModal: true,
       customTimeSignatureTemplate: template,
@@ -1142,6 +1157,9 @@ Page({
 
   // 关闭自由设定模态框
   closeCustomTimeSignatureModal() {
+    // 清理实例变量
+    this._customTimeSignatureTemplate = undefined;
+    
     this.setData({
       showCustomTimeSignatureModal: false,
       customTimeSignatureTemplate: '',
@@ -1149,11 +1167,11 @@ Page({
     });
   },
 
-  // 自由设定模板输入变化
+  // 自由设定模板输入变化（使用实例变量避免输入回退）
   onCustomTimeSignatureInput(e) {
     const template = e.detail.value;
-    this.setData({ customTimeSignatureTemplate: template });
-    // 实时验证
+    this._customTimeSignatureTemplate = template;
+    // 实时验证（仅更新错误状态，不更新值）
     this.validateCustomTemplate(template);
   },
 
@@ -1171,13 +1189,19 @@ Page({
       error = '必须以"["开始，"]"结束';
     }
     
-    this.setData({ customTimeSignatureError: error });
+    // 仅在错误状态变化时更新，避免输入回退
+    if (this.data.customTimeSignatureError !== error) {
+      this.setData({ customTimeSignatureError: error });
+    }
     return error === '';
   },
 
   // 确认自由设定拍号
   confirmCustomTimeSignature() {
-    const template = this.data.customTimeSignatureTemplate.trim();
+    // 从实例变量读取最新值
+    const template = (this._customTimeSignatureTemplate !== undefined 
+      ? this._customTimeSignatureTemplate 
+      : this.data.customTimeSignatureTemplate).trim();
     
     if (!this.validateCustomTemplate(template)) {
       return;
@@ -1197,6 +1221,9 @@ Page({
     };
 
     wx.setStorageSync('customTimeSignature', customTimeSignature);
+    
+    // 清理实例变量
+    this._customTimeSignatureTemplate = undefined;
     
     // 获取现有的谱面数据（如果有）
     const existingNotations = this.data.notations || [];
@@ -1328,6 +1355,9 @@ Page({
 
   // 关闭模块设置模态框
   closeModuleSettingsModal() {
+    // 清理实例变量
+    this._moduleCustomTemplate = undefined;
+    
     this.setData({
       showModuleSettingsModal: false,
       currentModuleId: null,
@@ -1384,7 +1414,9 @@ Page({
       const line = slice.map(m => this.buildMeasureCode(m)).join('');
       lines.push(line);
     }
-    return `\\begin{module}{${notation.label}}\n${lines.join('\\\\\n')}\n\\end{module}`;
+    // 支持备注格式
+    const remarkPart = notation.remark ? `{${notation.remark}}` : '';
+    return `\\begin{module}{${notation.label}}${remarkPart}\n${lines.join('\\\\\n')}\n\\end{module}`;
   },
 
   // 当用户点击导出按钮时，才提取导出代码（延迟加载）
@@ -1583,11 +1615,11 @@ Page({
     }
   },
 
-  // 模块自定义模板输入变化
+  // 模块自定义模板输入变化（使用实例变量避免输入回退）
   onModuleCustomTemplateInput(e) {
     const template = e.detail.value;
-    this.setData({ moduleCustomTemplate: template });
-    // 实时验证
+    this._moduleCustomTemplate = template;
+    // 实时验证（仅更新错误状态）
     this.validateModuleCustomTemplate(template);
   },
 
@@ -1605,7 +1637,10 @@ Page({
       error = '必须以"["开始，"]"结束';
     }
     
-    this.setData({ moduleCustomTemplateError: error });
+    // 仅在错误状态变化时更新，避免输入回退
+    if (this.data.moduleCustomTemplateError !== error) {
+      this.setData({ moduleCustomTemplateError: error });
+    }
     return error === '';
   },
 
@@ -1652,11 +1687,15 @@ Page({
       currentModuleId, 
       moduleLineCount, 
       moduleTimeSignatureBeats, 
-      moduleCustomTemplate,
       moduleMeasureHeight,
       moduleNoteFontSize,
       moduleLineSpacing
     } = this.data;
+    
+    // 从实例变量读取模块自定义模板（如果有）
+    const moduleCustomTemplate = this._moduleCustomTemplate !== undefined 
+      ? this._moduleCustomTemplate 
+      : this.data.moduleCustomTemplate;
     
     // 验证行数
     const lineCount = parseInt(moduleLineCount) || 0;
@@ -2334,7 +2373,7 @@ Page({
   openOrientationPicker() {
     const that = this;
     wx.showActionSheet({
-      itemList: ['手机竖屏（默认）', '手机横屏'],
+      itemList: ['手机竖屏（默认）', '手机横屏/平板模式'],
       success(res) {
         const newOrientation = res.tapIndex === 0 ? 'portrait' : 'landscape';
         that.setData({ manualOrientation: true });
@@ -2359,6 +2398,9 @@ Page({
 
   // 编辑主标题
   editTitle() {
+    // 使用实例变量存储临时值
+    this._editValue = this.data.mainTitle;
+    
     this.setData({
       showEditModal: true,
       editModalTitle: '编辑标题',
@@ -2371,6 +2413,9 @@ Page({
 
   // 编辑副标题
   editSubTitle() {
+    // 使用实例变量存储临时值
+    this._editValue = this.data.subTitle;
+    
     this.setData({
       showEditModal: true,
       editModalTitle: '编辑副标题',
@@ -2385,19 +2430,76 @@ Page({
   editLabel(e) {
     const id = parseInt(e.currentTarget.dataset.id);
     const notation = this.data.notations.find(n => n.id === id);
+    if (!notation) return;
+
+    // 使用实例变量存储临时值，避免频繁setData导致的输入卡顿
+    this._labelEditName = notation.label || '';
+    this._labelEditRemark = notation.remark || '';
 
     this.setData({
-      showEditModal: true,
-      editModalTitle: '编辑谱面标识',
-      editValue: notation.label,
-      editInputType: 'text',
-      editPlaceholder: '例如: A-1',
-      currentEdit: { type: 'label', id }
+      showLabelEditModal: true,
+      labelEditModuleId: id,
+      labelEditName: notation.label || '',
+      labelEditRemark: notation.remark || ''
+    });
+  },
+
+  // 模块标签编辑输入事件（使用实例变量避免输入回退）
+  onLabelEditNameInput(e) {
+    this._labelEditName = e.detail.value;
+  },
+
+  onLabelEditRemarkInput(e) {
+    this._labelEditRemark = e.detail.value;
+  },
+
+  // 确认模块标签编辑
+  confirmLabelEdit() {
+    const { labelEditModuleId, notations } = this.data;
+    // 从实例变量读取最新值
+    const labelEditName = this._labelEditName !== undefined ? this._labelEditName : this.data.labelEditName;
+    const labelEditRemark = this._labelEditRemark !== undefined ? this._labelEditRemark : this.data.labelEditRemark;
+    
+    const updatedNotations = JSON.parse(JSON.stringify(notations));
+    const notation = updatedNotations.find(n => n.id === labelEditModuleId);
+    if (notation) {
+      notation.label = labelEditName;
+      notation.remark = labelEditRemark;
+    }
+    this.saveNotationsScoped(updatedNotations);
+    this.setNotations(updatedNotations);
+    
+    // 清理实例变量
+    this._labelEditName = undefined;
+    this._labelEditRemark = undefined;
+    
+    this.setData({
+      showLabelEditModal: false,
+      labelEditModuleId: null,
+      labelEditName: '',
+      labelEditRemark: ''
+    });
+  },
+
+  // 关闭模块标签编辑弹窗
+  closeLabelEditModal() {
+    // 清理实例变量
+    this._labelEditName = undefined;
+    this._labelEditRemark = undefined;
+    
+    this.setData({
+      showLabelEditModal: false,
+      labelEditModuleId: null,
+      labelEditName: '',
+      labelEditRemark: ''
     });
   },
 
   // 编辑全局速度
   editGlobalTempo() {
+    // 使用实例变量存储临时值
+    this._editValue = String(this.data.globalTempo);
+    
     this.setData({
       showEditModal: true,
       editModalTitle: '编辑速度',
@@ -2593,17 +2695,20 @@ Page({
     const ds = e.currentTarget.dataset || {};
     const ctx = { sheet: ds.sheet, measure: ds.measure, beat: ds.beat, subdivision: ds.subdivision, hand: ds.hand, index: ds.index };
     this.commitInlineEdit(ctx, e.detail.value);
-  },  // 输入框变化
+  },  // 输入框变化（使用实例变量避免输入回退）
   onEditInput(e) {
-    this.setData({ editValue: e.detail.value });
+    this._editValue = e.detail.value;
   },
 
   // 确认编辑
   confirmEdit() {
-    const { currentEdit, editValue, notations } = this.data;
+    const { currentEdit, notations } = this.data;
+    // 从实例变量读取最新值
+    const editValue = this._editValue !== undefined ? this._editValue : this.data.editValue;
     
     // 防护检查：currentEdit是null或undefined
     if (!currentEdit) {
+      this._editValue = undefined;
       this.setData({ showEditModal: false });
       return;
     }
@@ -2611,14 +2716,17 @@ Page({
     const updatedNotations = JSON.parse(JSON.stringify(notations));
 
     if (currentEdit.type === 'title') {
+      this._editValue = undefined;
       this.setData({ mainTitle: editValue, showEditModal: false, currentEdit: null });
       this.saveTitles();
       return;
     } else if (currentEdit.type === 'subtitle') {
+      this._editValue = undefined;
       this.setData({ subTitle: editValue, showEditModal: false, currentEdit: null });
       this.saveTitles();
       return;
     } else if (currentEdit.type === 'globalTempo') {
+      this._editValue = undefined;
       this.setData({ globalTempo: parseInt(editValue) || 60, showEditModal: false, currentEdit: null });
       this.saveGlobalTempo();
       return;
@@ -2654,11 +2762,13 @@ Page({
 
     this.saveNotationsScoped(updatedNotations);
     this.setNotations(updatedNotations);
+    this._editValue = undefined;
     this.setData({ showEditModal: false, currentEdit: null });
   },
 
   // 关闭弹窗
   closeModal() {
+    this._editValue = undefined;
     this.setData({ showEditModal: false });
   },
 
@@ -2875,7 +2985,9 @@ Page({
     let code = '';
     
     for (const notation of notations) {
-      code += `\\begin{module}{${notation.label}}\n`;
+      // 支持备注格式: \begin{module}{名称}{备注}
+      const remarkPart = notation.remark ? `{${notation.remark}}` : '';
+      code += `\\begin{module}{${notation.label}}${remarkPart}\n`;
       
       // 根据模板确定每行小节数
       const measuresPerRow = this.getMeasuresPerRowForNotation(notation);
@@ -3116,6 +3228,14 @@ Page({
     });
   },
 
+  // 选择A4方向
+  selectA4Orientation(e) {
+    const orientation = e.currentTarget.dataset.orientation;
+    this.setData({
+      a4Orientation: orientation
+    });
+  },
+
   // 确认导出
   confirmExport() {
     const exportMode = this.data.exportMode;
@@ -3145,7 +3265,8 @@ Page({
       leftHandColor: this.data.leftHandColor,
       orientation: this.data.orientation,
       measuresPerRow: this.data.measuresPerRow,
-      exportMode: this.data.exportMode
+      exportMode: this.data.exportMode,
+      a4Orientation: this.data.a4Orientation
     }).then(result => {
       wx.hideLoading();
       
@@ -3530,11 +3651,12 @@ Page({
 
   // ============ 节拍器相关方法 ============
   
-  // 加载节拍器设置（从 metronome 页面的设置）
+  // 加载节拍器设置（使用谱面标题页的速度和拍号设置）
   loadMetronomeSettings() {
-    const settings = wx.getStorageSync('metronomeSettings') || {};
-    const tempo = settings.tempo || 120;
-    const beatsCount = settings.beatsCount || 4;
+    // 速度使用当前谱面的 globalTempo
+    const tempo = this.data.globalTempo || 60;
+    // 拍数使用当前谱面的拍号设置
+    const beatsCount = this.data.timeSignatureBeats || 4;
     
     const beats = Array.from({ length: beatsCount }, (_, i) => i + 1);
     this.setData({ 
@@ -3647,13 +3769,13 @@ Page({
   ensureMetronomeAudio() {
     if (!this.highAudioCtx) {
       const ctxHigh = wx.createInnerAudioContext();
-      ctxHigh.src = '/assets/metronome/soundhigh.wav';
+      ctxHigh.src = '/assets/metronome/soundhigh.mp3';
       ctxHigh.volume = 0.85;
       this.highAudioCtx = ctxHigh;
     }
     if (!this.lowAudioCtx) {
       const ctxLow = wx.createInnerAudioContext();
-      ctxLow.src = '/assets/metronome/soundlow.wav';
+      ctxLow.src = '/assets/metronome/soundlow.mp3';
       // 提升响度 1.2 倍，最高不超过 1.0
       ctxLow.volume = Math.min(1, 0.85 * 1.2);
       this.lowAudioCtx = ctxLow;
@@ -3732,6 +3854,9 @@ Page({
 
   // 关闭导入模态窗口
   closeImportModal() {
+    // 清理实例变量
+    this._importCode = undefined;
+    
     this.setData({
       showImportModal: false,
       importCode: '',
@@ -3787,12 +3912,9 @@ Page({
     });
   },
 
-  // 输入导入代码
+  // 输入导入代码（使用实例变量避免输入回退）
   onImportCodeInput(e) {
-    this.setData({
-      importCode: e.detail.value,
-      importError: ''
-    });
+    this._importCode = e.detail.value;
   },
 
   // 执行导入（核心逻辑，由 confirmImport 和 performLoadExample 调用）
@@ -3817,10 +3939,14 @@ Page({
 
         const [firstModule, ...restModules] = parsedModules;
 
-        // 用首个模块更新当前模块，但保留原ID/标签
+        // 用首个模块更新当前模块，但保留原ID/标签/备注（除非新模块有备注）
         const updatedNotation = this.convertToNotation(firstModule);
         updatedNotation.id = notations[targetIndex].id;
         updatedNotation.label = notations[targetIndex].label;
+        // 如果导入的模块没有备注，保留原有备注
+        if (!updatedNotation.remark && notations[targetIndex].remark) {
+          updatedNotation.remark = notations[targetIndex].remark;
+        }
         notations[targetIndex] = updatedNotation;
 
         // 其余模块按顺序插入在当前模块之后
@@ -3862,7 +3988,8 @@ Page({
 
   // 确认导入
   confirmImport() {
-    const code = this.data.importCode.trim();
+    // 从实例变量读取最新值
+    const code = (this._importCode !== undefined ? this._importCode : this.data.importCode).trim();
     if (!code) {
       this.setData({ importError: '请输入乐谱代码' });
       return;
@@ -3890,16 +4017,19 @@ Page({
     // 移除所有注释（% 开头到行尾）
     code = code.replace(/%[^\n]*/g, '');
     
-    // 提取所有module块
-    const moduleRegex = /\\begin\{module\}\{([^}]+)\}([\s\S]*?)\\end\{module\}/g;
+    // 提取所有module块，支持可选的备注参数
+    // 格式1: \begin{module}{A-1} 或 格式2: \begin{module}{A-1}{备注}
+    const moduleRegex = /\\begin\{module\}\{([^}]+)\}(?:\{([^}]*)\})?([\s\S]*?)\\end\{module\}/g;
     let match;
     
     while ((match = moduleRegex.exec(code)) !== null) {
       const moduleName = match[1].trim();
-      const moduleContent = match[2].trim();
+      const moduleRemark = match[2] ? match[2].trim() : ''; // 可选的备注
+      const moduleContent = match[3].trim();
       
       try {
         const parsedModule = this.parseModuleContent(moduleName, moduleContent);
+        parsedModule.remark = moduleRemark; // 添加备注字段
         modules.push(parsedModule);
       } catch (err) {
         throw new Error(`模块 ${moduleName} 解析失败: ${err.message}`);
@@ -3984,9 +4114,9 @@ Page({
   // 解析单个拍
   parseBeat(beatStr) {
     // 首先处理隐含的+号：在token之间自动插入+
-    // token 包括：{...}、完整格式6/D、token/、/token、(...)/(...) 格式、- 、单个数字或字母
+    // token 包括：{...}、完整格式6/D、token/、/token、(...)/(...) 格式、- 、单个数字或字母、·
     // 注意顺序很重要：完整手指定必须先匹配，否则会被拆成两个token
-    const tokenRegex = /{[^}]+}|[0-9A-Za-z]+\/[0-9A-Za-z]+|[0-9A-Za-z]+\/|\/[0-9A-Za-z]+|\/\{[^}]+\}|\{[^}]+\}\/|\([^)]*\)\/\([^)]*\)|-|[0-9A-Za-z]/g;
+    const tokenRegex = /{[^}]+}|[0-9A-Za-z]+\/[0-9A-Za-z]+|[0-9A-Za-z]+\/|\/[0-9A-Za-z]+|\/\{[^}]+\}|\{[^}]+\}\/|\([^)]*\)\/\([^)]*\)|-|[0-9A-Za-z]|·/g;
     const tokens = beatStr.match(tokenRegex) || [];
     
     // 用 + 连接所有 token
@@ -4121,8 +4251,8 @@ Page({
         return buildFromSingleBracket(singleBracketMatch[1]);
       }
 
-      // 简写2：单个数字或字母，奇数→右手，偶数/字母→左手
-      if (/^[0-9A-Za-z]+$/.test(subStr)) {
+      // 简写2：单个数字或字母或·，奇数→右手，偶数/字母/·→左手
+      if (/^[0-9A-Za-z·]+$/.test(subStr)) {
         const n = parseInt(subStr, 10);
         if (!Number.isNaN(n)) {
           if (n % 2 === 0) {
@@ -4138,7 +4268,7 @@ Page({
             leftHand: ['', '']
           };
         }
-        // 字母视作偶数，放在左手
+        // 字母和·视作偶数，放在左手
         const leftHand = this.parseHandNotes(subStr, 'left');
         return {
           rightHand: ['', ''],
@@ -4209,26 +4339,26 @@ Page({
       return '';
     }
     
-    // 在简谱模式下，保留装饰符号（^. 或 _.）
-    // 在数字谱模式下，移除装饰符号
+    // 在简谱模式下，保留装饰符号（^. 或 _.）和·
+    // 在数字谱模式下，移除装饰符号但保留·
     if (this.data.notationType === 'simplified') {
-      // 简谱模式：保留修饰符，允许字母/数字
+      // 简谱模式：保留修饰符，允许字母/数字/·
       let cleaned = noteStr.replace(/\{_(.+?)_\}/, '$1');
-      const match = cleaned.match(/^([0-9A-Za-z]+)([\^_]\.)?/);
+      const match = cleaned.match(/^([0-9A-Za-z·]+)([\^_]\.)?/);
       if (match) {
         return (match[1] || '') + (match[2] || '');
       }
-      // 无法匹配时，返回去除空白后的原始内容，避免丢失字母
+      // 无法匹配时，返回去除空白后的原始内容，避免丢失字母和·
       cleaned = cleaned.trim();
       return cleaned || '';
     } else {
-      // 数字谱模式：移除修饰符，但允许字母/数字
+      // 数字谱模式：移除修饰符，但允许字母/数字/·
       let cleaned = noteStr;
       cleaned = cleaned.replace(/\{_(.+?)_\}/, '$1');
       cleaned = cleaned.replace(/[\^_]\./g, '');
 
-      if (!/^[0-9A-Za-z]+$/.test(cleaned)) {
-        const tokenMatch = cleaned.match(/[0-9A-Za-z]+/);
+      if (!/^[0-9A-Za-z·]+$/.test(cleaned)) {
+        const tokenMatch = cleaned.match(/[0-9A-Za-z·]+/);
         if (tokenMatch) {
           cleaned = tokenMatch[0];
         } else {
@@ -4276,6 +4406,7 @@ Page({
     return {
       id: Date.now() + Math.floor(Math.random() * 10000),
       label: parsedModule.name,
+      remark: parsedModule.remark || '', // 添加备注字段
       measures: measures,
       timeSignature: '自由/自由',
       moduleTimeSignature: 'custom',
@@ -4896,7 +5027,26 @@ Page({
   checkAndShowSplashModal() {
     const dismissed = wx.getStorageSync('splashModalDismissed');
     if (!dismissed) {
-      this.setData({ showSplashModal: true });
+      // 检测是否为平板设备
+      const isTablet = this.checkIsTablet();
+      this.setData({ showSplashModal: true, isTablet });
+    }
+  },
+
+  // 检测是否为平板设备
+  checkIsTablet() {
+    try {
+      // 使用新版 API 替代已废弃的 wx.getSystemInfoSync
+      const windowInfo = wx.getWindowInfo();
+      const screenWidth = windowInfo.screenWidth;
+      const screenHeight = windowInfo.screenHeight;
+      // 平板判断条件：屏幕宽度大于600px，或者屏幕宽高比大于0.6（横屏或接近正方形）
+      const aspectRatio = Math.min(screenWidth, screenHeight) / Math.max(screenWidth, screenHeight);
+      const isTablet = screenWidth >= 600 || aspectRatio > 0.6;
+      return isTablet;
+    } catch (e) {
+      console.error('检测设备类型失败:', e);
+      return false;
     }
   },
 

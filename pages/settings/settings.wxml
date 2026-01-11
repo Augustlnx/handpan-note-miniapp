@@ -81,7 +81,7 @@
   <view class="card about-section">
     <text class="about-title">关于</text>
     <text class="about-text"> </text>
-    <text class="about-text">Orbit Note 星轨手碟记谱 v3.1.1</text>    <view class="about-links">
+    <text class="about-text">Orbit Note 星轨手碟记谱 v4.0.0</text>    <view class="about-links">
       <view class="about-link" bindtap="showUserManual">
         <image class="about-icon" src="/assets/icons/problem.png"></image>
         <text>用户手册</text>

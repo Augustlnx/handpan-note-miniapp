@@ -5,57 +5,429 @@
   </view>
 </view>
 
-<view class="metronome-container">
-  <!-- 背景图片装饰 -->
-  <image class="background-image" src="/assets/img/bg2.png" mode="widthFix"></image>
-  
-  <view class="card metronome-card">
-    <text class="page-title">节拍器</text>
+<view class="metronome-container"> 
+  <!-- 节奏练习器模块 - 标签页布局 -->
+  <view class="rhythm-module-v2">
 
-    <!-- 速度设置 -->
-    <view class="setting-section">
-      <text class="setting-label">速度 (BPM)</text>
-      <view class="tempo-control">
-        <image class="tempo-btn" src="/assets/icons/down.png" bindtap="decreaseTempo"></image>
-        <input class="tempo-input" type="number" value="{{tempo}}" bindblur="onTempoBlur" />
-        <image class="tempo-btn" src="/assets/icons/up.png" bindtap="increaseTempo"></image>
+    <!-- 进度条 -->
+    <view class="rhythm-progress-bar">
+      <view class="rhythm-progress-fill" style="width: {{progress}}%"></view>
+    </view>
+
+    <!-- 谱面显示区域 -->
+    <scroll-view class="rhythm-score-area" scroll-y="{{!isMetronomeMode}}">
+      <view class="repeat-indicator" wx:if="{{randomMode}}">
+        重复: {{currentRepeat + 1}}/{{randomRepeatCount}}
+      </view>
+      
+      <!-- 预热提示 -->
+      <view class="warmup-indicator" wx:if="{{isWarmup}}">
+        <text class="warmup-label">预备</text>
+        <view class="warmup-beats">
+          <text class="warmup-beat {{warmupBeat >= 0 ? 'active' : ''}}">●</text>
+          <text class="warmup-beat {{warmupBeat >= 1 ? 'active' : ''}}">●</text>
+          <text class="warmup-beat {{warmupBeat >= 2 ? 'active' : ''}}">●</text>
+          <text class="warmup-beat {{warmupBeat >= 3 ? 'active' : ''}}">●</text>
+        </view>
+      </view>
+      
+      <!-- 节奏片段显示 -->
+      <view class="score-content" wx:if="{{pattern.length > 0 && !isMetronomeMode}}">
+        <view wx:for="{{pattern}}" wx:key="id"
+              class="rhythm-segment {{currentSegment === index ? 'playing' : ''}} {{!animation ? 'no-animation' : ''}}"
+              data-index="{{index}}">
+          <view class="segment-letter">{{item.letter}}</view>
+          <view class="segment-pattern">
+            <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
+                  class="{{note === 1 ? 'note' : 'rest'}} {{currentSegment === index && currentNote === noteIdx ? 'active' : ''}} {{!animation ? 'no-animation' : ''}}">
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 节拍器模式显示（无自定义节奏时） -->
+      <view class="metronome-mode-display" wx:if="{{isMetronomeMode}}">
+        <!-- 拍子显示 -->
+        <view class="beat-display">
+          <view wx:for="{{beatDots}}" wx:key="id" 
+                class="beat-dot {{item.active ? 'active' : ''}} {{item.strong ? 'strong' : ''}}"
+                data-beat="{{index}}">
+          </view>
+        </view>
+      
+        <!-- 拍号选择触发器 -->
+        <view class="time-sig-trigger" bindtap="onOpenTimeSigModal">
+          <image class="time-sig-arrow" src="/assets/icons/metronome/radio.png" mode="aspectFit"></image>
+          <text class="time-sig-value">{{metBeatsLabel}}</text>
+        </view>
+        
+        <!-- 空状态提示 -->
+        <view class="empty-score-inline">
+          <text class="empty-text">默认开启节拍器模式</text>
+          <text class="empty-hint">还没有节奏哦~点击"编辑"标签开始创作自定义节奏片段</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 标签页导航 -->
+    <view class="rhythm-tabs">
+      <view class="rhythm-tab {{rhythmActiveTab === 'play' ? 'active' : ''}}" 
+            data-tab="play" bindtap="onRhythmTabChange">
+        <image class="tab-icon" src="/assets/icons/metronome/耳机声音_headphone-sound.png" mode="aspectFit"></image>
+        <text>播放</text>
+      </view>
+      <view class="rhythm-tab {{rhythmActiveTab === 'edit' ? 'active' : ''}}" 
+            data-tab="edit" bindtap="onRhythmTabChange">
+        <image class="tab-icon" src="/assets/icons/library/folder-rename.png" mode="aspectFit"></image>
+        <text>编辑</text>
+      </view>
+      <view class="rhythm-tab {{rhythmActiveTab === 'library' ? 'active' : ''}}" 
+            data-tab="library" bindtap="onRhythmTabChange">
+        <image class="tab-icon" src="/assets/icons/metronome/唱片集_record.png" mode="aspectFit"></image>
+        <text>节奏库</text>
       </view>
     </view>
 
-    <!-- 拍号设置 -->
-    <view class="setting-section">
-      <text class="setting-label">拍号</text>
-      <view class="time-signature-control">
-        <picker mode="selector" range="{{beatsOptions}}" value="{{beatsIndex}}" bindchange="onBeatsChange">
-          <view class="picker-display">
-            <text>{{beatsOptions[beatsIndex]}}</text>
+    <!-- 播放标签页 -->
+    <view class="rhythm-tab-content {{rhythmActiveTab === 'play' ? 'active' : ''}}">
+      <view class="play-tab">
+        <!-- 播放控制区域 - 网格布局 -->
+        <view class="play-control-area">
+          <view class="play-grid">
+            <!-- 左上：主音 -->
+            <view class="switch-btn-v2 {{isMetronomeMode ? 'disabled' : ''}}" data-type="mainSound" bindtap="onSwitchBtnTap">
+              <view class="switch-btn-label">
+                <text>主音</text>
+                <view class="help-icon" data-help="mainSound" catchtap="onShowHelp">?</view>
+              </view>
+              <view class="switch-v2 {{mainSound ? 'active' : ''}}"></view>
+            </view>
+
+            <!-- 中间：播放按钮 -->
+            <view class="play-button-container">
+              <view class="play-button-v2 {{(isMetronomeMode ? metIsPlaying : isPlaying) ? 'playing' : ''}}" bindtap="onTogglePlay">
+                <image class="play-icon" src="{{(isMetronomeMode ? metIsPlaying : isPlaying) ? '/assets/icons/metronome/暂停_pause-one.png' : '/assets/icons/metronome/播放_play.png'}}" mode="aspectFit"></image>
+              </view>
+            </view>
+
+            <!-- 右上：辅助音 -->
+            <view class="switch-btn-v2 {{(!mainSound || isMetronomeMode) ? 'disabled' : ''}}" data-type="ghostNote" bindtap="onSwitchBtnTap">
+              <view class="switch-btn-label">
+                <text>辅助音</text>
+                <view class="help-icon" data-help="ghostSound" catchtap="onShowHelp">?</view>
+              </view>
+              <view class="switch-v2 {{ghostNote ? 'active' : ''}}"></view>
+            </view>
+
+            <!-- 左下：节拍器 -->
+            <view class="switch-btn-v2 {{isMetronomeMode ? 'disabled' : ''}}" data-type="metronome" bindtap="onSwitchBtnTap">
+              <view class="switch-btn-label">
+                <text>节拍器</text>
+                <view class="help-icon" data-help="metronome" catchtap="onShowHelp">?</view>
+              </view>
+              <view class="switch-v2 {{metronome ? 'active' : ''}}"></view>
+            </view>
+
+            <!-- 右下：动画 -->
+            <view class="switch-btn-v2" data-type="animation" bindtap="onSwitchBtnTap">
+              <view class="switch-btn-label">
+                <text>动画</text>
+                <view class="help-icon" data-help="animation" catchtap="onShowHelp">?</view>
+              </view>
+              <view class="switch-v2 {{animation ? 'active' : ''}}"></view>
+            </view>
           </view>
-        </picker>
-        <text class="slash">/</text>
-        <picker mode="selector" range="{{noteValueOptions}}" value="{{noteValueIndex}}" bindchange="onNoteValueChange">
-          <view class="picker-display">
-            <text>{{noteValueOptions[noteValueIndex]}}</text>
+        </view>
+
+        <!-- 速度控制组 -->
+        <view class="control-group-v2">
+          <view class="control-group-title">
+            <image class="title-icon" src="/assets/icons/timing.png" mode="aspectFit"></image>
+            <text>速度控制</text>
           </view>
-        </picker>
+          <view class="speed-control-v2">
+            <view class="speed-btn-v2" bindtap="onDecreaseSpeed">−</view>
+            <input class="speed-input-v2" type="number" value="{{bpm}}" bindinput="onBpmInput" bindblur="onBpmBlur"/>
+            <view class="speed-btn-v2" bindtap="onIncreaseSpeed">+</view>
+          </view>
+          
+        </view>
+
+        <!-- 随机练习按钮 - 常驻显示 -->
+        <view class="random-btn-v2 {{randomMode ? 'active' : ''}}" bindtap="onToggleRandom">
+          <image class="random-icon" src="/assets/icons/metronome/魔方_cube-five.png" mode="aspectFit"></image>
+          <text>{{randomMode ? '退出随机练习' : '随机练习'}}</text>
+          <view class="help-icon light" data-help="randomPractice" catchtap="onShowHelp">?</view>
+        </view>
       </view>
     </view>
 
-    <!-- 视觉指示器 -->
-    <view class="visual-indicator">
-      <view wx:for="{{beats}}" wx:key="index" class="beat-dot {{currentBeat === index ? 'active' : ''}}"></view>
+    <!-- 编辑标签页 -->
+    <view class="rhythm-tab-content {{rhythmActiveTab === 'edit' ? 'active' : ''}}">
+      <view class="edit-tab">
+        <view class="edit-actions">
+          <view class="edit-btn-v2 primary full-width" bindtap="onOpenEditor">
+            <image class="edit-btn-icon" src="/assets/icons/metronome/编辑撰写_writing-fluently.png" mode="aspectFit"></image>
+            <text>编辑节奏</text>
+          </view>
+          <view class="edit-btn-v2" bindtap="onClearPattern">
+            <image class="edit-btn-icon" src="/assets/icons/clear.png" mode="aspectFit"></image>
+            <text>清空</text>
+          </view>
+          <view class="edit-btn-v2" bindtap="onOpenSaveDialog">
+            <image class="edit-btn-icon" src="/assets/icons/save.png" mode="aspectFit"></image>
+            <text>保存</text>
+          </view>
+        </view>
+      </view>
     </view>
 
-    <!-- 控制按钮 -->
-    <view class="control-buttons">
-      <button class="btn-primary {{isPlaying ? 'playing' : ''}}" bindtap="toggleMetronome">
-        {{isPlaying ? '停止' : '开始'}}
-      </button>
+    <!-- 节奏库标签页 -->
+    <view class="rhythm-tab-content {{rhythmActiveTab === 'library' ? 'active' : ''}}">
+      <view class="library-tab">
+        <view class="library-actions">
+          <view class="library-btn-v2" bindtap="onOpenPersonalLibrary">
+            <view class="library-btn-left">
+              <image class="library-btn-icon" src="/assets/icons/library/星星_star.png" mode="aspectFit"></image>
+              <text>个人节奏库</text>
+            </view>
+            
+          </view>
+          <view class="library-btn-v2" bindtap="onOpenLibrary">
+            <view class="library-btn-left">
+              <image class="library-btn-icon" src="/assets/icons/library.png" mode="aspectFit"></image>
+              <text>预设节奏库</text>
+            </view>
+            
+          </view>
+          <view class="random-btn-v2 {{randomMode ? 'active' : ''}}" bindtap="onToggleRandom">
+            <image class="random-icon" src="/assets/icons/metronome/魔方_cube-five.png" mode="aspectFit"></image>
+            <text>{{randomMode ? '退出随机练习' : '随机练习'}}</text>
+            <view class="help-icon light" data-help="randomPractice" catchtap="onShowHelp">?</view>
+          </view>
+        </view>
+      </view>
     </view>
+  </view>
 
-    <!-- 音量控制 -->
-    <view class="setting-section">
-      <text class="setting-label">音量</text>
-      <slider class="volume-slider" min="0" max="100" value="{{volume}}" bindchange="onVolumeChange" activeColor="#314D63" backgroundColor="#B2E8E8" />
+  <!-- 编辑器弹窗 -->
+  <view class="modal {{editorVisible ? 'active' : ''}}" bindtap="onCloseEditor">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">节奏编辑器</text>
+        <text class="close-modal" bindtap="onCloseEditor">×</text>
+      </view>
+
+      <view class="editor-section">
+        <view class="editor-section-header">
+          <text class="editor-section-title">可选字母表</text>
+          <view class="rhythm-type-tabs">
+            <view class="rhythm-type-tab {{rhythmType === '4' ? 'active' : ''}}" 
+                  data-type="4" bindtap="onRhythmTypeChange">
+              四音/拍
+            </view>
+            <view class="rhythm-type-tab {{rhythmType === '3' ? 'active' : ''}}" 
+                  data-type="3" bindtap="onRhythmTypeChange">
+              三音/拍
+            </view>
+            <view class="rhythm-type-tab {{rhythmType === '5' ? 'active' : ''}}" 
+                  data-type="5" bindtap="onRhythmTypeChange">
+              五音/拍
+            </view>
+          </view>
+        </view>
+        <!-- 五音/拍提示 -->
+        <view class="quintuplet-hint" wx:if="{{rhythmType === '5'}}">
+          <text class="hint-icon"></text>
+          <text class="hint-text">五音/拍组合过多，请点击下方"添加片段"后，通过点击圆点/横线自定义节奏</text>
+        </view>
+        <view class="letter-keyboard" wx:if="{{letterOptions.length > 0}}">
+          <view wx:for="{{letterOptions}}" wx:key="letter"
+                class="letter-key"
+                data-letter="{{item.letter}}"
+                bindtap="onAddLetter">
+            <view class="letter-char">{{item.letter}}</view>
+            <view class="letter-pattern">
+              <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="idx" wx:key="idx"
+                    class="{{note === 1 ? 'note' : 'rest'}}">
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="editor-section">
+        <text class="editor-section-title">已选节奏</text>
+        <view class="editor-hint">💡 点击下方的圆点或短横线可以切换节奏型</view>
+        <view class="manual-pattern">
+          <view wx:if="{{manualPattern.length === 0}}" class="empty-pattern">
+            点击字母或"+"按钮添加节奏
+          </view>
+          <view wx:for="{{manualPattern}}" wx:key="id" class="manual-segment">
+            <view class="manual-segment-letter">{{item.letter}}</view>
+            <view class="manual-segment-pattern">
+              <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
+                    class="{{note === 1 ? 'manual-note' : 'manual-rest'}}"
+                    data-seg="{{index}}"
+                    data-idx="{{noteIdx}}"
+                    bindtap="onToggleNote">
+              </view>
+            </view>
+            <image class="delete-segment-icon" src="/assets/icons/library/file_delete.png" mode="aspectFit" data-index="{{index}}" bindtap="onDeleteSegment"></image>
+          </view>
+        </view>
+        <view class="add-segment-btn" bindtap="onAddSegment">+ 添加片段 (----)</view>
+      </view>
+
+      <view class="editor-actions">
+        <view class="edit-btn secondary" bindtap="onCloseEditor">取消</view>
+        <view class="edit-btn danger" bindtap="onClearManual">清空</view>
+        <view class="edit-btn primary" bindtap="onConfirmEdit">确认</view>
+      </view>
     </view>
+  </view>
+
+  <!-- 节奏库弹窗 -->
+  <view class="modal {{libraryVisible ? 'active' : ''}}" bindtap="onCloseLibrary">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">常见节奏片段库</text>
+        <text class="close-modal" bindtap="onCloseLibrary">×</text>
+      </view>
+      <view class="library-items-categorized">
+        <view wx:for="{{libraryCategories}}" wx:key="name" class="library-category">
+          <view class="category-header">{{item.name}}</view>
+          <view class="category-items">
+            <view wx:for="{{item.patterns}}" wx:for-item="pattern" wx:key="pattern"
+                  class="library-item"
+                  data-pattern="{{pattern.pattern}}"
+                  bindtap="onLoadLibraryPattern">
+              <text class="library-item-text">{{pattern.pattern}}</text>
+              <view class="library-item-pattern">
+                <view wx:for="{{pattern.rhythms}}" wx:for-item="seg" wx:for-index="segIdx" wx:key="id" class="pattern-group">
+                  <view wx:for="{{seg.notes}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
+                        class="{{note === 1 ? 'pattern-note' : 'pattern-rest'}}"></view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 个人节奏库弹窗 -->
+  <view class="modal {{personalLibraryVisible ? 'active' : ''}}" bindtap="onClosePersonalLibrary">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">我的节奏库</text>
+        <text class="close-modal" bindtap="onClosePersonalLibrary">×</text>
+      </view>
+      <scroll-view class="personal-library-list" scroll-y>
+        <view wx:if="{{personalLibrary.length === 0}}" class="empty-library">
+     
+          <text class="empty-text">还没有保存的节奏</text>
+          <text class="empty-hint">创建节奏后点击"保存"按钮即可添加</text>
+        </view>
+        <view wx:for="{{personalLibrary}}" wx:key="timestamp" class="personal-item">
+          <view class="personal-item-info" data-index="{{index}}" bindtap="onLoadPersonalPattern">
+            <view class="personal-item-name">{{item.name}}</view>
+            <view class="personal-item-pattern">{{item.pattern}}</view>
+          </view>
+          <view class="personal-item-delete" data-index="{{index}}" bindtap="onDeletePersonalPattern">
+            删除
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 保存节奏弹窗 -->
+  <view class="modal {{saveVisible ? 'active' : ''}}" bindtap="onCloseSaveDialog">
+    <view class="modal-content save-modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">保存节奏</text>
+        <text class="close-modal" bindtap="onCloseSaveDialog">×</text>
+      </view>
+      <view class="save-dialog">
+        <input class="save-input" 
+               placeholder="请输入节奏名称 (如: 我的练习1)" 
+               value="{{saveName}}"
+               bindinput="onSaveNameInput"/>
+        <view class="save-btn" bindtap="onConfirmSave">保存</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 随机练习弹窗 -->
+  <view class="modal {{randomVisible ? 'active' : ''}}" bindtap="onCloseRandom">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <view class="modal-title-with-help">
+          <text class="modal-title">随机练习设置</text>
+          <view class="help-icon" data-help="randomPractice" catchtap="onShowHelp">?</view>
+        </view>
+        <text class="close-modal" bindtap="onCloseRandom">×</text>
+      </view>
+      <text class="random-hint">选择要练习的节奏片段</text>
+      <view class="library-items-categorized">
+        <view wx:for="{{libraryCategories}}" wx:key="name" class="library-category">
+          <view class="category-header">{{item.name}}</view>
+          <view class="category-items">
+            <view wx:for="{{item.patterns}}" wx:for-item="pattern" wx:key="pattern"
+                  class="library-item {{pattern.selected ? 'selected' : ''}}"
+                  data-pattern="{{pattern.pattern}}"
+                  catchtap="onToggleRandomPattern">
+              <text class="library-item-text">{{pattern.pattern}}</text>
+              <view class="library-item-pattern">
+                <view wx:for="{{pattern.rhythms}}" wx:for-item="seg" wx:for-index="segIdx" wx:key="id" class="pattern-group">
+                  <view wx:for="{{seg.notes}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
+                        class="{{note === 1 ? 'pattern-note' : 'pattern-rest'}}"></view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="random-config">
+        <view class="random-label">每个片段重复次数:</view>
+        <input class="repeat-input" 
+               type="number" 
+               value="{{randomRepeatCount}}" 
+               bindinput="onRepeatCountInput"/>
+        <view class="start-random-btn" bindtap="onStartRandom">开始随机练习</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 拍号选择弹窗 -->
+  <view class="modal {{timeSigModalVisible ? 'active' : ''}}" bindtap="onCloseTimeSigModal">
+    <view class="modal-content time-sig-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">选择拍号</text>
+        <text class="close-modal" bindtap="onCloseTimeSigModal">×</text>
+      </view>
+      <view class="time-sig-options">
+        <view wx:for="{{timeSignatures}}" wx:key="beats"
+              class="time-sig-option {{metBeats === item.beats ? 'active' : ''}}"
+              data-beats="{{item.beats}}"
+              bindtap="onMetTimeSignatureChange">
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部Handpan图片 -->
+  <view class="pan-container">
+    <image class="pan-image" src="/assets/img/pan.jpg" mode="aspectFit" bindtap="onPanTap"></image>
+  </view>
+
+  <!-- 帮助提示弹窗 -->
+  <view class="help-overlay {{helpVisible ? 'active' : ''}}" bindtap="onCloseHelp"></view>
+  <view class="help-tooltip {{helpVisible ? 'active' : ''}}">
+    <view class="help-tooltip-title">{{helpTitle}}</view>
+    <view class="help-tooltip-content">{{helpContent}}</view>
+    <view class="help-tooltip-close" bindtap="onCloseHelp">知道了</view>
   </view>
 </view>

@@ -99,7 +99,7 @@ module.exports = {
       
       <!-- 速度设置 -->
       <view class="header-action-row" bindtap="editGlobalTempo">
-        <image class="header-action-icon" src="/assets/icons/music.png"></image>
+        <image class="header-action-icon" src="/assets/icons/timing.png"></image>
         <text class="header-action-label">速度：</text>
         <text class="header-action-value"> {{globalTempo}}</text>
       </view>
@@ -150,6 +150,7 @@ module.exports = {
               <view class="sheet-label" bindtap="editLabel" data-id="{{notation.id}}">
                 <text>{{notation.label}}</text>
               </view>
+              <text wx:if="{{notation.remark}}" class="sheet-remark">{{notation.remark}}</text>
             </view>
 
             <!-- 谱面内容 -->
@@ -357,7 +358,11 @@ module.exports = {
         </view>
         <view class="md-line">
           <text class="md-dot">•</text>
-          <text>节奏速度和拍数按照「节拍器」页面设定的值</text>
+          <text>节奏速度使用当前谱面的「速度」设定</text>
+        </view>
+        <view class="md-line">
+          <text class="md-dot">•</text>
+          <text>拍数使用当前谱面的「拍号」设定</text>
         </view>
         <view class="md-line">
           <text class="md-dot">•</text>
@@ -417,6 +422,27 @@ module.exports = {
       </view>
       <view class="modal-buttons">
         <button class="btn-primary" bindtap="closeTimeSignatureHelp">知道了</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 模块标签编辑弹窗（名称+备注） -->
+  <view wx:if="{{showLabelEditModal}}" class="modal-overlay" bindtap="closeLabelEditModal">
+    <view class="modal-content label-edit-modal" catchtap="stopPropagation">
+      <view class="modal-title">编辑模块信息</view>
+      <view class="modal-body">
+        <view class="label-edit-row">
+          <text class="label-edit-label">名称</text>
+          <input class="modal-input" type="text" value="{{labelEditName}}" placeholder="例如: A-1" bindinput="onLabelEditNameInput" />
+        </view>
+        <view class="label-edit-row">
+          <text class="label-edit-label">备注</text>
+          <input class="modal-input" type="text" value="{{labelEditRemark}}" placeholder="例如: ♪速度 (可选)" bindinput="onLabelEditRemarkInput" />
+        </view>
+      </view>
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeLabelEditModal">取消</button>
+        <button class="btn-primary" bindtap="confirmLabelEdit">确定</button>
       </view>
     </view>
   </view>
@@ -679,6 +705,12 @@ module.exports = {
               <text class="code-text">...乐谱内容...</text>
               <text class="code-text">\end{module}</text>
             </view>
+            <text class="help-desc">支持可选备注：</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{A-1}{♪速度}</text>
+              <text class="code-text">...乐谱内容...</text>
+              <text class="code-text">\end{module}</text>
+            </view>
           </view>
           
           <view class="help-subsection">
@@ -861,6 +893,18 @@ module.exports = {
             <text class="option-desc">自动分页，适合打印或分享</text>
           </view>
           <image wx:if="{{exportMode === 'paged'}}" class="option-check" src="/assets/icons/check.png"></image>
+        </view>
+        
+        <!-- A4方向选择（仅在分页模式下显示） -->
+        <view class="a4-orientation-options" wx:if="{{exportMode === 'paged'}}">
+          <view class="a4-orientation-option {{a4Orientation === 'portrait' ? 'selected' : ''}}" bindtap="selectA4Orientation" data-orientation="portrait">
+            <view class="orientation-icon portrait-icon"></view>
+            <text class="orientation-label">A4纵向</text>
+          </view>
+          <view class="a4-orientation-option {{a4Orientation === 'landscape' ? 'selected' : ''}}" bindtap="selectA4Orientation" data-orientation="landscape">
+            <view class="orientation-icon landscape-icon"></view>
+            <text class="orientation-label">A4横向</text>
+          </view>
         </view>
 
         <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
@@ -1092,8 +1136,8 @@ module.exports = {
   </view>
 
   <!-- 开屏弹窗 -->
-  <view class="splash-modal-overlay {{showSplashModal ? 'show' : ''}}" bindtap="closeSplashModal" wx:if="{{showSplashModal}}">
-    <view class="splash-modal-content" catchtap="stopPropagation">
+  <view class="splash-modal-overlay {{showSplashModal ? 'show' : ''}} {{isTablet ? 'tablet' : ''}}" bindtap="closeSplashModal" wx:if="{{showSplashModal}}">
+    <view class="splash-modal-content {{isTablet ? 'tablet' : ''}}" catchtap="stopPropagation">
       <!-- 关闭按钮 -->
       <image class="splash-close-btn" src="/assets/icons/delete.png" bindtap="closeSplashModal"></image>
 

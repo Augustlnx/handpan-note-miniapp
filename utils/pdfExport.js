@@ -1,10 +1,14 @@
 // 谱面导出工具 - 纯前端实现（Canvas 绘制）
 
 // A4 尺寸常量（像素，300 DPI）
-const A4_WIDTH = 2480; // 约 210mm
-const A4_HEIGHT = 3508; // 约 297mm
+const A4_WIDTH = 2480; // 约 210mm（纵向时的宽度）
+const A4_HEIGHT = 3508; // 约 297mm（纵向时的高度）
 const CONTENT_PADDING = 120; // 内容边距
 const CONTENT_WIDTH = A4_WIDTH - CONTENT_PADDING * 2;
+// A4横向时宽高互换
+const A4_LANDSCAPE_WIDTH = A4_HEIGHT;
+const A4_LANDSCAPE_HEIGHT = A4_WIDTH;
+const CONTENT_LANDSCAPE_WIDTH = A4_LANDSCAPE_WIDTH - CONTENT_PADDING * 2;
 
 // 将错误对象转换为可读提示
 function readableError(err, fallback) {
@@ -75,13 +79,20 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   var rightHandColor = data.rightHandColor;
   var leftHandColor = data.leftHandColor;
   var orientation = data.orientation;
+  var a4Orientation = data.a4Orientation || 'portrait'; // A4纸张方向，默认纵向
   
   const ctx = canvas.getContext('2d');
   const dpr = 3; // 设备像素比，提高清晰度
   
+  // 根据A4方向确定页面尺寸
+  const isA4Landscape = (a4Orientation === 'landscape');
+  const pagedWidth = isA4Landscape ? A4_LANDSCAPE_WIDTH : A4_WIDTH;
+  const pagedHeight = isA4Landscape ? A4_LANDSCAPE_HEIGHT : A4_HEIGHT;
+  const pagedContentWidth = isA4Landscape ? CONTENT_LANDSCAPE_WIDTH : CONTENT_WIDTH;
+  
   // 根据分页模式选择宽度
-  const width = isPaged ? A4_WIDTH / dpr : (orientation === 'landscape' ? 600 : 400);
-  const contentWidth = isPaged ? CONTENT_WIDTH / dpr : width - 20;
+  const width = isPaged ? pagedWidth / dpr : (orientation === 'landscape' ? 600 : 400);
+  const contentWidth = isPaged ? pagedContentWidth / dpr : width - 20;
   const leftMargin = isPaged ? CONTENT_PADDING / dpr : 10;
   
   // 计算各个部分的高度
@@ -144,7 +155,7 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     notations.forEach((notation, idx) => {
       const measuresPerRow = resolveMeasuresPerRow(notation);
       currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
-                                     rightHandColor, leftHandColor, measuresPerRow);
+                                     rightHandColor, leftHandColor, measuresPerRow, isLandscape);
     });
     
     // 预加载图片水印与背景，然后叠加绘制后导出
@@ -218,7 +229,7 @@ function drawTitleBlock(ctx, mainTitle, subTitle, globalTempo, mainTitleColor, s
 /**
  * 绘制单个谱面模块（不包含白色卡片框）
  */
-function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow) {
+function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false) {
   // 获取样式设置，默认值与界面保持一致
   const style = notation.style || {};
   const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
@@ -238,9 +249,19 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
   
   // 绘制模块编号（例如 A-1）
   ctx.fillStyle = '#314D63';
-  ctx.font = 'bold 14px sans-serif';
+  const labelFontSize = isLandscape ? 10 : 14;
+  ctx.font = `bold ${labelFontSize}px sans-serif`;
   ctx.textAlign = 'left';
   ctx.fillText(notation.label || '', x, y + 15);
+  
+  // 绘制备注（如果存在）
+  if (notation.remark) {
+    const labelWidth = ctx.measureText(notation.label || '').width;
+    ctx.fillStyle = '#999';
+    const remarkFontSize = isLandscape ? 8 : 12;
+    ctx.font = `${remarkFontSize}px sans-serif`;
+    ctx.fillText(notation.remark, x + labelWidth + 10, y + 15);
+  }
   
   let currentY = y + 25;
   const measureWidth = width / measuresPerRow;
@@ -267,7 +288,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
  * @param {number} rows - 绘制多少行
  * @param {boolean} showLabel - 是否绘制模块标签
  */
-function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel) {
+function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false) {
   // 获取样式设置，默认值与界面保持一致
   const style = notation.style || {};
   const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
@@ -289,9 +310,20 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
   // 标题（可选）
   if (showLabel) {
     ctx.fillStyle = '#314D63';
-    ctx.font = 'bold 14px sans-serif';
+    const labelFontSize = isLandscape ? 10 : 14;
+    ctx.font = `bold ${labelFontSize}px sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(notation.label || '', x, y + 15);
+    
+    // 绘制备注（如果存在）
+    if (notation.remark) {
+      const labelWidth = ctx.measureText(notation.label || '').width;
+      ctx.fillStyle = '#999';
+      const remarkFontSize = isLandscape ? 8 : 12;
+      ctx.font = `${remarkFontSize}px sans-serif`;
+      ctx.fillText(notation.remark, x + labelWidth + 10, y + 15);
+    }
+    
     y += 25;
   }
 
@@ -320,7 +352,7 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
  */
 function drawNotationSheet(ctx, notation, x, y, width, rightHandColor, leftHandColor, isLandscape = false) {
   // 此函数已被 drawNotationSection 替代，保留以兼容旧代码
-  return drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, isLandscape ? 2 : 1);
+  return drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, isLandscape ? 2 : 1, isLandscape);
 }
 
 /**
@@ -330,17 +362,21 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
                              mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
                              rightHandColor, leftHandColor, resolve, reject,
                              watermarkImg, bgImg, brandingImg) {
-  const pageWidth = A4_WIDTH / dpr;
-  const pageHeight = A4_HEIGHT / dpr;
+  // 根据A4方向确定页面尺寸
+  const a4Orientation = data.a4Orientation || 'portrait';
+  const isA4Landscape = (a4Orientation === 'landscape');
+  const pageWidth = (isA4Landscape ? A4_LANDSCAPE_WIDTH : A4_WIDTH) / dpr;
+  const pageHeight = (isA4Landscape ? A4_LANDSCAPE_HEIGHT : A4_HEIGHT) / dpr;
+  const contentWidth = (isA4Landscape ? CONTENT_LANDSCAPE_WIDTH : CONTENT_WIDTH) / dpr;
   const leftMargin = CONTENT_PADDING / dpr;
-  const contentWidth = CONTENT_WIDTH / dpr;
   const topMargin = CONTENT_PADDING / dpr;
   const bottomMargin = CONTENT_PADDING / dpr;
   const contentHeight = pageHeight - topMargin - bottomMargin;
+  const isLandscape = data.orientation === 'landscape';
   // 第二页起需预留右上水印高度，避免排版被遮挡
   let watermarkReserveTop = 0;
   if (watermarkImg) {
-    const wm = computeTopRightWatermarkMetrics(watermarkImg, pageWidth);
+    const wm = computeTopRightWatermarkMetrics(watermarkImg, pageWidth, isA4Landscape);
     watermarkReserveTop = Math.max(0, wm.bottomY + 10 - topMargin); // +10 额外留白
   }
   
@@ -459,7 +495,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     
     // 若非首页，在右上角水印下方开始排版，避免遮挡
     if (!page.includeTitle && watermarkImg) {
-      var wm = computeTopRightWatermarkMetrics(watermarkImg, pageWidth);
+      var wm = computeTopRightWatermarkMetrics(watermarkImg, pageWidth, isA4Landscape);
       var belowWatermarkY = wm.bottomY + 10; // 额外留白 10px
       if (currentY < belowWatermarkY) currentY = belowWatermarkY;
     }
@@ -478,13 +514,14 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         measuresPerRow,
         seg.rowStart,
         seg.rows,
-        seg.showLabel
+        seg.showLabel,
+        isLandscape
       );
     });
     
     // 添加水印与右下角背景
     if (watermarkImg) {
-      addTopRightWatermarkWithLabel(ctx, watermarkImg, pageWidth, pageHeight);
+      addTopRightWatermarkWithLabel(ctx, watermarkImg, pageWidth, pageHeight, isA4Landscape);
     }
     if (bgImg) {
       addCornerBackgroundImage(ctx, bgImg, pageWidth, pageHeight, 0.1);
@@ -630,9 +667,12 @@ function loadImage(canvas, src) {
  * 图片水印（居中，按页面宽度20%尺寸）
  */
 // 计算右上角水印与文字的布局参数
-function computeTopRightWatermarkMetrics(image, pageWidth) {
+function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false) {
   var margin = 20;
-  var imgWidth = pageWidth * 0.12; // 相对页面宽度的12%
+  var baseScale = 0.12; // 基础比例：相对页面宽度的12%
+  // A4横向时水印尺寸减小1/3
+  var scale = isA4Landscape ? baseScale * (2/3) : baseScale;
+  var imgWidth = pageWidth * scale;
   var aspect = image.height / image.width;
   var imgHeight = imgWidth * aspect;
   var x = pageWidth - margin - imgWidth;
@@ -657,8 +697,8 @@ function computeTopRightWatermarkMetrics(image, pageWidth) {
 }
 
 // 右上角水印 + 小字说明（不透明，文字居中于水印下方）
-function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight) {
-  var m = computeTopRightWatermarkMetrics(image, pageWidth);
+function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight, isA4Landscape = false) {
+  var m = computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape);
   ctx.save();
   ctx.globalAlpha = 1.0;
   ctx.drawImage(image, m.x, m.y, m.imgWidth, m.imgHeight);
