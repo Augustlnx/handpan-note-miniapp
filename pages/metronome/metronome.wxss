@@ -96,7 +96,7 @@
   justify-content: center;
   align-items: center;
   gap: 30rpx;
-  margin-bottom: 32rpx;
+  margin-bottom: 10rpx;
   min-height: 120rpx;
 }
 
@@ -1264,7 +1264,7 @@
 .rhythm-score-area {
   background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
   padding: 20rpx 24rpx;
-  height: 28vh;
+  height: 22vh;
   min-height: 200rpx;
   max-height: 28vh;
   display: flex;
@@ -1752,9 +1752,7 @@
   box-shadow: 0 6rpx 24rpx rgba(49, 77, 99, 0.3);
 }
 
-.edit-btn-v2.primary .edit-btn-icon {
-
-}
+/* 空规则已移除：.edit-btn-v2.primary .edit-btn-icon */
 
 .edit-btn-v2.full-width {
   grid-column: 1 / -1;
@@ -1919,14 +1917,14 @@
   align-items: center;
   justify-content: center;
   gap: 16rpx;
-  padding: 16rpx 24rpx;
+  padding: 6rpx 24rpx;
   background: white;
   border: 2rpx solid #e0e0e0;
   border-radius: 16rpx;
   color: #314D63;
   font-weight: 600;
-  margin-top: 12rpx;
-  margin-bottom: 16rpx;
+  margin-top: 0rpx;
+  margin-bottom: 10rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 }
 

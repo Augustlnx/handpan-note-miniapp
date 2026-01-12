@@ -174,16 +174,6 @@ module.exports = {
         <text class="header-action-value"> {{globalTempo}}</text>
       </view>
 
-      <!-- 排版视角（旋转屏幕） -->
-      <view class="header-action-row" bindtap="openOrientationPicker">
-        <image class="header-action-icon" src="/assets/icons/rotation.png"></image>
-        <text class="header-action-label">视角：</text>
-        <text class="header-action-value">{{orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）'}}</text>
-        <view class="header-help-wrap" catchtap="showRotationHelp">
-          <image class="header-help-icon" src="/assets/icons/help.png"></image>
-        </view>
-      </view>
-
       <!-- 拍号选择 -->
       <view class="header-action-row" bindtap="openTimeSignaturePicker">
         <image class="header-action-icon" src="/assets/icons/Tim_Signature.png"></image>
@@ -451,6 +441,10 @@ module.exports = {
       <image class="action-btn-icon" src="{{readingMode ? '/assets/icons/newspaper-folding-active.png' : '/assets/icons/newspaper-folding.png'}}"></image>
       <text class="action-btn-text">{{readingMode ? '编辑' : '阅读'}}</text>
     </view>
+    <view class="action-btn" bindtap="toggleOrientation">
+      <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.png' : '/assets/icons/竖屏.png'}}"></image>
+      <text class="action-btn-text">{{orientation === 'landscape' ? '紧凑' : '宽松'}}</text>
+    </view>
       <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
       
   </view>
@@ -464,7 +458,7 @@ module.exports = {
     <view class="metronome-dots">
       <view wx:for="{{metronomeBeats}}" wx:key="index" class="metronome-dot {{currentMetronomeBeat === index ? (index === 0 ? 'active active-accent' : 'active') : ''}}"></view>
     </view>
-    <image class="metronome-close" src="/assets/icons/close.png" bindtap="closeFloatingMetronome"></image>
+    <image class="metronome-close" src="/assets/icons/delete.png" bindtap="closeFloatingMetronome"></image>
   </view>
 
   <!-- 节拍器帮助提示窗口 -->
@@ -616,7 +610,7 @@ module.exports = {
 
       <view class="modal-buttons">
         <button class="btn-secondary" bindtap="closeCustomTimeSignatureModal">取消</button>
-        <button class="btn-primary" bindtap="confirmCustomTimeSignature" disabled="{{!!customTimeSignatureError || !customTimeSignatureTemplate}}">确定</button>
+        <button class="btn-primary" bindtap="confirmCustomTimeSignature" disabled="{{!!customTimeSignatureError || !customTimeSignatureValid}}">确定</button>
       </view>
     </view>
   </view>
@@ -752,7 +746,7 @@ module.exports = {
         <view class="settings-item-content">
           <view class="import-export-buttons">
             <view class="import-export-button" bindtap="openModuleImport" data-id="{{currentModuleId}}">
-              <image src="/assets/icons/afferent.png" class="button-icon"></image>
+              <image src="/assets/icons/upload.png" class="button-icon"></image>
               <text class="button-text">导入代码</text>
             </view>
             <view class="import-export-button" bindtap="showExportCode">
@@ -811,7 +805,7 @@ module.exports = {
         <!-- 功能说明 -->
         <view class="help-section">
           <text class="help-section-title">📖 功能说明</text>
-          <text class="help-section-text">通过输入特定格式的代码快速创建乐谱，避免逐个音符手动输入，主要目的是在处理具有循环特性的乐谱是可以通过复制粘贴实现快速导入。此外也同时在开发借由AI识别图片快速扒谱的功能（当前识别转化效果较粗糙，欢迎体验）。支持批量导入多个模块或覆盖单个模块。</text>
+          <text class="help-section-text">通过代码批量创建或快速修改乐谱。特别适合处理循环乐谱或使用 AI 识别图片转代码辅助扒谱。支持“追加”到末尾或“覆盖”单个模块。</text>
         
         </view>
 
@@ -837,9 +831,10 @@ module.exports = {
             <text class="help-label">2. 分隔符</text>
             <!-- 使用四个反斜杠以在界面上显示双反斜杠 -->
             <text class="help-item">• 换行：\  \（分隔不同视觉行）</text>
-            <text class="help-item">• 小节：[ ] （][视为一个共用小jie）</text>
+            <text class="help-item">• 小节：[ ] （“][”为共用小节线）</text>
             <text class="help-item">• 拍位：| （分隔拍）</text>
-            <text class="help-item">• 细分：+ （分隔16分音符）</text>
+            <text class="help-item">• 细分：+ （分隔16分音符。若省略，系统将自动补全）</text>
+            <text class="help-item">• 音符包裹：{ } （将多位数字或手指定内容包裹为单个音符位，确保{12}被识别为一个音符）</text>
             <text class="help-item">• 注释：% （行注释，会被忽略）</text>
           </view>
         </view>
@@ -978,7 +973,7 @@ module.exports = {
           <text class="help-answer">A: 菜单栏导入会添加，模块设置导入会覆盖当前模块</text>
           
           <text class="help-item">Q: 支持哪些拍号？</text>
-          <text class="help-answer">A: 自动适配当前选择的拍号（3/4、4/4或自定义）</text>
+          <text class="help-answer">A: 自动适配代码中设置的拍号，如特殊的[-][---][---]都是可行的</text>
         </view>
       </scroll-view>
       
@@ -1089,7 +1084,7 @@ module.exports = {
     <view class="export-preview-container" catchtap="stopPropagation">
       <view class="preview-header">
         <text class="preview-title">导出预览（{{currentPreviewPage + 1}}/{{exportPreviewImages.length}}）</text>
-        <image class="preview-close" src="/assets/icons/close.png" bindtap="closeExportPreview"></image>
+        <image class="preview-close" src="/assets/icons/delete.png" bindtap="closeExportPreview"></image>
       </view>
       
       <swiper class="preview-swiper" current="{{currentPreviewPage}}" bindchange="onPreviewPageChange">

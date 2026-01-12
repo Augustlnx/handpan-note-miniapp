@@ -334,6 +334,14 @@ Page({
     return isMetronomeMode;
   },
 
+  // 如果当前在“空屏节拍器模式”且节拍器正在播放，则停止节拍器
+  stopMetronomeIfPlayingOnEmpty() {
+    if (this.data.isMetronomeMode && this.data.metIsPlaying && this.data.pattern.length === 0) {
+      // 使用 onMetTogglePlay 以保证 metIsPlaying 状态一致
+      this.onMetTogglePlay();
+    }
+  },
+
   // 进入节奏练习模式（有节奏片段时）
   enterRhythmMode() {
     this.setData({
@@ -427,9 +435,12 @@ Page({
     this.setData({ metIsPlaying: true, metCurrentBeat: 0 });
     // 先更新视觉显示第一拍
     this.updateMetVisual();
-    // 立即播放第一拍的声音
-    this.playMetBeat();
-    
+
+    // 为了提高首拍可靠性，稍微延迟首拍播放（允许音频上下文稳定）
+    setTimeout(() => {
+      this.playMetBeat();
+    }, 20);
+
     // 计算下一拍的延迟后开始循环
     const interval = (60 / this.data.metBpm) * 1000;
     this.metTimeout = setTimeout(() => {
@@ -438,6 +449,7 @@ Page({
       this.playMetronomeTick();
     }, interval);
   },
+
 
   stopMetronome() {
     if (this.metTimeout) {
@@ -464,20 +476,38 @@ Page({
 
   playMetBeat() {
     const isStrong = this.data.metCurrentBeat === 0;
-    // 播放节拍器音频
-    try {
-      if (isStrong && this.click1Audio) {
-        // 强拍使用主音
-        this.click1Audio.seek(0);
-        this.click1Audio.play();
-      } else if (this.click3Audio) {
-        // 弱拍使用背景节拍音
-        this.click3Audio.seek(0);
-        this.click3Audio.play();
+    // 播放节拍器音频，带简单重试以提高首次播放可靠性
+    const tryPlay = () => {
+      try {
+        if (isStrong && this.click1Audio) {
+          // 强拍使用主音
+          this.click1Audio.seek(0);
+          this.click1Audio.play();
+        } else if (this.click3Audio) {
+          // 弱拍使用背景节拍音
+          this.click3Audio.seek(0);
+          this.click3Audio.play();
+        }
+      } catch (e) {
+        console.error('播放节拍器音频失败，尝试重试:', e);
+        // 小延迟后再尝试一次（仅一轮重试）
+        setTimeout(() => {
+          try {
+            if (isStrong && this.click1Audio) {
+              this.click1Audio.seek(0);
+              this.click1Audio.play();
+            } else if (this.click3Audio) {
+              this.click3Audio.seek(0);
+              this.click3Audio.play();
+            }
+          } catch (e2) {
+            console.error('重试播放节拍器失败:', e2);
+          }
+        }, 30);
       }
-    } catch (e) {
-      console.error('播放节拍器音频失败:', e);
-    }
+    };
+
+    tryPlay();
   },
 
   updateMetVisual() {
@@ -958,6 +988,8 @@ Page({
   },
 
   onConfirmEdit() {
+    // 若之前是空屏节拍器正在播放，立即停止它
+    this.stopMetronomeIfPlayingOnEmpty();
     this.setData({
       pattern: this.data.manualPattern.map(p => ({ ...p })),
       editorVisible: false,
@@ -978,6 +1010,8 @@ Page({
 
   onLoadLibraryPattern(e) {
     const patternString = e.currentTarget.dataset.pattern;
+    // 若之前是空屏节拍器正在播放，立即停止它
+    this.stopMetronomeIfPlayingOnEmpty();
     this.loadPattern(patternString);
     this.setData({ libraryVisible: false, rhythmActiveTab: 'play' });
     // 检查模式切换
@@ -1015,6 +1049,8 @@ Page({
   onLoadPersonalPattern(e) {
     const index = parseInt(e.currentTarget.dataset.index);
     const item = this.data.personalLibrary[index];
+    // 若之前是空屏节拍器正在播放，立即停止它
+    this.stopMetronomeIfPlayingOnEmpty();
     this.loadPattern(item.pattern);
     this.setData({ personalLibraryVisible: false, rhythmActiveTab: 'play' });
     // 检查模式切换
@@ -1131,6 +1167,9 @@ Page({
       wx.showToast({ title: '请至少选择一个节奏片段', icon: 'none' });
       return;
     }
+    
+    // 若之前是空屏节拍器正在播放，立即停止它
+    this.stopMetronomeIfPlayingOnEmpty();
     
     this.setData({
       randomMode: true,

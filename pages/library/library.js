@@ -268,6 +268,42 @@ Page({
     });
   },
 
+  // ========== 文件操作辅助方法 ==========
+  // 构造文件payload对象
+  _buildFilePayload(item) {
+    return {
+      id: item.id,
+      path: item.path || [],
+      file_name: item.file_name,
+      title: item.title,
+      subtitle: item.subtitle,
+      tempo: item.tempo,
+      rotation: item.rotation,
+      timing: item.timing,
+      code: item.code
+    };
+  },
+
+  // 加载文件到记谱页
+  _loadFileToNotation(item, addToRecent = true) {
+    const payload = this._buildFilePayload(item);
+    wx.setStorageSync('pending_notation_load', payload);
+    wx.showLoading({ title: '加载谱面...', mask: true });
+    wx.switchTab({
+      url: '/pages/notation/notation',
+      success: () => {
+        if (addToRecent) {
+          libraryManager.addRecentFile(item);
+          this.loadLibraryData();
+        }
+      },
+      fail: () => {
+        wx.showToast({ title: '打开失败，请重试', icon: 'none' });
+        wx.hideLoading();
+      }
+    });
+  },
+
   // ========== 文件操作 ==========
   openFile(e) {
     if (this.data.editMode) return;
@@ -280,32 +316,7 @@ Page({
       cancelText: '取消',
       success: (res) => {
         if (!res.confirm) return;
-
-        const payload = {
-          id: item.id,
-          path: item.path || [],
-          file_name: item.file_name,
-          title: item.title,
-          subtitle: item.subtitle,
-          tempo: item.tempo,
-          rotation: item.rotation,
-          timing: item.timing,
-          code: item.code
-        };
-
-        wx.setStorageSync('pending_notation_load', payload);
-        wx.showLoading({ title: '加载谱面...', mask: true });
-        wx.switchTab({
-          url: '/pages/notation/notation',
-          success: () => {
-            libraryManager.addRecentFile(item);
-            this.loadLibraryData();
-          },
-          fail: () => {
-            wx.showToast({ title: '打开失败，请重试', icon: 'none' });
-            wx.hideLoading();
-          }
-        });
+        this._loadFileToNotation(item);
       }
     });
   },
@@ -428,30 +439,7 @@ Page({
         
         // 自动打开新创建的文件
         setTimeout(() => {
-          const payload = {
-            id: created.id,
-            path: created.path || [],
-            file_name: created.file_name,
-            title: created.title,
-            subtitle: created.subtitle,
-            tempo: created.tempo,
-            rotation: created.rotation,
-            timing: created.timing,
-            code: created.code
-          };
-
-          wx.setStorageSync('pending_notation_load', payload);
-          wx.showLoading({ title: '加载谱面...', mask: true });
-          wx.switchTab({
-            url: '/pages/notation/notation',
-            success: () => {
-              libraryManager.addRecentFile(created);
-            },
-            fail: () => {
-              wx.showToast({ title: '打开失败，请重试', icon: 'none' });
-              wx.hideLoading();
-            }
-          });
+          this._loadFileToNotation(created);
         }, 300);
       }
     });

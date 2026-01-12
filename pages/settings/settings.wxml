@@ -81,7 +81,7 @@
   <view class="card about-section">
     <text class="about-title">关于</text>
     <text class="about-text"> </text>
-    <text class="about-text">Orbit Note 星轨手碟记谱 v4.0.0</text>    <view class="about-links">
+    <text class="about-text">Orbit Note 星轨手碟记谱 v5.0.0</text>    <view class="about-links">
       <view class="about-link" bindtap="showUserManual">
         <image class="about-icon" src="/assets/icons/problem.png"></image>
         <text>用户手册</text>
@@ -211,6 +211,29 @@
               <text class="change-title">🎨 设计更新</text>
               <text class="change-text">• 更新了logo和背景的美术设计</text>
               <text class="change-text">• 优化了界面视觉效果和用户体验</text>
+            </view>
+          </view>
+
+          <view class="changelog-item">
+            <text class="version-tag">v4.0.0</text>
+            <text class="version-date">2026-01-08</text>
+            <view class="changelog-content">
+              <text class="change-title">✨ 新功能</text>
+              <text class="change-text">• 新增module备注功能</text>
+              <text class="change-text">• 优化节拍器功能，新增节奏练习器功能</text>
+              
+              <text class="change-title">🔧 优化改进</text>
+              <text class="change-text">• 优化了导出和布局功能</text>
+            </view>
+          </view>
+
+          <view class="changelog-item">
+            <text class="version-tag">v5.0.0</text>
+            <text class="version-date">2026-01-12</text>
+            <view class="changelog-content">
+              <text class="change-title">✨ 新功能</text>
+              <text class="change-text">• 添加转换简谱功能</text>
+              <text class="change-text">• PDF导出新增排版选择</text>
             </view>
           </view>
           
