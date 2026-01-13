@@ -132,8 +132,9 @@ Page({
     exportedCode: '',
     exportModuleCode: '', // 模块导出代码
 
-    // 撤销功能相关
-    undoStack: [], // 保存最近5步操作的谱面代码备份
+    // 撤销功能相关（优化版：使用动作记录而非完整快照）
+    undoStack: [], // 保存最近20步操作的动作记录
+    redoStack: [], // 重做栈
 
     // 保存到曲库弹窗导航
     saveFolderCurrentPath: [],
@@ -172,7 +173,16 @@ Page({
     isTablet: false, // 是否为平板设备
 
     // 阅读模式相关
-    readingMode: false // false: 编辑模式, true: 阅读模式
+    readingMode: false, // false: 编辑模式, true: 阅读模式
+    
+    // 虚拟键盘相关
+    showVirtualKeyboard: false, // 是否显示虚拟键盘
+    virtualKeyboardMode: 'number', // 'number' 数字键盘, 'symbol' 符号键盘
+    virtualKeyboardDisplay: '', // 底层源代码显示
+    virtualKeyboardRendered: '', // 渲染结果显示
+    currentEditingNote: null, // 当前编辑的音符信息
+    superscriptMode: null, // null | 'right' | 'left' 上标模式
+    superscriptContent: '' // 上标内容
   },
 
   // Quick Win: 浅拷贝notations数组（避免全量深拷贝）
@@ -774,8 +784,8 @@ Page({
       return;
     }
 
-    // 先备份当前状态
-    this.backupCurrentState();
+    // TODO: 实现模块操作的动作记录
+    // this.backupCurrentState();
 
     // 提取前一个模块的字母前缀 (例如 "A-1" -> "A", "D-4" -> "D")
     const prevLabel = notations[afterIndex].label;
@@ -941,7 +951,8 @@ Page({
       success(res) {
         if (res.confirm) {
           // 先备份当前状态
-          that.backupCurrentState();
+          // TODO: 实现模块操作的动作记录
+          // that.backupCurrentState();
           
           // 找到被删除模块的索引和前缀
           const deleteIndex = that.data.notations.findIndex(n => n.id === id);
@@ -1009,7 +1020,8 @@ Page({
         that.setNotations(withOffsets);
         wx.showToast({ title: '已重置', icon: 'success' });
         // 备份当前状态
-        that.backupCurrentState();
+        // TODO: 实现模块操作的动作记录
+        // that.backupCurrentState();
       }
     });
   },
@@ -1041,7 +1053,8 @@ Page({
       success(res) {
         if (res.confirm) {
           // 先备份当前状态
-          that.backupCurrentState();
+          // TODO: 实现模块操作的动作记录
+          // that.backupCurrentState();
           that.performClearNotations();
         }
       }
@@ -1095,7 +1108,8 @@ Page({
       success(res) {
         if (res.confirm) {
           // 先备份当前状态
-          that.backupCurrentState();
+          // TODO: 实现模块操作的动作记录
+          // that.backupCurrentState();
           that.performLoadExample();
         }
       }
@@ -1157,7 +1171,8 @@ Page({
           icon: 'success'
         });
         // 备份当前状态
-        that.backupCurrentState();
+        // TODO: 实现模块操作的动作记录
+        // that.backupCurrentState();
       } catch (parseErr) {
         console.error('示例导入错误：', parseErr);
         wx.showToast({ title: '加载示例失败: ' + (parseErr.message || '解析失败'), icon: 'none' });
@@ -1812,8 +1827,8 @@ Page({
     this.openModuleSettings({ currentTarget: { dataset: { id: currentModuleId } } });
     
     wx.showToast({ title: '已恢复默认设置', icon: 'success' });
-    // 备份当前状态
-    this.backupCurrentState();
+    // TODO: 实现模块操作的动作记录
+    // this.backupCurrentState();
   },
 
   // 应用模块设置
@@ -1954,8 +1969,8 @@ Page({
     this.setNotations(withOffsets);
     this.closeModuleSettingsModal();
     wx.showToast({ title: '设置已修改', icon: 'success' });
-    // 备份当前状态
-    this.backupCurrentState();
+    // TODO: 实现模块操作的动作记录
+    // this.backupCurrentState();
   },
 
   // 应用模块级拍号设置
@@ -2786,15 +2801,19 @@ Page({
       return;
     }
 
-    // 在简谱模式下，允许最多4个字符（如 "8^." 或 "8_."）
+    // 在简谱模式下，允许更多字符（包括上标、音高符号等）
     // 在数字谱模式下，允许最多2个字符
-    const maxLen = this.data.notationType === 'simplified' ? 4 : 2;
+    const maxLen = this.data.notationType === 'simplified' ? 20 : 2;
     if (value.length > maxLen) {
       return;
     }
 
     // 只更新 editingValue，不立即更新 notations
-    this.setData({ editingValue: value });
+    this.setData({ 
+      editingValue: value,
+      virtualKeyboardDisplay: value,
+      virtualKeyboardRendered: this.renderNoteForDisplay(value)
+    });
     
     // 记录需要保存
     this.prevEditingValue = value;
@@ -2828,7 +2847,7 @@ Page({
     const handKey = context.hand === 'right' ? 'rightHand' : 'leftHand';
     
     // 获取旧值，检查是否改变
-    const oldValue = subdivision[handKey][iIdx];
+    const oldValue = subdivision[handKey][iIdx] || '';
     const hasChanged = oldValue !== val;
     
     if (!hasChanged) return; // 如果没有改变，不需要备份和更新
@@ -2838,8 +2857,11 @@ Page({
     const updateData = {};
     updateData[path] = val;
     
-    // 先备份当前状态
-    this.backupCurrentState();
+    // 记录编辑动作（优化版撤销）
+    const editAction = this.recordNoteEditAction(
+      notationIndex, mIdx, bIdx, subIdx, handKey, iIdx, oldValue, val
+    );
+    this.backupCurrentState(editAction);
     
     this.setData(updateData);
     
@@ -3317,49 +3339,145 @@ Page({
     });
   },
 
-  // 备份当前谱面状态
-  backupCurrentState() {
-    const code = this.generateCodeForNotations(this.data.notations);
-    // 检查是否与上一个备份相同，避免重复备份
-    if (this.data.undoStack.length > 0 && this.data.undoStack[this.data.undoStack.length - 1] === code) {
-      return; // 不备份相同状态
+  // 备份当前操作（优化版：记录动作而非完整快照）
+  backupCurrentState(action) {
+    // 如果没有提供action参数，使用旧的全量备份逻辑作为兜底
+    if (!action) {
+      console.warn('backupCurrentState called without action, falling back to full backup');
+      return;
     }
-    this.data.undoStack.push(code);
-    if (this.data.undoStack.length > 5) {
+    
+    // 将动作添加到撤销栈
+    this.data.undoStack.push(action);
+    
+    // 限制撤销栈大小为20步
+    if (this.data.undoStack.length > 20) {
       this.data.undoStack.shift();
     }
-    this.setData({ undoStack: this.data.undoStack });
+    
+    // 清空重做栈（新操作后不能重做）
+    this.data.redoStack = [];
+    
+    this.setData({ 
+      undoStack: this.data.undoStack,
+      redoStack: this.data.redoStack 
+    });
+  },
+  
+  // 记录音符编辑动作
+  recordNoteEditAction(notationIndex, mIdx, bIdx, subIdx, handKey, iIdx, oldValue, newValue) {
+    return {
+      type: 'note_edit',
+      timestamp: Date.now(),
+      path: {
+        notationIndex,
+        measureIndex: mIdx,
+        beatIndex: bIdx,
+        subdivisionIndex: subIdx,
+        hand: handKey,
+        index: iIdx
+      },
+      oldValue,
+      newValue
+    };
+  },
+  
+  // 应用单个动作（用于撤销/重做）
+  applyAction(action, isUndo = true) {
+    const { type, path, oldValue, newValue } = action;
+    const targetValue = isUndo ? oldValue : newValue;
+    
+    if (type === 'note_edit') {
+      const notations = this.data.notations;
+      const notation = notations[path.notationIndex];
+      if (!notation) return false;
+      
+      const measure = notation.measures[path.measureIndex];
+      if (!measure) return false;
+      
+      const beat = measure.beats[path.beatIndex];
+      if (!beat) return false;
+      
+      const subdivision = beat.subdivisions[path.subdivisionIndex];
+      if (!subdivision) return false;
+      
+      // 确保数组存在
+      if (!Array.isArray(subdivision[path.hand])) {
+        subdivision[path.hand] = ['', ''];
+      }
+      
+      // 应用更改
+      const updatePath = `notations[${path.notationIndex}].measures[${path.measureIndex}].beats[${path.beatIndex}].subdivisions[${path.subdivisionIndex}].${path.hand}[${path.index}]`;
+      const updateData = {};
+      updateData[updatePath] = targetValue;
+      
+      this.setData(updateData);
+      return true;
+    }
+    
+    // 可以扩展支持其他动作类型
+    return false;
   },
 
-  // 撤销上一步操作
+  // 撤销上一步操作（优化版）
   undo() {
     if (this.data.undoStack.length === 0) {
       wx.showToast({ title: '没有可撤销的操作', icon: 'none' });
       return;
     }
     
-    // 显示加载界面
-    wx.showLoading({ title: '正在撤销...' });
+    // 取出最后一个动作
+    const action = this.data.undoStack.pop();
     
-    const code = this.data.undoStack.pop();
-    this.setData({ undoStack: this.data.undoStack });
-    
-    try {
-      // 解析并恢复谱面
-      const parsed = this.parseImportCode(code);
-      if (!parsed || !parsed.length) {
-        wx.hideLoading();
-        wx.showToast({ title: '恢复失败', icon: 'none' });
-        return;
-      }
-      const notations = parsed.map(module => this.convertToNotation(module));
-      this.setNotations(notations);
+    // 应用撤销
+    if (this.applyAction(action, true)) {
+      // 将动作添加到重做栈
+      this.data.redoStack.push(action);
       
-      wx.hideLoading();
-      wx.showToast({ title: '已撤销上一步', icon: 'success' });
-    } catch (error) {
-      wx.hideLoading();
-      wx.showToast({ title: '撤销失败: ' + error.message, icon: 'none' });
+      this.setData({ 
+        undoStack: this.data.undoStack,
+        redoStack: this.data.redoStack
+      });
+      
+      wx.showToast({ title: '已撤销', icon: 'success', duration: 800 });
+      
+      // 保存到存储
+      this.throttledSaveNotations();
+    } else {
+      // 如果应用失败，将动作放回撤销栈
+      this.data.undoStack.push(action);
+      wx.showToast({ title: '撤销失败', icon: 'none' });
+    }
+  },
+  
+  // 重做操作
+  redo() {
+    if (this.data.redoStack.length === 0) {
+      wx.showToast({ title: '没有可重做的操作', icon: 'none' });
+      return;
+    }
+    
+    // 取出最后一个重做动作
+    const action = this.data.redoStack.pop();
+    
+    // 应用重做
+    if (this.applyAction(action, false)) {
+      // 将动作添加回撤销栈
+      this.data.undoStack.push(action);
+      
+      this.setData({ 
+        undoStack: this.data.undoStack,
+        redoStack: this.data.redoStack
+      });
+      
+      wx.showToast({ title: '已重做', icon: 'success', duration: 800 });
+      
+      // 保存到存储
+      this.throttledSaveNotations();
+    } else {
+      // 如果应用失败，将动作放回重做栈
+      this.data.redoStack.push(action);
+      wx.showToast({ title: '重做失败', icon: 'none' });
     }
   },
 
@@ -4261,8 +4379,8 @@ Page({
         title: result.message,
         icon: 'success'
       });
-      // 备份当前状态
-      this.backupCurrentState();
+      // TODO: 实现其他操作的动作记录
+      // this.backupCurrentState();
     } else {
       this.setData({ importError: result.message });
     }
@@ -4439,7 +4557,7 @@ Page({
     }
     
     // 匹配 /{token} 或 /单个数字 形式（左手指定）
-    const leftHandSpecificMatch = subStr.match(/^\/({[^}]+}|[0-9A-Za-z][\^_]?)$/);
+    const leftHandSpecificMatch = subStr.match(/^\/(<[^>]+>|[0-9A-Za-z]['',_]*)$/);
     if (leftHandSpecificMatch) {
       const token = leftHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
@@ -4605,13 +4723,14 @@ Page({
       return '';
     }
     
-    // 在简谱模式下，保留装饰符号（^ 或 _）和·
+    // 在简谱模式下，保留装饰符号（' 或 , 或 _）和·
     // 在数字谱模式下，移除装饰符号但保留·
     if (this.data.notationType === 'simplified') {
       // 简谱模式：保留修饰符，允许字母/数字/·
-      let cleaned = noteStr.replace(/\{_(.+?)_\}/, '$1');
-      // 匹配 数字/字母 + 可选的 ^ 或 _（支持新格式，不带 .）
-      const match = cleaned.match(/^([0-9A-Za-z·]+)([\^_])?/);
+      let cleaned = noteStr;
+      // 匹配 数字/字母 + 可选的 '、, 或 _（支持多个组合）
+      // 支持：1'、1,、1_、1'_、1,_、1''、1,,等
+      const match = cleaned.match(/^([0-9A-Za-z·]+)(['',_]*)/);
       if (match) {
         return (match[1] || '') + (match[2] || '');
       }
@@ -4621,9 +4740,8 @@ Page({
     } else {
       // 数字谱模式：移除修饰符，但允许字母/数字/·
       let cleaned = noteStr;
-      cleaned = cleaned.replace(/\{_(.+?)_\}/, '$1');
-      // 移除 ^ 或 _（支持带点和不带点的格式）
-      cleaned = cleaned.replace(/[\^_]\.?/g, '');
+      // 移除 '、, 或 _
+      cleaned = cleaned.replace(/['',_]+/g, '');
 
       if (!/^[0-9A-Za-z·]+$/.test(cleaned)) {
         const tokenMatch = cleaned.match(/[0-9A-Za-z·]+/);
@@ -4640,8 +4758,12 @@ Page({
     }
   },
 
-  // 辅助方法：从 {content} 中提取内容，或直接返回token
+  // 辅助方法：从 <content> 中提取内容，或直接返回token
   unwrapBracket(token) {
+    if (token.startsWith('<') && token.endsWith('>')) {
+      return token.slice(1, -1);
+    }
+    // 为了向后兼容，仍然支持 {} 格式
     if (token.startsWith('{') && token.endsWith('}')) {
       return token.slice(1, -1);
     }
@@ -5590,6 +5712,222 @@ Page({
       title: `${title} - Handpan Note`,
       // 朋友圈分享不支持path参数
     };
+  },
+  
+  // 渲染音符用于显示
+  renderNoteForDisplay(noteStr) {
+    if (!noteStr) return '';
+    
+    // 简单处理：去除上标符号，只显示基本音符
+    // TODO: 实现完整的渲染逻辑
+    let rendered = noteStr;
+    rendered = rendered.replace(/\^\{[^}]*\}/g, ''); // 移除右上标
+    rendered = rendered.replace(/\{[^}]*\}\^/g, ''); // 移除左上标
+    
+    return rendered;
+  },
+  
+  // ============ 虚拟键盘相关方法 ============
+  
+  // 显示/隐藏虚拟键盘
+  toggleVirtualKeyboard() {
+    this.setData({
+      showVirtualKeyboard: !this.data.showVirtualKeyboard
+    });
+  },
+  
+  // 关闭虚拟键盘
+  closeVirtualKeyboard() {
+    this.setData({
+      showVirtualKeyboard: false,
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+  },
+  
+  // 切换键盘模式（数字/符号）
+  switchKeyboardMode() {
+    const newMode = this.data.virtualKeyboardMode === 'number' ? 'symbol' : 'number';
+    this.setData({
+      virtualKeyboardMode: newMode
+    });
+  },
+  
+  // 虚拟键盘按键点击
+  onVirtualKey(e) {
+    const key = e.currentTarget.dataset.key;
+    const { editingValue, superscriptMode } = this.data;
+    let newValue = editingValue || '';
+    
+    // 如果在上标模式中
+    if (superscriptMode) {
+      this.handleSuperscriptInput(key);
+      return;
+    }
+    
+    // 普通输入
+    newValue += key;
+    this.updateEditingValue(newValue);
+  },
+  
+  // 更新编辑值
+  updateEditingValue(value) {
+    this.setData({
+      editingValue: value,
+      virtualKeyboardDisplay: value,
+      virtualKeyboardRendered: this.renderNoteForDisplay(value)
+    });
+    this.prevEditingValue = value;
+  },
+  
+  // 加格操作
+  addGrid() {
+    // TODO: 实现加格逻辑
+    const { editing, notations } = this.data;
+    if (!editing) return;
+    
+    wx.showToast({ title: '加格功能待实现', icon: 'none' });
+  },
+  
+  // 删除格操作
+  deleteGrid() {
+    // TODO: 实现删除格逻辑
+    const { editing, notations } = this.data;
+    if (!editing) return;
+    
+    wx.showToast({ title: '删除格功能待实现', icon: 'none' });
+  },
+  
+  // 音高增加
+  pitchUp() {
+    const { editingValue } = this.data;
+    let newValue = editingValue || '';
+    
+    // 如果有,（低音），先去掉一个
+    if (newValue.includes(',')) {
+      newValue = newValue.replace(',', '');
+    } else {
+      // 没有低音，添加高音'
+      newValue += "'";
+    }
+    
+    this.updateEditingValue(newValue);
+  },
+  
+  // 音高降低
+  pitchDown() {
+    const { editingValue } = this.data;
+    let newValue = editingValue || '';
+    
+    // 如果有'（高音），先去掉一个
+    if (newValue.includes("'")) {
+      newValue = newValue.replace("'", '');
+    } else {
+      // 没有高音，添加低音,
+      newValue += ',';
+    }
+    
+    this.updateEditingValue(newValue);
+  },
+  
+  // 音高复原
+  pitchReset() {
+    const { editingValue } = this.data;
+    let newValue = editingValue || '';
+    
+    // 移除所有'和,
+    newValue = newValue.replace(/['',]+/g, '');
+    
+    this.updateEditingValue(newValue);
+  },
+  
+  // 添加下划线
+  addUnderline() {
+    const { editingValue } = this.data;
+    let newValue = editingValue || '';
+    
+    // 如果没有_，添加
+    if (!newValue.includes('_')) {
+      newValue += '_';
+    }
+    
+    this.updateEditingValue(newValue);
+  },
+  
+  // 右上标
+  rightSuperscript() {
+    const { editingValue } = this.data;
+    
+    // 进入右上标模式
+    this.setData({
+      superscriptMode: 'right',
+      virtualKeyboardDisplay: editingValue + '^{|}',
+      superscriptContent: ''
+    });
+  },
+  
+  // 左上标
+  leftSuperscript() {
+    const { editingValue } = this.data;
+    
+    // 进入左上标模式
+    this.setData({
+      superscriptMode: 'left',
+      virtualKeyboardDisplay: '^{|}' + editingValue,
+      superscriptContent: ''
+    });
+  },
+  
+  // 处理上标输入
+  handleSuperscriptInput(key) {
+    const { superscriptContent, superscriptMode, editingValue } = this.data;
+    const newContent = superscriptContent + key;
+    
+    if (superscriptMode === 'right') {
+      this.setData({
+        superscriptContent: newContent,
+        virtualKeyboardDisplay: editingValue + '^{' + newContent + '}'
+      });
+    } else if (superscriptMode === 'left') {
+      this.setData({
+        superscriptContent: newContent,
+        virtualKeyboardDisplay: '^{' + newContent + '}' + editingValue
+      });
+    }
+  },
+  
+  // 完成上标输入
+  completeSuperscript() {
+    const { superscriptMode, superscriptContent, editingValue } = this.data;
+    let newValue = editingValue || '';
+    
+    if (superscriptMode === 'right') {
+      newValue = newValue + '^{' + superscriptContent + '}';
+    } else if (superscriptMode === 'left') {
+      newValue = '^{' + superscriptContent + '}' + newValue;
+    }
+    
+    this.setData({
+      editingValue: newValue,
+      virtualKeyboardDisplay: newValue,
+      virtualKeyboardRendered: this.renderNoteForDisplay(newValue),
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+    
+    this.prevEditingValue = newValue;
+  },
+  
+  // 向左移动光标
+  moveCursorLeft() {
+    // TODO: 实现光标移动
+    wx.showToast({ title: '光标移动待实现', icon: 'none' });
+  },
+  
+  // 向右移动光标
+  moveCursorRight() {
+    // TODO: 实现光标移动
+    wx.showToast({ title: '光标移动待实现', icon: 'none' });
   }
 });
 

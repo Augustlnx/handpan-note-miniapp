@@ -524,6 +524,14 @@
   background-color: rgba(244, 208, 150, 0.2);
 }
 
+/* 时值减半下划线样式 */
+.note-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 2rpx;
+  text-underline-offset: 4rpx;
+  text-decoration-color: currentColor;
+}
+
 .note-right-hand {
   color: #F4D096;
 }

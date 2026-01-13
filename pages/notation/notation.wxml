@@ -70,35 +70,41 @@ var getColumnGap = function(orientation, style, isMultiMeasure) {
   return gap;
 }
 
-// 解析简谱音符，提取基础音符和八度偏移量
-// 返回: { baseNote: '1', octaveUp: 1, octaveDown: 0 }
+// 解析简谱音符，提取基础音符和八度偏移量以及时值减半标记
+// 返回: { baseNote: '1', octaveUp: 1, octaveDown: 0, underline: true }
 var parseSimplifiedNote = function(note) {
   if (!note || note === '') {
-    return { baseNote: '', octaveUp: 0, octaveDown: 0 };
+    return { baseNote: '', octaveUp: 0, octaveDown: 0, underline: false };
   }
   
   var octaveUp = 0;
   var octaveDown = 0;
+  var underline = false;
   var baseNote = note;
   
-  // 统计 ^ 的数量（升八度）
+  // 统计 ' 的数量（升八度）
   for (var i = 0; i < note.length; i++) {
-    if (note[i] === '^') {
+    if (note[i] === "'") {
       octaveUp++;
     }
   }
   
-  // 统计 _ 的数量（降八度）
+  // 统计 , 的数量（降八度）
   for (var i = 0; i < note.length; i++) {
-    if (note[i] === '_') {
+    if (note[i] === ',') {
       octaveDown++;
     }
   }
   
-  // 提取基础音符（移除 ^ 和 _）
+  // 检查是否有 _ （时值减半下划线）
+  if (note.indexOf('_') !== -1) {
+    underline = true;
+  }
+  
+  // 提取基础音符（移除 '、, 和 _）
   baseNote = '';
   for (var i = 0; i < note.length; i++) {
-    if (note[i] !== '^' && note[i] !== '_') {
+    if (note[i] !== "'" && note[i] !== ',' && note[i] !== '_') {
       baseNote += note[i];
     }
   }
@@ -106,7 +112,8 @@ var parseSimplifiedNote = function(note) {
   return {
     baseNote: baseNote,
     octaveUp: octaveUp,
-    octaveDown: octaveDown
+    octaveDown: octaveDown,
+    underline: underline
   };
 }
 
@@ -260,7 +267,7 @@ module.exports = {
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                 </view>
-                                <text class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.rightHand[0]).baseNote}}</text>
+                                <text class="note-number note-right-hand {{utils.parseSimplifiedNote(subdivision.rightHand[0]).underline ? 'note-underline' : ''}}" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.rightHand[0]).baseNote}}</text>
                                 <!-- 下加点（降八度） -->
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
@@ -287,7 +294,7 @@ module.exports = {
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                 </view>
-                                <text class="note-number note-right-hand" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.rightHand[1]).baseNote}}</text>
+                                <text class="note-number note-right-hand {{utils.parseSimplifiedNote(subdivision.rightHand[1]).underline ? 'note-underline' : ''}}" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.rightHand[1]).baseNote}}</text>
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                 </view>
@@ -318,7 +325,7 @@ module.exports = {
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                 </view>
-                                <text class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.leftHand[0]).baseNote}}</text>
+                                <text class="note-number note-left-hand {{utils.parseSimplifiedNote(subdivision.leftHand[0]).underline ? 'note-underline' : ''}}" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.leftHand[0]).baseNote}}</text>
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                 </view>
@@ -343,7 +350,7 @@ module.exports = {
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveUp > 0}}" class="octave-dots-up" style="top: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), true)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                 </view>
-                                <text class="note-number note-left-hand" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.leftHand[1]).baseNote}}</text>
+                                <text class="note-number note-left-hand {{utils.parseSimplifiedNote(subdivision.leftHand[1]).underline ? 'note-underline' : ''}}" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx;">{{utils.parseSimplifiedNote(subdivision.leftHand[1]).baseNote}}</text>
                                 <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown > 0}}" class="octave-dots-down" style="bottom: -{{utils.getOctaveOffset(utils.getFontSize(orientation, notation.style), false)}}rpx;">
                                   <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                 </view>
