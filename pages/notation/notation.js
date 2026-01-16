@@ -3,12 +3,32 @@ const libraryManager = require('../../utils/libraryManager.js');
 
 // 内置示例数据（完整示例，包含所有module）
 const BUILTIN_EXAMPLE = {
-  title: 'Urban',
-  subtitle: 'Author: Kate Stone',
-  tempo: 60,
-  code: "\\begin{module}{Intro}\n[(8)/(4)+ -+-+ (6)/()| (8)/(4) +-+-+ (6)/()| (8)/(4) +-+-+-|-+-+-+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3)+ -+-+ (5)/()| (7)/(3) +-+-+-|-+-+-+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+-+ (4)/()| (6)/(2) +-+-+-|-+-+-+-]\\\\\n[(5)/(1) +-+-+ (5)/()|(5)/(1) +-+-+ (5)/()| (5)/(1) +-+-+-|-+-+-+-]\\\\\n[(8)/(4)+ -+-+ (6)/()| (8)/(4)+ -+-+ (6)/()| (8)/(4) +-+-+-|()/(4)+(7)/()+()/(8)+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3) +-+-+ (5)/()| (7)/(3) +-+-+-|()/(3)+-+(5)/()+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+-+ (4)/()| (6)/(2) +-+-+-|()/(8)+(7)/()+()/(6)+-]\\\\\n[(5)/(1) +-+-+ (5)/()|(5)/(1) +-+-+ (5)/()| (5)/(1) +-+-+-|()/(1)+-+(3)/()+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+-+ (4)/()| (6)/(2) +-+-+-|()/(4)+-+-+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3) +-+-+ (5)/()| (7)/(3) +-+-+-|()/(3)+-+(5)/()+-]\\\\\n[(8)/(4)+ -+-+-|- +-+-+ -|-+-+-+-|-+-+-+-]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{A-1}\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\\\\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(6)/(D)+-+ ()/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|(7)/(D)+-+ ()/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(8)/(D)+-+ ()/(1)+-]\\\\\n[(7)/(D)+ -+1+ (d)/()|()/(D)+-+ (7)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-]\\\\\n[8+ -+-+-|7+-+6+-|5+ -+-+ -|6+-+ 5+-]\\\\\n\\end{module}\n\\begin{module}{A-2}\n[6/D -/1{d/}|/D-6/1-|6/D -/1{d/}|/D-6/1-]\\\\\n[6/D -/1{d/}|/D-6/1-|7/D -/1{d/}|6/D-/1-]\\\\\n[5/D -/1{d/}|/D-5/1-|5/D -/1{d/}|/D-5/1-]\\\\\n[5/D -/1{d/}|/D-5/1-|6/D -/1{d/}|7/D-/1-]\\\\\n[8/D -/1{d/}|/D-8/1-|8/D -/1{d/}|/D-8/1-]\\\\\n[8/D -/1{d/}|/D-8/1-|7/D -/1{d/}|8/D-/1-]\\\\\n[7/D -/1{d/}|/D-7/1-|7/D -/1{d/}|/D-7/1-]\\\\\n[8---|7-6-|5---|6-5-]\n\\end{module}\n\\begin{module}{B-1}\n[1/4-/4{1/}|/4-1/4-|1/4-/4{1/}|/4-1/4-]\\\\\n[1/5-/5{1/}|/5-1/5-|1/5-/5{1/}|/5-1/5-]\\\\\n[1/6-/6{1/}|/6-1/6-|1/6-/6{1/}|/6-1/6-]\\\\\n[1/7-/7{1/}|/7-1/7-|8765|4-5-]\\\\\n\\end{module}\n\\begin{module}{B-2}\n[1/4-/4{1/}|/4-1/4-|1/4-/4{1/}|/4-1/4-]\\\\\n[1/5-/5{1/}|/5-1/5-|1/5-/5{1/}|/5-1/5-]\\\\\n[1/6-/6{1/}|/6-1/6-|1/6-/6{1/}|/6-1/6-]\\\\\n[1/7-/7{1/}|/7-1/7-|8765|6-5-]\\\\\n\\end{module}\n\\begin{module}{C-1}\n[8/4-4{8/}|4-8/4-|8/4-4{8/}|4-8/4-]\\\\\n[6/2-2{6/}|2-6/2-|6/2-2{6/}|2-6/2-]\\\\\n[7/3-/3{7/}|/3-7/3-|7/3-/3{7/}|/3-7/3-]\\\\\n[5/1-/1{5/}|/1-5/1-|5/1-/1{5/}|/1-5/1-]\\\\\n\\end{module}\n\\begin{module}{C-2}\n[8/4-4{8/}|4-8/4-|8/4-4{8/}|4-8/4-]\\\\\n[6/2-2{6/}|2-6/2-|6/2-2{6/}|2-8/2-]\\\\\n[7/3-/3{7/}|/3-7/3-|7/3-/3{7/}|/3-7/3-]\\\\\n[5/1-/1{5/}|/1-5/1-|5/1-/1{5/}|/1-5/1-]\\\\\n[6/2-2{6/}|2-6/2-|6/2-2{6/}|2-6/2-]\\\\\n[7/3-/3{7/}|/3-7/3-|7/3-/3{7/}|/3-7/3-]\\\\\n[8/4---|----|----|----]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{A-3}\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\\\\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(6)/(D)+-+ ()/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|(7)/(D)+-+ ()/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(8)/(D)+-+ ()/(1)+-]\\\\\n[(7)/(D)+ -+1+ (d)/()|()/(D)+-+ (7)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-]\\\\\n[8+ -+-+-|7+-+6+-|5+ -+-+ -|6+-+ 5+-]\\\\\n\\end{module}\n\\begin{module}{A-4}\n[6/D -/1{d/}|/D-6/1-|6/D -/1{d/}|/D-6/1-]\\\\\n[6/D -/1{d/}|/D-6/1-|7/D -/1{d/}|6/D-/1-]\\\\\n[5/D -/1{d/}|/D-5/1-|5/D -/1{d/}|/D-5/1-]\\\\\n[5/D -/1{d/}|/D-5/1-|6/D -/1{d/}|7/D-/1-]\\\\\n[8/D -/1{d/}|/D-8/1-|8/D -/1{d/}|/D-8/1-]\\\\\n[8/D -/1{d/}|/D-8/1-|7/D -/1{d/}|8/D-/1-]\\\\\n[7/D -/1{d/}|/D-7/1-|7/D -/1{d/}|/D-7/1-]\\\\\n[8---|7-6-|5---|6-5-]\n\\end{module}\n\\begin{module}{B-3}\n[1/4-/4{1/}|/4-1/4-|1/4-/4{1/}|/4-1/4-]\\\\\n[1/5-/5{1/}|/5-1/5-|1/5-/5{1/}|/5-1/5-]\\\\\n[1/6-/6{1/}|/6-1/6-|1/6-/6{1/}|/6-1/6-]\\\\\n[1/7-/7{1/}|/7-1/7-|8765|4-5-]\\\\\n\\end{module}\n\\begin{module}{B-4}\n[1/4-/4{1/}|/4-1/4-|1/4-/4{1/}|/4-1/4-]\\\\\n[1/5-/5{1/}|/5-1/5-|1/5-/5{1/}|/5-1/5-]\\\\\n[1/6-/6{1/}|/6-1/6-|1/6-/6{1/}|/6-1/6-]\\\\\n[1/7-/7{1/}|/7-1/7-|8765|6-5-]\\\\\n\\end{module}\n\\begin{module}{C-3}\n[8/4-4{8/}|4-8/4-|8/4-4{8/}|4-8/4-]\\\\\n[6/2-2{6/}|2-6/2-|6/2-2{6/}|2-6/2-]\\\\\n[7/3-/3{7/}|/3-7/3-|7/3-/3{7/}|/3-7/3-]\\\\\n[5/1-/1{5/}|/1-5/1-|5/1-/1{5/}|/1-5/1-]\\\\\n\\end{module}\n\\begin{module}{C-4}\n[8/4-4{8/}|4-8/4-|8/4-4{8/}|4-8/4-]\\\\\n[6/2-2{6/}|2-6/2-|6/2-2{6/}|2-8/2-]\\\\\n[7/3-/3{7/}|/3-7/3-|7/3-/3{7/}|/3-7/3-]\\\\\n[5/1-/1{5/}|/1-5/1-|5/1-/1{5/}|/1-5/1-]\\\\\n[6/2-2{6/}|2-6/2-|6/2-2{6/}|2-6/2-]\\\\\n[7/3-/3{7/}|/3-7/3-|7/3-/3{7/}|/3-7/3-]\\\\\n[8/4---|----|----|----]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{End}\n[8/4--6|4-8/-|6---|4{8/}65]\\\\[7/3--/5|/3-7-|/5---|/3--7]\\\\\n[6/2--4|2-6/-|4---|2-6/-]\\\\[5/1--3|/1-5-|/3---|1-/5-]\\\\\n[8/4---|----|----|----]\n\\end{module}\n"
-};
-
+      id: 'builtin_example_001',
+      type: 'file',
+      path: ['sample_folder'],
+      file_name: "Urban",
+      title: 'Urban',
+      subtitle: 'Author: Kate Stone',
+      composer: 'Kate Stone',
+      rootNote: 'D',
+      scaleType: 'Kurd',
+      noteCount: 10,
+      tempo: 60,
+      timing: "4/4",
+      notationType: 'digital',
+      difficulty: 3,
+      introduction: '经典的Handpan曲目，适合入门练习',
+      rotation: "手机竖屏（默认）",
+      style: {
+        measureHeight: 160,
+        noteFontSize: 28,
+        lineSpacing: 65
+      },
+      code: "\\begin{module}{Intro}\n[(8)/(4)+ -+-+ (6)/()| (8)/(4) +-+-+ (6)/()| (8)/(4) +-+-+-|-+-+-+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3)+ -+-+ (5)/()| (7)/(3) +-+-+-|-+-+-+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+-+ (4)/()| (6)/(2) +-+-+-|-+-+-+-]\\\\\n[(5)/(1) +-+-+ (5)/()|(5)/(1) +-+-+ (5)/()| (5)/(1) +-+-+-|-+-+-+-]\\\\\n[(8)/(4)+ -+-+ (6)/()| (8)/(4)+ -+-+ (6)/()| (8)/(4) +-+-+-|()/(4)+(7)/()+()/(8)+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3) +-+-+ (5)/()| (7)/(3) +-+-+-|()/(3)+-+(5)/()+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+-+ (4)/()| (6)/(2) +-+-+-|()/(8)+(7)/()+()/(6)+-]\\\\\n[(5)/(1) +-+-+ (5)/()|(5)/(1) +-+-+ (5)/()| (5)/(1) +-+-+-|()/(1)+-+(3)/()+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+-+ (4)/()| (6)/(2) +-+-+-|()/(4)+-+-+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3) +-+-+ (5)/()| (7)/(3) +-+-+-|()/(3)+-+(5)/()+-]\\\\\n[(8)/(4)+ -+-+-|- +-+-+ -|-+-+-+-|-+-+-+-]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{A-1}\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\\\\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(6)/(D)+-+ ()/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|(7)/(D)+-+ ()/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(8)/(D)+-+ ()/(1)+-]\\\\\n[(7)/(D)+ -+1+ (d)/()|()/(D)+-+ (7)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-]\\\\\n[8+ -+-+-|7+-+6+-|5+ -+-+ -|6+-+ 5+-]\\\\\n\\end{module}\n\\begin{module}{A-2}\n[6/D -/1(d)/()|/D-6/1-|6/D -/1(d)/()|/D-6/1-]\\\\\n[6/D -/1(d)/()|/D-6/1-|7/D -/1(d)/()|6/D-/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|5/D -/1(d)/()|/D-5/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|6/D -/1(d)/()|7/D-/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|8/D -/1(d)/()|/D-8/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|7/D -/1(d)/()|8/D-/1-]\\\\\n[7/D -/1(d)/()|/D-7/1-|7/D -/1(d)/()|/D-7/1-]\\\\\n[8---|7-6-|5---|6-5-]\n\\end{module}\n\\begin{module}{B-1}\n[1/4-/4(1)/()|/4-1/4-|1/4-/4(1)/()|/4-1/4-]\\\\\n[1/5-/5(1)/()|/5-1/5-|1/5-/5(1)/()|/5-1/5-]\\\\\n[1/6-/6(1)/()|/6-1/6-|1/6-/6(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|4-5-]\\\\\n\\end{module}\n\\begin{module}{B-2}\n[1/4-/4(1)/()|/4-1/4-|1/4-/4(1)/()|/4-1/4-]\\\\\n[1/5-/5(1)/()|/5-1/5-|1/5-/5(1)/()|/5-1/5-]\\\\\n[1/6-/6(1)/()|/6-1/6-|1/6-/6(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|6-5-]\\\\\n\\end{module}\n\\begin{module}{C-1}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n\\end{module}\n\\begin{module}{C-2}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-8/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[8/4---|----|----|----]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{A-3}\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\\\\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(6)/(D)+-+ ()/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|(7)/(D)+-+ ()/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(8)/(D)+-+ ()/(1)+-]\\\\\n[(7)/(D)+ -+1+ (d)/()|()/(D)+-+ (7)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-]\\\\\n[8+ -+-+-|7+-+6+-|5+ -+-+ -|6+-+ 5+-]\\\\\n\\end{module}\n\\begin{module}{A-4}\n[6/D -/1(d)/()|/D-6/1-|6/D -/1(d)/()|/D-6/1-]\\\\\n[6/D -/1(d)/()|/D-6/1-|7/D -/1(d)/()|6/D-/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|5/D -/1(d)/()|/D-5/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|6/D -/1(d)/()|7/D-/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|8/D -/1(d)/()|/D-8/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|7/D -/1(d)/()|8/D-/1-]\\\\\n[7/D -/1(d)/()|/D-7/1-|7/D -/1(d)/()|/D-7/1-]\\\\\n[8---|7-6-|5---|6-5-]\n\\end{module}\n\\begin{module}{B-3}\n[1/4-/4(1)/()|/4-1/4-|1/4-/4(1)/()|/4-1/4-]\\\\\n[1/5-/5(1)/()|/5-1/5-|1/5-/5(1)/()|/5-1/5-]\\\\\n[1/6-/6(1)/()|/6-1/6-|1/6-/6(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|4-5-]\\\\\n\\end{module}\n\\begin{module}{B-4}\n[1/4-/4(1)/()|/4-1/4-|1/4-/4(1)/()|/4-1/4-]\\\\\n[1/5-/5(1)/()|/5-1/5-|1/5-/5(1)/()|/5-1/5-]\\\\\n[1/6-/6(1)/()|/6-1/6-|1/6-/6(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|6-5-]\\\\\n\\end{module}\n\\begin{module}{C-3}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n\\end{module}\n\\begin{module}{C-4}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-8/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[8/4---|----|----|----]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{End}\n[8/4--6|4-8/-|6---|4(8)/()65]\\\\[7/3--/5|/3-7-|/5---|/3--7]\\\\\n[6/2--4|2-6/-|4---|2-6/-]\\\\[5/1--3|/1-5-|/3---|1-/5-]\\\\\n[8/4---|----|----|----]\n\\end{module}\n",
+      createTime: Date.now(),
+      modifyTime: Date.now(),
+      starred: false
+    };
 
 Page({
   data: {
@@ -100,13 +120,19 @@ Page({
       '3': '5',
       '4': '6',
       '5': '7',
-      '6': '1^',
-      '7': '2^',
-      '8': '3^',
-      '9': '5^',
+      '6': '1\'',
+      '7': '2\'',
+      '8': '3\'',
+      '9': '5\'',
       'd': 'd',
       's': 's',
-      'P': 'P'
+      'P': 'P',
+      'H': 'H',
+      'T': 'T',
+      'F': 'F',
+      'B': 'B',
+      'O': 'O',
+      'x': 'x'
     },
     customConversionTableObj: {}, // 解析后的自定义转换表
     // 导出功能相关
@@ -114,9 +140,18 @@ Page({
     exportMode: 'long', // 'long' 长图模式, 'paged' 分页模式
     exportLayoutMode: 'compact', // 'compact' 紧凑模式, 'loose' 宽松模式
     a4Orientation: 'portrait', // A4纸张方向: 'portrait' 纵向, 'landscape' 横向
+    exportA4Orientation: 'portrait', // 导出规格弹窗中选择的A4方向
     showExportPreview: false,
     exportPreviewImages: [],
     currentPreviewPage: 0,
+    // 导出背景图配置
+    exportBgOpacity: 0.10, // 背景图透明度 0-1，默认0.10与谱面一致
+    exportBgSize: 0.67, // 背景图大小比例 0-1，默认2/3
+    // 导出音符颜色配置
+    exportColorMode: 'dual', // 'dual' 双色模式, 'single' 单色模式
+    exportSingleColor: '#314D63', // 单色模式的颜色
+    exportRightHandColor: '#F4D096', // 双色模式右手颜色
+    exportLeftHandColor: '#314D63', // 双色模式左手颜色
     // 导出格式选择相关
     showExportFormatPicker: false, // 显示PNG/PDF格式选择弹窗
     showPdfSuccessModal: false, // PDF导出成功弹窗
@@ -182,7 +217,78 @@ Page({
     virtualKeyboardRendered: '', // 渲染结果显示
     currentEditingNote: null, // 当前编辑的音符信息
     superscriptMode: null, // null | 'right' | 'left' 上标模式
-    superscriptContent: '' // 上标内容
+    superscriptContent: '', // 上标内容
+    vkParsed: { // 解析后的音符结构（用于区域A渲染）
+      baseNote: '',
+      octaveUp: 0,
+      octaveDown: 0,
+      underline: false,
+      leftSup: '',
+      rightSup: ''
+    },
+    vkClipboard: '', // 虚拟键盘剪贴板（用于复制粘贴功能）
+    showKeyboardHelp: false, // 是否显示虚拟键盘图标说明
+    // 胶囊音高调节器相关
+    pitchLevel: 2, // 音高档位: 0-倍低音, 1-低音, 2-原音, 3-高音, 4-倍高音
+    pitchLevelConfig: [
+      { name: '倍低音', icon: '♪' },
+      { name: '低音', icon: '♪' },
+      { name: '原音', icon: '♪' },
+      { name: '高音', icon: '♪' },
+      { name: '倍高音', icon: '♪' }
+    ],
+    pitchDragging: false, // 是否正在拖动音高调节器
+    pitchToastVisible: false, // 音高提示是否显示
+    // 备注弹窗相关
+    showAnnotationModal: false, // 是否显示备注编辑弹窗
+    annotationModalMode: 'add', // 'add' 或 'edit'
+    currentAnnotation: {
+      sheet: null,
+      measure: null,
+      beat: null,
+      subdivision: null,
+      text: ''
+    },
+    
+    // 新增：曲谱元信息字段
+    composer: 'Your Name', // 制谱人
+    rootNote: 'D', // 主音
+    scaleType: 'Kurd', // 调式
+    noteCount: 10, // 音位数
+    difficulty: 1, // 难度（1-5颗星）
+    introduction: '', // 简介
+    
+    // 难度选择弹窗
+    showDifficultyModal: false,
+    tempDifficulty: 1, // 临时选择的难度
+    
+    // 副标题编辑弹窗
+    showSubtitleEditModal: false,
+    tempSubtitle: 'Author: Unknown',
+    tempComposer: 'Your Name',
+    tempRootNote: 'D',
+    tempScaleType: 'Kurd',
+    tempNoteCount: 10,
+    
+    // 简介弹窗
+    showIntroModal: false,
+    tempIntroduction: '',
+    
+    // 主音选项
+    rootNoteOptions: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+    rootNoteDisplayOptions: ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'],
+    
+    // 调式选项
+    scaleTypeOptions: [
+      'Aegean', 'Akebono', 'Amara / Celtic Minor', 'Ashakiran / Sabye', 'Avebury',
+      'Blues', 'Equinox', 'Hijaz / Harmonic Minor', 'Integral', 'Kurd / Annaziska',
+      'La Sirena', 'Low Mystic', 'Magic Voyage', 'Major', 'Minor', 'Nordlys',
+      'Onoleo', 'Oxalista', 'Pentatonic', 'Pygmy / Low Pygmy', 'Raga Desh',
+      'Romanian', 'Saladin', 'Ursa Minor', 'Ysha Savita', 'Multi scale', 'Other scale'
+    ],
+    
+    // 音位数选项（7-25）
+    noteCountOptions: Array.from({length: 19}, (_, i) => i + 7),
   },
 
   // Quick Win: 浅拷贝notations数组（避免全量深拷贝）
@@ -269,7 +375,14 @@ Page({
       // 保存文件来源信息
       libraryFileId: payload.id || null,
       libraryFilePath: payload.path || null,
-      libraryFileName: payload.file_name || null
+      libraryFileName: payload.file_name || null,
+      // 新增：加载曲谱元信息
+      composer: payload.composer || 'Your Name',
+      rootNote: payload.rootNote || 'D',
+      scaleType: payload.scaleType || 'Kurd',
+      noteCount: payload.noteCount || 10,
+      difficulty: payload.difficulty || 1,
+      introduction: payload.introduction || ''
     }, () => {
       this.saveTitles();
       this.saveGlobalTempo();
@@ -319,7 +432,7 @@ Page({
   loadTitles() {
     // 从存储中读取
     const mainTitle = wx.getStorageSync('mainTitle') || 'Note Title';
-    const subTitle = wx.getStorageSync('subTitle') || 'Author: Your Name';
+    const subTitle = wx.getStorageSync('subTitle') || 'Author: Unknown';
     
     // 从颜色设置中读取
     const colorSettings = wx.getStorageSync('colorSettings') || {};
@@ -333,6 +446,15 @@ Page({
     const storedOpacity = typeof backgroundOpacity === 'number' ? backgroundOpacity : parseFloat(backgroundOpacity);
     const opacity = Number.isFinite(storedOpacity) ? Math.max(0.10, storedOpacity / 100) : 0.10;
     
+    // 读取新增的曲谱元信息
+    const metaInfo = wx.getStorageSync('notationMetaInfo') || {};
+    const composer = metaInfo.composer || 'Your Name';
+    const rootNote = metaInfo.rootNote || 'D';
+    const scaleType = metaInfo.scaleType || 'Kurd';
+    const noteCount = metaInfo.noteCount || 10;
+    const difficulty = metaInfo.difficulty || 1;
+    const introduction = metaInfo.introduction || '';
+    
     this.setData({ 
       mainTitle, 
       subTitle, 
@@ -340,7 +462,13 @@ Page({
       subTitleColor,
       rightHandColor, 
       leftHandColor,
-      backgroundOpacity: opacity
+      backgroundOpacity: opacity,
+      composer,
+      rootNote,
+      scaleType,
+      noteCount,
+      difficulty,
+      introduction
     });
   },
 
@@ -348,6 +476,16 @@ Page({
   saveTitles() {
     wx.setStorageSync('mainTitle', this.data.mainTitle);
     wx.setStorageSync('subTitle', this.data.subTitle);
+    // 保存曲谱元信息
+    const metaInfo = {
+      composer: this.data.composer,
+      rootNote: this.data.rootNote,
+      scaleType: this.data.scaleType,
+      noteCount: this.data.noteCount,
+      difficulty: this.data.difficulty,
+      introduction: this.data.introduction
+    };
+    wx.setStorageSync('notationMetaInfo', metaInfo);
   },
 
   // 加载全局速度
@@ -2591,19 +2729,140 @@ Page({
     });
   },
 
-  // 编辑副标题
+  // 编辑副标题（打开副标题编辑弹窗）
   editSubTitle() {
-    // 使用实例变量存储临时值
-    this._editValue = this.data.subTitle;
-    
     this.setData({
-      showEditModal: true,
-      editModalTitle: '编辑副标题',
-      editValue: this.data.subTitle,
-      editInputType: 'text',
-      editPlaceholder: '输入记谱本副标题',
-      currentEdit: { type: 'subtitle' }
+      showSubtitleEditModal: true,
+      tempSubtitle: this.data.subTitle,
+      tempComposer: this.data.composer,
+      tempRootNote: this.data.rootNote,
+      tempScaleType: this.data.scaleType,
+      tempNoteCount: this.data.noteCount
     });
+  },
+  
+  // 副标题输入事件
+  onTempSubtitleInput(e) {
+    this.setData({ tempSubtitle: e.detail.value });
+  },
+  
+  // 制谱人输入事件
+  onTempComposerInput(e) {
+    this.setData({ tempComposer: e.detail.value });
+  },
+  
+  // 主音选择事件
+  onRootNoteChange(e) {
+    const index = e.detail.value;
+    const rootNote = this.data.rootNoteOptions[index];
+    this.setData({ tempRootNote: rootNote });
+  },
+  
+  // 调式选择事件
+  onScaleTypeChange(e) {
+    const index = e.detail.value;
+    const scaleType = this.data.scaleTypeOptions[index];
+    this.setData({ tempScaleType: scaleType });
+  },
+  
+  // 音位数选择事件
+  onNoteCountChange(e) {
+    const index = e.detail.value;
+    const noteCount = this.data.noteCountOptions[index];
+    this.setData({ tempNoteCount: noteCount });
+  },
+  
+  // 确认副标题编辑
+  confirmSubtitleEdit() {
+    const { tempSubtitle, tempComposer, tempRootNote, tempScaleType, tempNoteCount } = this.data;
+    this.setData({
+      subTitle: tempSubtitle,
+      composer: tempComposer,
+      rootNote: tempRootNote,
+      scaleType: tempScaleType,
+      noteCount: tempNoteCount,
+      showSubtitleEditModal: false
+    });
+    this.saveTitles();
+    this.markNotationChanged();
+    wx.showToast({ title: '已保存', icon: 'success' });
+  },
+  
+  // 关闭副标题编辑弹窗
+  closeSubtitleEditModal() {
+    this.setData({ showSubtitleEditModal: false });
+  },
+  
+  // 打开难度选择弹窗
+  openDifficultyModal() {
+    this.setData({
+      showDifficultyModal: true,
+      tempDifficulty: this.data.difficulty
+    });
+  },
+  
+  // 选择难度星级
+  selectDifficulty(e) {
+    const star = parseInt(e.currentTarget.dataset.star);
+    this.setData({ tempDifficulty: star });
+  },
+  
+  // 确认难度选择
+  confirmDifficulty() {
+    this.setData({
+      difficulty: this.data.tempDifficulty,
+      showDifficultyModal: false
+    });
+    this.saveTitles();
+    this.markNotationChanged();
+    wx.showToast({ title: '难度已设置', icon: 'success' });
+  },
+  
+  // 关闭难度选择弹窗
+  closeDifficultyModal() {
+    this.setData({ showDifficultyModal: false });
+  },
+  
+  // 打开简介弹窗
+  openIntroModal() {
+    this.setData({
+      showIntroModal: true,
+      tempIntroduction: this.data.introduction
+    });
+  },
+  
+  // 简介输入事件
+  onTempIntroInput(e) {
+    this.setData({ tempIntroduction: e.detail.value });
+  },
+  
+  // 确认简介编辑
+  confirmIntroEdit() {
+    this.setData({
+      introduction: this.data.tempIntroduction,
+      showIntroModal: false
+    });
+    this.saveTitles();
+    this.markNotationChanged();
+    wx.showToast({ title: '简介已保存', icon: 'success' });
+  },
+  
+  // 关闭简介弹窗
+  closeIntroModal() {
+    this.setData({ showIntroModal: false });
+  },
+  
+  // 获取调式显示名称（只取/前的部分）
+  getScaleDisplayName(scale) {
+    if (!scale) return '';
+    const parts = scale.split(' / ');
+    return parts[0];
+  },
+  
+  // 获取主音显示名称（只取/前的部分，处理# / b格式）
+  getRootDisplayName(root) {
+    if (!root) return '';
+    return root; // 主音选项已经是简化格式
   },
 
   // 编辑标签
@@ -2772,11 +3031,24 @@ Page({
       const slotArray = notation.measures[mIdx].beats[bIdx].subdivisions[subIdx][hand === 'right' ? 'rightHand' : 'leftHand'];
       const currentValue = Array.isArray(slotArray) ? (slotArray[iIdx] || '') : '';
 
-      // 先更新编辑状态，立即显示输入框
+      // 先更新编辑状态，立即显示输入框和虚拟键盘
       this.setData({
         editing: { sheet: sId, measure: mIdx, beat: bIdx, subdivision: subIdx, hand, index: iIdx },
-        editingValue: currentValue
+        editingValue: currentValue,
+        showVirtualKeyboard: true,
+        virtualKeyboardDisplay: currentValue,
+        virtualKeyboardRendered: this.renderNoteForDisplay(currentValue),
+        vkParsed: this.parseNoteForVK(currentValue),
+        virtualKeyboardMode: 'number',
+        superscriptMode: null,
+        superscriptContent: ''
       });
+      
+      // 根据当前音符更新音高档位显示
+      this.updatePitchLevelFromNote();
+      
+      // 隐藏tabBar以显示完整键盘
+      wx.hideTabBar({ animation: true });
 
       // 异步提交之前的编辑
       const prevEditing = this.prevEditing;
@@ -2790,7 +3062,54 @@ Page({
       // 保存当前状态供下次使用
       this.prevEditing = this.data.editing;
       this.prevEditingValue = this.data.editingValue;
+      
+      // 滚动页面使激活格子在虚拟键盘上方可见
+      this.scrollToActiveCell(sId, mIdx, bIdx, subIdx, hand, iIdx);
     },
+    
+  // 滚动到激活的格子，确保不被虚拟键盘遮挡
+  scrollToActiveCell(sheetId, mIdx, bIdx, subIdx, hand, iIdx) {
+    // 构建选择器，定位到激活的格子
+    const selector = `.notation-sheet[data-sheet-id="${sheetId}"] .measure-index-${mIdx} .beat-${bIdx} .subdivision-${subIdx}`;
+    
+    const query = wx.createSelectorQuery();
+    query.select(selector).boundingClientRect();
+    query.selectViewport().scrollOffset();
+    query.exec((res) => {
+      if (!res || !res[0]) return;
+      
+      const cellRect = res[0];
+      const scrollInfo = res[1];
+      
+      if (!cellRect || !scrollInfo) return;
+      
+      // 虚拟键盘高度约 480rpx = 240px（假设屏幕宽度375px时）
+      // 实际高度需要根据屏幕计算
+      const keyboardHeight = 260; // px，预估虚拟键盘高度
+      const safeMargin = 60; // px，额外留白
+      
+      // 获取屏幕高度
+      const systemInfo = wx.getSystemInfoSync();
+      const screenHeight = systemInfo.windowHeight;
+      
+      // 计算格子底部相对于视口的位置
+      const cellBottom = cellRect.bottom;
+      
+      // 如果格子底部在虚拟键盘区域内，需要滚动
+      const visibleBottom = screenHeight - keyboardHeight - safeMargin;
+      
+      if (cellBottom > visibleBottom) {
+        // 需要向上滚动的距离
+        const scrollDistance = cellBottom - visibleBottom;
+        const targetScrollTop = scrollInfo.scrollTop + scrollDistance;
+        
+        wx.pageScrollTo({
+          scrollTop: targetScrollTop,
+          duration: 200
+        });
+      }
+    });
+  },
 
   // 内嵌输入变化：实时保存到谱面，避免切换位置丢失
   onSlotInput(e) {
@@ -2962,7 +3281,21 @@ Page({
   // 清除编辑状态（点击空白区域时调用）
   clearEditing() {
     if (this.data.editing) {
-      this.setData({ editing: null, editingValue: '' });
+      // 先提交当前编辑
+      this.commitInlineEdit(this.data.editing, this.data.editingValue);
+      
+      this.setData({ 
+        editing: null, 
+        editingValue: '',
+        showVirtualKeyboard: false,
+        superscriptMode: null,
+        superscriptContent: ''
+      });
+      this.prevEditing = null;
+      this.prevEditingValue = '';
+
+      // 收起键盘时恢复tabBar
+      wx.showTabBar({ animation: true });
     }
   },
 
@@ -3040,6 +3373,13 @@ Page({
         tempo: this.data.globalTempo || 60,
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
+        notationType: this.data.notationType || 'digital', // 保存谱式类型
+        composer: this.data.composer,
+        rootNote: this.data.rootNote,
+        scaleType: this.data.scaleType,
+        noteCount: this.data.noteCount,
+        difficulty: this.data.difficulty,
+        introduction: this.data.introduction,
         code
       };
 
@@ -3089,6 +3429,12 @@ Page({
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
         notationType: this.data.notationType || 'digital', // 保存谱式类型
+        composer: this.data.composer,
+        rootNote: this.data.rootNote,
+        scaleType: this.data.scaleType,
+        noteCount: this.data.noteCount,
+        difficulty: this.data.difficulty,
+        introduction: this.data.introduction,
         code
       };
 
@@ -3259,6 +3605,27 @@ Page({
     return code;
   },
 
+  // 检查音符是否需要用<>包裹（包含特殊修饰符 ' , ^ _）
+  needsNoteBracket(note) {
+    if (!note || note.length === 0) return false;
+    // 检查是否包含特殊修饰符
+    return /['',,\^_]/.test(note) || note.length > 1;
+  },
+
+  // 为需要的音符添加<>包裹
+  wrapNoteIfNeeded(note) {
+    if (!note || note.length === 0) return note;
+    if (this.needsNoteBracket(note)) {
+      // 如果已经被包裹，则不重复包裹
+      if ((note.startsWith('<') && note.endsWith('>')) || 
+          (note.startsWith('{') && note.endsWith('}'))) {
+        return note;
+      }
+      return `<${note}>`;
+    }
+    return note;
+  },
+
   // 生成单个subdivision的代码
   generateSubdivisionCode(subdivision) {
     const rightHand = subdivision.rightHand || ['', ''];
@@ -3270,7 +3637,7 @@ Page({
       return '-';
     }
     
-    // 生成右手和左手字符串
+    // 生成右手和左手字符串（自动为特殊音符添加包裹）
     const rightStr = this.generateHandCode(rightHand, 'right');
     const leftStr = this.generateHandCode(leftHand, 'left');
     
@@ -3286,27 +3653,31 @@ Page({
       return '';
     }
     
-    if (note0 && note1) {
+    // 为包含特殊修饰符的音符添加<>包裹
+    const wrappedNote0 = this.wrapNoteIfNeeded(note0);
+    const wrappedNote1 = this.wrapNoteIfNeeded(note1);
+    
+    if (wrappedNote0 && wrappedNote1) {
       // 两个音符都存在
-      return `${note0},${note1}`;
+      return `${wrappedNote0},${wrappedNote1}`;
     }
     
     // 只有一个音符
     if (handType === 'right') {
       // 右手：如果只有note1（靠近中轴），直接返回
-      // 如果只有note0（远离中轴），返回两个位置
-      if (note1) {
-        return note1;
+      // 如果只有note0（远离中轴），返回
+      if (wrappedNote1) {
+        return wrappedNote1;
       } else {
-        return note0;
+        return wrappedNote0;
       }
     } else {
       // 左手：如果只有note0（靠近中轴），直接返回
-      // 如果只有note1（远离中轴），返回两个位置
-      if (note0) {
-        return note0;
+      // 如果只有note1（远离中轴），返回
+      if (wrappedNote0) {
+        return wrappedNote0;
       } else {
-        return note1;
+        return wrappedNote1;
       }
     }
   },
@@ -3526,6 +3897,101 @@ Page({
     });
   },
 
+  // 背景图片大小变化
+  onExportBgSizeChange(e) {
+    this.setData({
+      exportBgSize: e.detail.value / 100
+    });
+  },
+
+  // 背景图片透明度变化
+  onExportBgOpacityChange(e) {
+    this.setData({
+      exportBgOpacity: e.detail.value / 100
+    });
+  },
+
+  // 选择颜色模式
+  selectExportColorMode(e) {
+    const mode = e.currentTarget.dataset.mode;
+    this.setData({
+      exportColorMode: mode
+    });
+  },
+
+  // 打开颜色选择器
+  // 颜色输入框变化事件
+  onExportColorInput(e) {
+    const type = e.currentTarget.dataset.type;
+    let value = e.detail.value.trim();
+    
+    // 确保颜色值以#开头
+    if (value && !value.startsWith('#')) {
+      value = '#' + value;
+    }
+    
+    // 验证是否为有效的颜色格式
+    const isValidColor = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value);
+    if (!isValidColor && value.length > 0) {
+      return; // 无效颜色不更新
+    }
+    
+    let colorKey;
+    if (type === 'rightHand') {
+      colorKey = 'exportRightHandColor';
+    } else if (type === 'leftHand') {
+      colorKey = 'exportLeftHandColor';
+    } else {
+      colorKey = 'exportSingleColor';
+    }
+    
+    if (value) {
+      this.setData({ [colorKey]: value });
+    }
+  },
+
+  openExportColorPicker(e) {
+    const type = e.currentTarget.dataset.type;
+    let colorKey;
+    
+    if (type === 'rightHand') {
+      colorKey = 'exportRightHandColor';
+    } else if (type === 'leftHand') {
+      colorKey = 'exportLeftHandColor';
+    } else {
+      colorKey = 'exportSingleColor';
+    }
+
+    // 预设颜色列表
+    const presetColors = [
+      '#314D63', // 深蓝灰
+      '#F4D096', // 金色
+      '#8FB9AB', // 青绿
+      '#E57373', // 红色
+      '#64B5F6', // 蓝色
+      '#81C784', // 绿色
+      '#FFD54F', // 黄色
+      '#BA68C8', // 紫色
+      '#FF8A65', // 橙色
+      '#4DB6AC', // 青色
+      '#A1887F', // 棕色
+      '#90A4AE', // 灰色
+      '#000000', // 黑色
+      '#FFFFFF'  // 白色
+    ];
+
+    wx.showActionSheet({
+      itemList: ['深蓝灰', '金色', '青绿', '红色', '蓝色', '绿色', '黄色', '紫色', '橙色', '青色', '棕色', '灰色', '黑色', '白色'],
+      success: (res) => {
+        if (res.tapIndex >= 0 && res.tapIndex < presetColors.length) {
+          this.setData({
+            [colorKey]: presetColors[res.tapIndex]
+          });
+        }
+      }
+    });
+  },
+
   // 关闭导出规格弹窗
   closeExportSpecsModal() {
     this.setData({ showExportSpecsModal: false });
@@ -3567,11 +4033,27 @@ Page({
       subTitleColor: this.data.subTitleColor,
       rightHandColor: this.data.rightHandColor,
       leftHandColor: this.data.leftHandColor,
+      // 元信息
+      composer: this.data.composer,
+      rootNote: this.data.rootNote,
+      scaleType: this.data.scaleType,
+      noteCount: this.data.noteCount,
+      introduction: this.data.introduction,
+      notationType: this.data.notationType,
+      difficulty: this.data.difficulty,
       // 覆盖导出时使用的方向（不改变页面的实际 orientation）
       orientation: orientationOverride,
       exportMode: 'paged',
       a4Orientation: this.data.exportA4Orientation || 'portrait',
-      exportLayoutMode: this.data.exportLayoutMode || 'compact'
+      exportLayoutMode: this.data.exportLayoutMode || 'compact',
+      // 背景图配置
+      exportBgOpacity: this.data.exportBgOpacity,
+      exportBgSize: this.data.exportBgSize,
+      // 颜色配置
+      exportColorMode: this.data.exportColorMode,
+      exportSingleColor: this.data.exportSingleColor,
+      exportRightHandColor: this.data.exportRightHandColor,
+      exportLeftHandColor: this.data.exportLeftHandColor
     }).then(result => {
       wx.hideLoading();
 
@@ -3813,6 +4295,15 @@ Page({
           exportedPdfFileName: fileName,
           showPdfSuccessModal: true
         });
+        
+        // 如果路径不在临时目录，说明用户已经选择了保存位置
+        if (!pdfPath.includes('USER_DATA_PATH') && !pdfPath.includes('tmp')) {
+          wx.showToast({ 
+            title: 'PDF已保存到您选择的位置', 
+            icon: 'success',
+            duration: 2000
+          });
+        }
       })
       .catch((err) => {
         that.setData({ showPdfProgressModal: false });
@@ -3820,7 +4311,11 @@ Page({
           wx.showToast({ title: '已取消导出', icon: 'none' });
         } else {
           console.error('PDF导出失败:', err);
-          wx.showToast({ title: 'PDF生成失败: ' + (err.message || '未知错误'), icon: 'none' });
+          wx.showToast({ 
+            title: 'PDF导出失败: ' + (err.message || '未知错误'), 
+            icon: 'none',
+            duration: 3000
+          });
         }
       });
   },
@@ -3836,6 +4331,68 @@ Page({
   // 关闭PDF成功弹窗
   closePdfSuccessModal() {
     this.setData({ showPdfSuccessModal: false });
+  },
+
+  // 分享PDF并删除临时文件
+  shareAndDeletePdf() {
+    const filePath = this.data.exportedPdfPath;
+    const fileName = this.data.exportedPdfFileName;
+    
+    if (!filePath) {
+      wx.showToast({ title: '文件路径无效', icon: 'none' });
+      return;
+    }
+    
+    console.log('准备分享PDF文件:', filePath);
+    
+    // 检查 wx.shareFileMessage API 是否可用
+    if (typeof wx.shareFileMessage !== 'function') {
+      wx.showToast({ 
+        title: '当前环境不支持文件分享功能', 
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
+    // 调用分享功能
+    wx.shareFileMessage({
+      filePath: filePath,
+      fileName: fileName,
+      success: () => {
+        console.log('文件分享成功');
+        wx.showToast({ 
+          title: '分享成功，5秒后删除临时文件', 
+          icon: 'success',
+          duration: 2000
+        });
+        
+        // 延迟5秒后删除临时文件，确保传输完成
+        setTimeout(() => {
+          const fs = wx.getFileSystemManager();
+          fs.unlink({ 
+            filePath: filePath,
+            success: () => {
+              console.log('临时文件已清理');
+            },
+            fail: (err) => {
+              console.log('临时文件清理失败（可能仍在传输中）:', err);
+            }
+          });
+        }, 5000);
+        
+        // 关闭成功弹窗
+        this.setData({ showPdfSuccessModal: false });
+      },
+      fail: (err) => {
+        console.error('文件分享失败:', err);
+        wx.showToast({ 
+          title: '分享失败: ' + (err.errMsg || '未知错误'), 
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    });
   },
 
   // 关闭PDF成功弹窗并关闭预览
@@ -4490,11 +5047,31 @@ Page({
   // 解析单个拍
   parseBeat(beatStr) {
     // 首先处理隐含的+号：在token之间自动插入+
-    // token 包括：{...}、完整格式6/D、token/、/token、(...)/(...) 格式、- 、单个数字或字母（可选^/_后缀）、·
-    // 注意顺序很重要：完整手指定必须先匹配，否则会被拆成两个token
-    // 简谱格式：支持 1^、5_ 等带八度标记的音符
-    // 修改：多位数音符需要用{}包裹，如{12}；不带{}的连续数字如8765会被识别为多个单音符8+7+6+5
-    const tokenRegex = /{[^}]+}|[0-9A-Za-z][\^_]?\/[0-9A-Za-z][\^_]?|[0-9A-Za-z][\^_]?\/|\/[0-9A-Za-z][\^_]?|\/\{[^}]+\}|\{[^}]+\}\/|\([^)]*\)\/\([^)]*\)|-|[0-9A-Za-z][\^_]?|·/g;
+    // token 包括：<...>、{...}、完整格式6/D、token/、/token、(...)/(...) 格式、- 、单个数字或字母（可选修饰符）、·
+    // 注意顺序很重要：
+    // 1. <...> 和 {...} 优先匹配，确保包裹的内容作为整体
+    // 2. 完整手指定必须先匹配，否则会被拆成两个token
+    // 3. 简谱格式：支持 1'、1,、1_、1'^{H} 等带修饰符的音符
+    // 4. 多位数音符需要用<>或{}包裹，如<12>；不带包裹的连续数字如8765会被识别为多个单音符8+7+6+5
+    // 修饰符正则：支持 ' , _ 以及 ^{...} 格式
+    const modifierPattern = "['',,_]*(?:\\^\\{[^}]*\\})?['',,_]*";
+    // token正则：按优先级排列
+    const tokenRegex = new RegExp(
+      '<[^>]+>' +                                           // <...> 包裹的内容
+      '|\\{[^}]+\\}' +                                     // {...} 包裹的内容
+      '|\\([^)]*\\)\\/\\([^)]*\\)' +                       // (右手)/(左手) 完整格式
+      '|<[^>]+>\\/' +                                       // <...>/  右手指定
+      '|\\/<[^>]+>' +                                       // /<...>  左手指定
+      '|\\{[^}]+\\}\\/' +                                   // {...}/  右手指定
+      '|\\/\\{[^}]+\\}' +                                   // /{...}  左手指定
+      `|[0-9A-Za-z]${modifierPattern}\\/[0-9A-Za-z]${modifierPattern}` +  // 完整手指定 如 6/D
+      `|[0-9A-Za-z]${modifierPattern}\\/` +                  // 右手指定 如 1/
+      `|\\/[0-9A-Za-z]${modifierPattern}` +                  // 左手指定 如 /1
+      '|-' +                                                // 空音符
+      `|[0-9A-Za-z]${modifierPattern}` +                    // 单个音符（带可选修饰符）
+      '|·',                                                 // 特殊字符
+      'g'
+    );
     const tokens = beatStr.match(tokenRegex) || [];
     
     // 用 + 连接所有 token
@@ -4510,10 +5087,18 @@ Page({
 
   // 解析单个subdivision（音符组）
   parseSubdivision(subStr) {
-    // 处理 {4/1} 形式：完整手指定的简写
-    if (subStr.startsWith('{') && subStr.endsWith('}') && subStr.includes('/')) {
+    // 音符修饰符模式：支持 ' , _ 以及 ^{...} 格式
+    const modifierPatternNotes = "['',,_]*(?:\\^\\{[^}]*\\})?['',,_]*";
+    
+    // 处理 <4/1> 或 {4/1} 形式：完整手指定的简写
+    if ((subStr.startsWith('<') && subStr.endsWith('>')) || 
+        (subStr.startsWith('{') && subStr.endsWith('}'))) {
       const content = subStr.slice(1, -1);
-      const slashMatch = content.match(/^({[^}]+}|[0-9A-Za-z]+)\/({[^}]+}|[0-9A-Za-z]+)$/);
+      // 检查是否为完整手指定格式（包含/）
+      // 匹配：数字/字母（带可选修饰符）或 <...>/{...} 包裹的内容
+      const slashMatch = content.match(new RegExp(
+        `^(<[^>]+>|\\{[^}]+\\}|[0-9A-Za-z]${modifierPatternNotes})\\/(<[^>]+>|\\{[^}]+\\}|[0-9A-Za-z]${modifierPatternNotes})$`
+      ));
       if (slashMatch) {
         const rightToken = slashMatch[1];
         const leftToken = slashMatch[2];
@@ -4526,9 +5111,12 @@ Page({
       }
     }
     
-    // 匹配 4/1 形式的完整简写（右手/左手）- 包括 6/D 这样的字母格式，以及简谱格式如 1^/5_
-    // 注意：单字符匹配，多位数需要用{}包裹
-    const fullShorthandMatch = subStr.match(/^({[^}]+}|[0-9A-Za-z][\^_]?)\/({[^}]+}|[0-9A-Za-z][\^_]?)$/);
+    // 匹配 4/1 形式的完整简写（右手/左手）- 包括 6/D 这样的字母格式，以及简谱格式如 1'/5,
+    // 支持修饰符： ' , _ 以及 ^{...}
+    // 多位数需要用 <> 或 {} 包裹
+    const fullShorthandMatch = subStr.match(new RegExp(
+      `^(<[^>]+>|\\{[^}]+\\}|[0-9A-Za-z]${modifierPatternNotes})\\/(<[^>]+>|\\{[^}]+\\}|[0-9A-Za-z]${modifierPatternNotes})$`
+    ));
     if (fullShorthandMatch) {
       const rightToken = fullShorthandMatch[1];
       const leftToken = fullShorthandMatch[2];
@@ -4540,12 +5128,14 @@ Page({
       };
     }
     
-    // 处理手动指定左右手的格式：数字/ 和 /数字 以及 {token}/、/{token}
-    // 例如：1/ → (1)/()（右手only），/1 → ()/(1)（左手only），{12/} → {12}/()（右手only），/{12} → ()/{12}（左手only）
-    // 支持简谱格式如 1^/、/5_
+// 处理手动指定左右手的格式：数字/ 和 /数字 以及 {token}/、/{token}、<token>/、/<token>
+    // 例如：1/ → (1)/()（右手only），/1 → ()/(1)（左手only）
+    // 支持简谱格式如 1'/、/5,、<1'^{H}>/
     
-    // 匹配 {token}/ 或 单个数字/ 形式（右手指定）
-    const rightHandSpecificMatch = subStr.match(/^({[^}]+}|[0-9A-Za-z][\^_]?)\/$/);
+    // 匹配 <token>/ 或 {token}/ 或 单个数字/字母/ 形式（右手指定）
+    const rightHandSpecificMatch = subStr.match(new RegExp(
+      `^(<[^>]+>|\\{[^}]+\\}|[0-9A-Za-z]${modifierPatternNotes})\\/$`
+    ));
     if (rightHandSpecificMatch) {
       const token = rightHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
@@ -4556,8 +5146,10 @@ Page({
       };
     }
     
-    // 匹配 /{token} 或 /单个数字 形式（左手指定）
-    const leftHandSpecificMatch = subStr.match(/^\/(<[^>]+>|[0-9A-Za-z]['',_]*)$/);
+    // 匹配 /<token> 或 /{token} 或 /单个数字/字母 形式（左手指定）
+    const leftHandSpecificMatch = subStr.match(new RegExp(
+      `^\\/(<[^>]+>|\\{[^}]+\\}|[0-9A-Za-z]${modifierPatternNotes})$`
+    ));
     if (leftHandSpecificMatch) {
       const token = leftHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
@@ -4568,14 +5160,36 @@ Page({
       };
     }
     
-    // 处理 {12} 形式的多位数或其他token
-    if (subStr.startsWith('{') && subStr.endsWith('}')) {
+    // 处理 <12> 或 {12} 形式的多位数或其他token（不包含/，否则已在上面处理）
+    if ((subStr.startsWith('<') && subStr.endsWith('>')) || 
+        (subStr.startsWith('{') && subStr.endsWith('}'))) {
       const content = subStr.slice(1, -1);
-      const rightHand = this.parseHandNotes(content, 'right');
-      return {
-        rightHand: [rightHand[0] || '', rightHand[1] || ''],
-        leftHand: ['', '']
-      };
+      // 如果内容不包含/，视为单个音符，根据奇偶数分配左右手
+      if (!content.includes('/')) {
+        // 提取基础音符（去掉修饰符）用于判断奇偶
+        const baseNote = content.replace(/['',,_\^\{\}]/g, '').trim();
+        const n = parseInt(baseNote, 10);
+        if (!Number.isNaN(n)) {
+          if (n % 2 === 0) {
+            const leftHand = this.parseHandNotes(content, 'left');
+            return {
+              rightHand: ['', ''],
+              leftHand: [leftHand[0] || '', leftHand[1] || '']
+            };
+          }
+          const rightHand = this.parseHandNotes(content, 'right');
+          return {
+            rightHand: [rightHand[0] || '', rightHand[1] || ''],
+            leftHand: ['', '']
+          };
+        }
+        // 字母和·视作偶数，放在左手
+        const leftHand = this.parseHandNotes(content, 'left');
+        return {
+          rightHand: ['', ''],
+          leftHand: [leftHand[0] || '', leftHand[1] || '']
+        };
+      }
     }
     
     // 处理简写 - 表示空音符
@@ -4684,19 +5298,21 @@ Page({
   },
 
   // 解析单手音符（返回数组 [slot0, slot1]）
+  // 支持 <> 包裹的特殊音符，如 <1,^{5}>,2 应被解析为 ['1,^{5}', '2']
   parseHandNotes(handStr, hand) {
     if (!handStr || handStr.length === 0) {
       return ['', ''];
     }
     
-    // 按逗号分割
-    const notes = handStr.split(',').map(n => n.trim());
+    // 智能分割：考虑 <> 和 {} 包裹的情况
+    // <1,^{5}>,2 应被识别为 ['<1,^{5}>', '2'] 而不是 ['<1', '^{5}>', '2']
+    const notes = this.smartSplitNotes(handStr);
     
     if (notes.length === 1) {
       // 单个音符：默认放在靠近中轴线的位置
       // 右手：放在slot1（index 1）
       // 左手：放在slot0（index 0，因为左手的slot0更靠近中轴线）
-      const parsedNote = this.parseNote(notes[0]);
+      const parsedNote = this.parseNote(this.unwrapBracket(notes[0]));
       if (hand === 'right') {
         return ['', parsedNote];
       } else {
@@ -4704,57 +5320,117 @@ Page({
       }
     } else if (notes.length === 2) {
       // 两个音符：外侧和内侧
-      const note0 = this.parseNote(notes[0]);
-      const note1 = this.parseNote(notes[1]);
+      const note0 = this.parseNote(this.unwrapBracket(notes[0]));
+      const note1 = this.parseNote(this.unwrapBracket(notes[1]));
       return [note0, note1];
     } else if (notes.length > 2) {
       // 超过2个，只取前两个
-      const note0 = this.parseNote(notes[0]);
-      const note1 = this.parseNote(notes[1]);
+      const note0 = this.parseNote(this.unwrapBracket(notes[0]));
+      const note1 = this.parseNote(this.unwrapBracket(notes[1]));
       return [note0, note1];
     }
     
     return ['', ''];
   },
 
+  // 智能分割音符字符串，正确处理 <> 和 {} 包裹（支持嵌套）
+  // 例如：<1,^{5,}>,<1'^{H}> -> ['<1,^{5,}>', '<1'^{H}>']
+  smartSplitNotes(str) {
+    const notes = [];
+    let current = '';
+    let angleDepth = 0;  // <> 深度
+    let braceDepth = 0;  // {} 深度
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+      
+      // 只有当所有括号都关闭时，逗号才是分隔符
+      if (angleDepth === 0 && braceDepth === 0 && char === ',') {
+        // 顶层逗号，分割
+        if (current.trim()) {
+          notes.push(current.trim());
+        }
+        current = '';
+        continue;
+      }
+      
+      // 跟踪括号深度
+      if (char === '<') {
+        angleDepth++;
+      } else if (char === '>') {
+        angleDepth = Math.max(0, angleDepth - 1);
+      } else if (char === '{') {
+        braceDepth++;
+      } else if (char === '}') {
+        braceDepth = Math.max(0, braceDepth - 1);
+      }
+      
+      current += char;
+    }
+    
+    // 添加最后一个token
+    if (current.trim()) {
+      notes.push(current.trim());
+    }
+    
+    return notes;
+  },
+
   // 解析单个音符（处理装饰符号）
+  // 支持格式：数字/字母 + 可选修饰符（' , _ ^{...}）
+  // 例如：1'、5,、3_、1'^{H}、^{1'}5,_
   parseNote(noteStr) {
     if (!noteStr || noteStr.length === 0) {
       return '';
     }
     
-    // 在简谱模式下，保留装饰符号（' 或 , 或 _）和·
-    // 在数字谱模式下，移除装饰符号但保留·
+    // 先移除首尾的 <> 或 {} 包裹（如果有）
+    let cleaned = noteStr.trim();
+    if ((cleaned.startsWith('<') && cleaned.endsWith('>')) ||
+        (cleaned.startsWith('{') && cleaned.endsWith('}'))) {
+      cleaned = cleaned.slice(1, -1);
+    }
+    
+    // 在简谱模式下，保留所有装饰符号（' , _ ^{...}）和·
+    // 在数字谱模式下，移除装饰符号但保留·和^{...}
     if (this.data.notationType === 'simplified') {
-      // 简谱模式：保留修饰符，允许字母/数字/·
-      let cleaned = noteStr;
-      // 匹配 数字/字母 + 可选的 '、, 或 _（支持多个组合）
-      // 支持：1'、1,、1_、1'_、1,_、1''、1,,等
-      const match = cleaned.match(/^([0-9A-Za-z·]+)(['',_]*)/);
-      if (match) {
-        return (match[1] || '') + (match[2] || '');
-      }
-      // 无法匹配时，返回去除空白后的原始内容，避免丢失字母和·
-      cleaned = cleaned.trim();
+      // 简谱模式：保留所有修饰符
+      // 支持复杂格式如：^{1'}5,_^{H}
+      // 直接返回清理后的内容
       return cleaned || '';
     } else {
-      // 数字谱模式：移除修饰符，但允许字母/数字/·
-      let cleaned = noteStr;
-      // 移除 '、, 或 _
-      cleaned = cleaned.replace(/['',_]+/g, '');
-
-      if (!/^[0-9A-Za-z·]+$/.test(cleaned)) {
-        const tokenMatch = cleaned.match(/[0-9A-Za-z·]+/);
-        if (tokenMatch) {
-          cleaned = tokenMatch[0];
+      // 数字谱模式：移除简单修饰符（' , _），但保留 ^{...} 上标
+      // 提取基础音符和上标部分
+      let result = '';
+      let i = 0;
+      
+      while (i < cleaned.length) {
+        const char = cleaned[i];
+        
+        // 处理上标 ^{...}
+        if (char === '^' && cleaned[i + 1] === '{') {
+          // 找到匹配的 }
+          let depth = 1;
+          let j = i + 2;
+          while (j < cleaned.length && depth > 0) {
+            if (cleaned[j] === '{') depth++;
+            else if (cleaned[j] === '}') depth--;
+            j++;
+          }
+          // 保留整个上标
+          result += cleaned.slice(i, j);
+          i = j;
+        } else if (/['',,_]/.test(char)) {
+          // 跳过简单修饰符
+          i++;
         } else {
-          // 无法解析也不丢弃，直接返回去空白后的原始内容
-          cleaned = cleaned.trim();
-          return cleaned || '';
+          // 保留其他字符（数字、字母、·等）
+          result += char;
+          i++;
         }
       }
-
-      return cleaned;
+      
+      return result || '';
     }
   },
 
@@ -4839,38 +5515,10 @@ Page({
   },
 
   // 扫描谱面中所有音符类型（非重集合）
+  // 支持解析复杂音符结构如 <1,^{5,}>、<1'^{H}>
   collectAllNoteTypes() {
     const noteSet = new Set();
     const notations = this.data.notations || [];
-    
-    // 辅助函数：拆分多位数音符为单个字符
-    const splitNote = (note) => {
-      if (!note || note.trim() === '' || note === '-') return [];
-      const trimmed = note.trim();
-      // 如果是单个字符（可选^/_后缀），直接返回
-      if (/^[0-9A-Za-z·][\^_]?$/.test(trimmed)) {
-        return [trimmed];
-      }
-      // 否则拆分为单个字符（保留^/_后缀）
-      const result = [];
-      let i = 0;
-      while (i < trimmed.length) {
-        const char = trimmed[i];
-        if (/[0-9A-Za-z·]/.test(char)) {
-          // 检查下一个字符是否是^/_后缀
-          if (i + 1 < trimmed.length && /[\^_]/.test(trimmed[i + 1])) {
-            result.push(char + trimmed[i + 1]);
-            i += 2;
-          } else {
-            result.push(char);
-            i++;
-          }
-        } else {
-          i++;
-        }
-      }
-      return result;
-    };
     
     notations.forEach(notation => {
       if (!notation.measures) return;
@@ -4882,13 +5530,13 @@ Page({
             // 收集右手音符
             if (sub.rightHand) {
               sub.rightHand.forEach(note => {
-                splitNote(note).forEach(n => noteSet.add(n));
+                this.extractNoteElements(note).forEach(n => noteSet.add(n));
               });
             }
             // 收集左手音符
             if (sub.leftHand) {
               sub.leftHand.forEach(note => {
-                splitNote(note).forEach(n => noteSet.add(n));
+                this.extractNoteElements(note).forEach(n => noteSet.add(n));
               });
             }
           });
@@ -4898,6 +5546,132 @@ Page({
     
     return noteSet;
   },
+  
+  /**
+   * 从复杂音符结构中提取所有音符元素（非重集合）
+   * 支持格式：
+   * - 简单音符：1, 2, D, T
+   * - 带修饰符：1', 1,, 1_, 1'_
+   * - 带上标：1^{H}, ^{H}1, ^{L}1^{R}
+   * - 复杂结构：<1,^{5,}>, <1'^{H}>
+   * 
+   * 返回：主音符（含修饰符）+ 上标内容 的数组
+   * 例如 <1,^{5,}> 返回 ['1,', '5,']
+   * 例如 <1'^{H}> 返回 ['1'', 'H']
+   */
+  extractNoteElements(noteStr) {
+    if (!noteStr || noteStr.trim() === '' || noteStr === '-') return [];
+    
+    let cleaned = noteStr.trim();
+    
+    // 移除外层 <> 或 {} 包裹
+    if ((cleaned.startsWith('<') && cleaned.endsWith('>')) ||
+        (cleaned.startsWith('{') && cleaned.endsWith('}'))) {
+      cleaned = cleaned.slice(1, -1);
+    }
+    
+    const elements = [];
+    
+    // 提取左上标 ^{...}
+    let remaining = cleaned;
+    const leftSupMatch = remaining.match(/^\^\{([^}]*)\}(.*)$/);
+    if (leftSupMatch) {
+      const supContent = leftSupMatch[1];
+      remaining = leftSupMatch[2];
+      // 解析上标内容中的音符元素
+      this.extractSupElements(supContent).forEach(e => elements.push(e));
+    }
+    
+    // 提取右上标 ...^{...}（可能有多个）
+    // 使用非贪婪匹配来正确分割
+    let rightSupMatches = [];
+    let tempRemaining = remaining;
+    while (true) {
+      const match = tempRemaining.match(/^(.+?)\^\{([^}]*)\}$/);
+      if (match) {
+        rightSupMatches.push(match[2]);
+        tempRemaining = match[1];
+      } else {
+        break;
+      }
+    }
+    remaining = tempRemaining;
+    
+    // 处理右上标内容
+    rightSupMatches.forEach(supContent => {
+      this.extractSupElements(supContent).forEach(e => elements.push(e));
+    });
+    
+    // 解析主音符部分（remaining）
+    // 主音符可能是：1, 1', 1,, 1_, 1'_, D, T 等
+    if (remaining) {
+      const mainNote = this.parseMainNoteElement(remaining);
+      if (mainNote) {
+        elements.push(mainNote);
+      }
+    }
+    
+    return elements;
+  },
+  
+  /**
+   * 解析主音符元素，返回"基础音符+八度修饰符"的形式（不含下划线）
+   * 下划线 _ 是时值标记，不影响音符本身的音高，因此在识别非重集合时忽略
+   * 例如：1'_ -> '1''，5,,_ -> '5,,'，8_ -> '8'
+   */
+  parseMainNoteElement(str) {
+    if (!str) return '';
+    
+    // 提取基础音符和修饰符
+    let baseNote = '';
+    let octaveUp = 0;    // ' 的数量
+    let octaveDown = 0;  // , 的数量
+    // 注意：下划线 _ 是时值标记，不参与音符识别
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+      if (char === "'") {
+        octaveUp++;
+      } else if (char === ',') {
+        octaveDown++;
+      } else if (char === '_') {
+        // 忽略下划线，不计入音符元素
+        continue;
+      } else if (/[0-9A-Za-z·]/.test(char)) {
+        baseNote += char;
+      }
+    }
+    
+    if (!baseNote) return '';
+    
+    // 构建完整的音符元素（仅包含基础音符和八度修饰符）
+    let result = baseNote;
+    if (octaveUp > 0) {
+      result += "'".repeat(octaveUp);
+    }
+    if (octaveDown > 0) {
+      result += ','.repeat(octaveDown);
+    }
+    // 不添加下划线到结果中
+    
+    return result;
+  },
+  
+  /**
+   * 从上标内容中提取音符元素
+   * 上标内容可能是：H, 5, 5,, 1'
+   */
+  extractSupElements(supContent) {
+    if (!supContent) return [];
+    
+    const elements = [];
+    // 上标内容可能是单个音符或带修饰符的音符
+    const element = this.parseMainNoteElement(supContent);
+    if (element) {
+      elements.push(element);
+    }
+    return elements;
+  },
 
   // 生成转换映射数组
   generateConversionMappings(noteSet, currentType) {
@@ -4906,13 +5680,22 @@ Page({
     
     // 将Set转换为数组并排序
     const noteArray = Array.from(noteSet).sort((a, b) => {
+      // 提取基础音符（去除修饰符）用于比较
+      const baseA = this.getBaseNoteForSort(a);
+      const baseB = this.getBaseNoteForSort(b);
+      
       // 特殊排序：D在最前面，然后是数字1-9
-      if (a === 'D' || a === 'd') return -1;
-      if (b === 'D' || b === 'd') return 1;
-      // 提取基础数字进行比较
-      const baseA = a.replace(/[\^_]/g, '');
-      const baseB = b.replace(/[\^_]/g, '');
-      return baseA.localeCompare(baseB, undefined, { numeric: true });
+      if (baseA === 'D' || baseA === 'd') return -1;
+      if (baseB === 'D' || baseB === 'd') return 1;
+      
+      // 先按基础音符排序
+      const baseCompare = baseA.localeCompare(baseB, undefined, { numeric: true });
+      if (baseCompare !== 0) return baseCompare;
+      
+      // 基础音符相同时，按修饰符排序（无修饰 < 高八度 < 低八度）
+      const modA = this.getModifierOrder(a);
+      const modB = this.getModifierOrder(b);
+      return modA - modB;
     });
     
     noteArray.forEach(note => {
@@ -4950,6 +5733,33 @@ Page({
     });
     
     return mappings;
+  },
+  
+  /**
+   * 获取音符的基础部分（去除修饰符）用于排序
+   * 例如：1' -> 1, 5,, -> 5, D_ -> D
+   */
+  getBaseNoteForSort(note) {
+    if (!note) return '';
+    return note.replace(/['',_·]/g, '');
+  },
+  
+  /**
+   * 获取音符修饰符的排序顺序
+   * 无修饰 = 0, 高八度' = 1, 低八度, = 2, 下划线 = 3
+   */
+  getModifierOrder(note) {
+    if (!note) return 0;
+    
+    const hasUp = note.includes("'");
+    const hasDown = note.includes(',');
+    const hasUnderline = note.includes('_');
+    
+    if (!hasUp && !hasDown && !hasUnderline) return 0;
+    if (hasUp && !hasDown) return 1;
+    if (hasDown && !hasUp) return 2;
+    if (hasUnderline) return 3;
+    return 4; // 复合修饰符
   },
 
   // 转换映射输入变化
@@ -5152,7 +5962,15 @@ Page({
     this.saveNotationsScoped(newNotations);
   },
 
-  // 转换单个音符（直接查表，不做链式转换）
+  /**
+   * 转换单个音符（支持复杂结构）
+   * 
+   * 对于复杂音符结构如 <1,^{5,}>，需要分别转换：
+   * - 主音符 1, -> 转换后的值
+   * - 上标内容 5, -> 转换后的值
+   * 
+   * 转换后重新组装为完整的音符字符串
+   */
   convertSingleNote(note, conversionTable) {
     if (!note || note.trim() === '' || note === '-') {
       return note;
@@ -5160,13 +5978,64 @@ Page({
     
     const trimmedNote = note.trim();
     
-    // 直接从转换表查找
-    if (conversionTable[trimmedNote]) {
-      return conversionTable[trimmedNote];
+    // 检测是否被 <> 或 {} 包裹
+    let hasBracket = false;
+    let bracketType = '';
+    let content = trimmedNote;
+    
+    if ((trimmedNote.startsWith('<') && trimmedNote.endsWith('>')) ||
+        (trimmedNote.startsWith('{') && trimmedNote.endsWith('}'))) {
+      hasBracket = true;
+      bracketType = trimmedNote[0] === '<' ? '<>' : '{}';
+      content = trimmedNote.slice(1, -1);
     }
     
-    // 未找到映射，保持原值
-    return note;
+    // 简单音符：直接查表
+    if (!content.includes('^{')) {
+      const converted = conversionTable[content] || content;
+      // 如果原来有括号包裹，保持包裹
+      if (hasBracket) {
+        return bracketType === '<>' ? `<${converted}>` : `{${converted}}`;
+      }
+      return converted;
+    }
+    
+    // 复杂音符：需要分别转换主音符和上标内容
+    let result = '';
+    let remaining = content;
+    
+    // 处理左上标 ^{...}
+    const leftSupMatch = remaining.match(/^\^\{([^}]*)\}(.*)$/);
+    if (leftSupMatch) {
+      const supContent = leftSupMatch[1];
+      remaining = leftSupMatch[2];
+      // 转换上标内容
+      const convertedSup = conversionTable[supContent] || supContent;
+      result += `^{${convertedSup}}`;
+    }
+    
+    // 处理右上标 ...^{...}
+    const rightSupMatch = remaining.match(/^(.+?)\^\{([^}]*)\}$/);
+    if (rightSupMatch) {
+      const mainPart = rightSupMatch[1];
+      const supContent = rightSupMatch[2];
+      // 转换主音符部分
+      const convertedMain = conversionTable[mainPart] || mainPart;
+      // 转换上标内容
+      const convertedSup = conversionTable[supContent] || supContent;
+      result += `${convertedMain}^{${convertedSup}}`;
+    } else if (remaining) {
+      // 没有右上标，直接转换剩余部分
+      const convertedMain = conversionTable[remaining] || remaining;
+      result += convertedMain;
+    }
+    
+    // 如果原来有括号包裹，保持包裹
+    if (hasBracket) {
+      return bracketType === '<>' ? `<${result}>` : `{${result}}`;
+    }
+    
+    return result;
   },
 
   // 转换为简谱
@@ -5714,26 +6583,209 @@ Page({
     };
   },
   
+  // 解析音符用于虚拟键盘区域A显示
+  parseNoteForVK(noteStr) {
+    const result = {
+      baseNote: '',
+      octaveUp: 0,
+      octaveDown: 0,
+      underline: false,
+      leftSup: null,
+      rightSup: null,
+      // 新增：上标内容的解析结果
+      leftSupBase: '',
+      leftSupOctaveUp: 0,
+      leftSupOctaveDown: 0,
+      rightSupBase: '',
+      rightSupOctaveUp: 0,
+      rightSupOctaveDown: 0
+    };
+    
+    if (!noteStr) return result;
+    
+    let remaining = noteStr;
+    
+    // 检查左上标 ^{...}主音符
+    const leftSupMatch = remaining.match(/^\^\{([^}]*)\}(.*)$/);
+    if (leftSupMatch) {
+      result.leftSup = leftSupMatch[1];
+      remaining = leftSupMatch[2];
+      // 解析左上标内容的音高
+      const leftSupParsed = this.parseSupContent(result.leftSup);
+      result.leftSupBase = leftSupParsed.baseNote;
+      result.leftSupOctaveUp = leftSupParsed.octaveUp;
+      result.leftSupOctaveDown = leftSupParsed.octaveDown;
+    }
+    
+    // 检查右上标 主音符^{...}
+    const rightSupMatch = remaining.match(/^(.+?)\^\{([^}]*)\}$/);
+    if (rightSupMatch) {
+      remaining = rightSupMatch[1];
+      result.rightSup = rightSupMatch[2];
+      // 解析右上标内容的音高
+      const rightSupParsed = this.parseSupContent(result.rightSup);
+      result.rightSupBase = rightSupParsed.baseNote;
+      result.rightSupOctaveUp = rightSupParsed.octaveUp;
+      result.rightSupOctaveDown = rightSupParsed.octaveDown;
+    }
+    
+    // 解析主音符部分
+    if (remaining) {
+      // 统计 ' 的数量（升八度）
+      const quoteMatches = remaining.match(/'/g);
+      if (quoteMatches) result.octaveUp = quoteMatches.length;
+      
+      // 统计 , 的数量（降八度）
+      const commaMatches = remaining.match(/,/g);
+      if (commaMatches) result.octaveDown = commaMatches.length;
+      
+      // 检查下划线
+      if (remaining.includes('_')) result.underline = true;
+      
+      // 提取基础音符（移除特殊符号）
+      result.baseNote = remaining.replace(/['',_]/g, '');
+    }
+    
+    return result;
+  },
+  
+  // 解析上标内容的音高信息
+  parseSupContent(supStr) {
+    const result = {
+      baseNote: '',
+      octaveUp: 0,
+      octaveDown: 0
+    };
+    
+    if (!supStr) return result;
+    
+    // 统计 ' 的数量（升八度）
+    const quoteMatches = supStr.match(/'/g);
+    if (quoteMatches) result.octaveUp = quoteMatches.length;
+    
+    // 统计 , 的数量（降八度）
+    const commaMatches = supStr.match(/,/g);
+    if (commaMatches) result.octaveDown = commaMatches.length;
+    
+    // 提取基础音符（移除特殊符号）
+    result.baseNote = supStr.replace(/['',]/g, '');
+    
+    return result;
+  },
+  
   // 渲染音符用于显示
   renderNoteForDisplay(noteStr) {
     if (!noteStr) return '';
     
-    // 简单处理：去除上标符号，只显示基本音符
-    // TODO: 实现完整的渲染逻辑
-    let rendered = noteStr;
-    rendered = rendered.replace(/\^\{[^}]*\}/g, ''); // 移除右上标
-    rendered = rendered.replace(/\{[^}]*\}\^/g, ''); // 移除左上标
+    // 解析音符结构
+    let rendered = '';
+    let remaining = noteStr;
+    
+    // 检查左上标 ^{...}主音符
+    const leftSupMatch = remaining.match(/^\^\{([^}]*)\}(.+)$/);
+    if (leftSupMatch) {
+      const supContent = leftSupMatch[1];
+      remaining = leftSupMatch[2];
+      // 用小字显示左上标（简化显示，实际渲染会更复杂）
+      rendered += '⁽' + this.convertToSuperscript(supContent) + '⁾';
+    }
+    
+    // 检查右上标 主音符^{...}
+    const rightSupMatch = remaining.match(/^(.+?)\^\{([^}]*)\}$/);
+    if (rightSupMatch) {
+      const mainNote = rightSupMatch[1];
+      const supContent = rightSupMatch[2];
+      rendered += this.renderMainNote(mainNote);
+      rendered += this.convertToSuperscript(supContent);
+    } else {
+      rendered += this.renderMainNote(remaining);
+    }
     
     return rendered;
+  },
+  
+  // 渲染主音符（处理八度和下划线标记）
+  renderMainNote(note) {
+    if (!note) return '';
+    
+    let result = '';
+    let baseNote = note;
+    let octaveUp = 0;
+    let octaveDown = 0;
+    let hasUnderline = false;
+    
+    // 统计 ' 的数量（升八度）
+    const quoteMatches = note.match(/'/g);
+    if (quoteMatches) octaveUp = quoteMatches.length;
+    
+    // 统计 , 的数量（降八度）
+    const commaMatches = note.match(/,/g);
+    if (commaMatches) octaveDown = commaMatches.length;
+    
+    // 检查下划线
+    if (note.includes('_')) hasUnderline = true;
+    
+    // 提取基础音符
+    baseNote = note.replace(/['',_]/g, '');
+    
+    // 添加升八度点
+    if (octaveUp > 0) {
+      result += '˙'.repeat(octaveUp);
+    }
+    
+    // 添加基础音符
+    result += baseNote;
+    
+    // 添加下划线标记（用下划符号表示）
+    if (hasUnderline) {
+      result += '̲'; // Unicode combining low line
+    }
+    
+    // 添加降八度点
+    if (octaveDown > 0) {
+      result += '̣'.repeat(octaveDown); // Unicode combining dot below
+    }
+    
+    return result;
+  },
+  
+  // 转换为上标字符
+  convertToSuperscript(str) {
+    if (!str) return '';
+    
+    // 上标数字映射
+    const superscriptMap = {
+      '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+      '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+      "'": "ʼ", ',': '̦', '_': '̲',
+      'H': 'ᴴ', 'D': 'ᴰ', 'd': 'ᵈ', 's': 'ˢ', 'T': 'ᵀ',
+      'P': 'ᴾ', 'F': 'ᶠ', 'B': 'ᴮ', 'O': 'ᴼ', 'x': 'ˣ'
+    };
+    
+    let result = '';
+    for (const char of str) {
+      result += superscriptMap[char] || char;
+    }
+    return result;
   },
   
   // ============ 虚拟键盘相关方法 ============
   
   // 显示/隐藏虚拟键盘
   toggleVirtualKeyboard() {
+    const newState = !this.data.showVirtualKeyboard;
     this.setData({
-      showVirtualKeyboard: !this.data.showVirtualKeyboard
+      showVirtualKeyboard: newState
     });
+    
+    // 控制tabBar的显示/隐藏
+    if (newState) {
+      // 显示键盘时隐藏tabBar
+      wx.hideTabBar({ animation: true });
+    } else {
+      // 隐藏键盘时显示tabBar
+      wx.showTabBar({ animation: true });
+    }
   },
   
   // 关闭虚拟键盘
@@ -5743,6 +6795,74 @@ Page({
       superscriptMode: null,
       superscriptContent: ''
     });
+    // 显示tabBar
+    wx.showTabBar({ animation: true });
+  },
+  
+  // 退格删除 - 根据上标模式删除对应区域的内容
+  backspace() {
+    const { editingValue, superscriptMode, superscriptContent } = this.data;
+    
+    // 如果在该上标模式中，说明用户正在专门编辑某个上标
+    if (superscriptMode) {
+      if (superscriptContent.length > 0) {
+        const newContent = superscriptContent.slice(0, -1);
+        this.setData({ superscriptContent: newContent });
+      }
+      this.updateSuperscriptDisplay();
+      return;
+    }
+    
+    // 普通模式：按优先级从右往左删除 (右上标 -> 主音符 -> 左上标)
+    if (editingValue && editingValue.length > 0) {
+      const parsed = this.parseNoteForVK(editingValue);
+      
+      if (parsed.rightSup !== null) {
+        if (parsed.rightSup.length > 0) {
+          parsed.rightSup = parsed.rightSup.slice(0, -1);
+        } else {
+          parsed.rightSup = null; // 移除整块右上标
+        }
+      } else if (parsed.baseNote && parsed.baseNote.length > 0) {
+        parsed.baseNote = parsed.baseNote.slice(0, -1);
+        // 如果主音符删空了，建议把主装饰位(音高加点、下划线)也清掉
+        if (parsed.baseNote.length === 0) {
+          parsed.octaveUp = 0;
+          parsed.octaveDown = 0;
+          parsed.underline = false;
+        }
+      } else if (parsed.leftSup !== null) {
+        if (parsed.leftSup.length > 0) {
+          parsed.leftSup = parsed.leftSup.slice(0, -1);
+        } else {
+          parsed.leftSup = null; // 移除整块左上标
+        }
+      } else {
+        this.updateEditingValue('');
+        return;
+      }
+      
+      // 重建完整值
+      let reconstructed = '';
+      if (parsed.leftSup !== null) {
+        reconstructed = '^{' + parsed.leftSup + '}';
+      }
+      reconstructed += this.buildMainPart(parsed);
+      if (parsed.rightSup !== null) {
+        reconstructed += '^{' + parsed.rightSup + '}';
+      }
+      
+      this.updateEditingValue(reconstructed);
+    }
+  },
+  
+  // 清空输入 - 清空当前音符格全部内容并重置状态
+  clearInput() {
+    this.setData({
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+    this.updateEditingValue('');
   },
   
   // 切换键盘模式（数字/符号）
@@ -5753,7 +6873,12 @@ Page({
     });
   },
   
-  // 虚拟键盘按键点击
+  // 切换说明显示
+  toggleKeyboardHelp() {
+    this.setData({ showKeyboardHelp: !this.data.showKeyboardHelp });
+  },
+
+  // 映射数字键盘到简谱音符
   onVirtualKey(e) {
     const key = e.currentTarget.dataset.key;
     const { editingValue, superscriptMode } = this.data;
@@ -5765,9 +6890,25 @@ Page({
       return;
     }
     
-    // 普通输入
-    newValue += key;
-    this.updateEditingValue(newValue);
+    // 普通输入 - 追加到主音符中
+    // 解析当前值，提取主音符部分和上标部分
+    const parsed = this.parseNoteForVK(newValue);
+    let mainPart = parsed.baseNote + "'".repeat(parsed.octaveUp) + ",".repeat(parsed.octaveDown) + (parsed.underline ? '_' : '');
+    
+    // 追加新字符到主音符
+    mainPart = parsed.baseNote + key + "'".repeat(parsed.octaveUp) + ",".repeat(parsed.octaveDown) + (parsed.underline ? '_' : '');
+    
+    // 重建完整值
+    let reconstructed = '';
+    if (parsed.leftSup !== null) {
+      reconstructed = '^{' + parsed.leftSup + '}';
+    }
+    reconstructed += mainPart;
+    if (parsed.rightSup !== null) {
+      reconstructed += '^{' + parsed.rightSup + '}';
+    }
+    
+    this.updateEditingValue(reconstructed);
   },
   
   // 更新编辑值
@@ -5775,123 +6916,767 @@ Page({
     this.setData({
       editingValue: value,
       virtualKeyboardDisplay: value,
-      virtualKeyboardRendered: this.renderNoteForDisplay(value)
+      virtualKeyboardRendered: this.renderNoteForDisplay(value),
+      vkParsed: this.parseNoteForVK(value)
     });
     this.prevEditingValue = value;
+    
+    // 同步更新音高档位显示
+    this.updatePitchLevelFromNote();
   },
   
-  // 加格操作
+  // 加格操作：在当前选中格子右侧新增一个音符位
   addGrid() {
-    // TODO: 实现加格逻辑
     const { editing, notations } = this.data;
-    if (!editing) return;
+    if (!editing) {
+      wx.showToast({ title: '请先选中一个音符位', icon: 'none' });
+      return;
+    }
+
+    const { sheet, measure, beat, subdivision } = editing;
+    const notationIndex = notations.findIndex(n => n.id === sheet);
+    if (notationIndex === -1) return;
+
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    const beatData = notation.measures[measure]?.beats[beat];
+    if (!beatData) {
+      wx.showToast({ title: '无效的拍位', icon: 'none' });
+      return;
+    }
+
+    // 在当前subdivision后面插入一个空的subdivision
+    const newSubdivision = {
+      rightHand: ['', ''],
+      leftHand: ['', '']
+    };
+    beatData.subdivisions.splice(subdivision + 1, 0, newSubdivision);
+
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
     
-    wx.showToast({ title: '加格功能待实现', icon: 'none' });
+    wx.showToast({ title: '已添加音符位', icon: 'success' });
   },
   
-  // 删除格操作
+  // 删除格操作：删除当前选中的音符列
   deleteGrid() {
-    // TODO: 实现删除格逻辑
     const { editing, notations } = this.data;
-    if (!editing) return;
+    if (!editing) {
+      wx.showToast({ title: '请先选中一个音符位', icon: 'none' });
+      return;
+    }
+
+    const { sheet, measure, beat, subdivision } = editing;
+    const notationIndex = notations.findIndex(n => n.id === sheet);
+    if (notationIndex === -1) return;
+
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    const beatData = notation.measures[measure]?.beats[beat];
+    if (!beatData) {
+      wx.showToast({ title: '无效的拍位', icon: 'none' });
+      return;
+    }
+
+    // 检查是否至少保留一个subdivision
+    if (beatData.subdivisions.length <= 1) {
+      wx.showToast({ title: '每拍至少保留一个音符位', icon: 'none' });
+      return;
+    }
+
+    // 删除当前subdivision
+    beatData.subdivisions.splice(subdivision, 1);
+
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
     
-    wx.showToast({ title: '删除格功能待实现', icon: 'none' });
+    // 清除编辑状态
+    this.setData({
+      editing: null,
+      editingValue: '',
+      showVirtualKeyboard: false
+    });
+    
+    
+    wx.showToast({ title: '已删除音符位', icon: 'success' });
   },
   
   // 音高增加
   pitchUp() {
-    const { editingValue } = this.data;
-    let newValue = editingValue || '';
+    const { editingValue, superscriptMode, superscriptContent } = this.data;
     
-    // 如果有,（低音），先去掉一个
-    if (newValue.includes(',')) {
-      newValue = newValue.replace(',', '');
-    } else {
-      // 没有低音，添加高音'
-      newValue += "'";
+    // 如果在上标模式中，调整上标内容的音高
+    if (superscriptMode) {
+      let newContent = superscriptContent || '';
+      if (newContent.includes(',')) {
+        newContent = newContent.replace(',', '');
+      } else {
+        newContent += "'";
+      }
+      this.setData({ superscriptContent: newContent });
+      this.updateSuperscriptDisplay();
+      return;
     }
     
+    // 检查是否有内容
+    let newValue = editingValue || '';
+    if (!newValue || newValue === '' || newValue === '-') {
+      wx.showToast({ title: '请先输入主音符', icon: 'none' });
+      return;
+    }
+    
+    // 解析音符，处理上标情况
+    // 如果有右上标 ^{...}，优先调整主音符
+    const superscriptMatch = newValue.match(/^(.+?)(\^?\{[^}]*\})$/);
+    let mainPart = newValue;
+    let suffixPart = '';
+    
+    if (superscriptMatch) {
+      mainPart = superscriptMatch[1];
+      suffixPart = superscriptMatch[2];
+    }
+    
+    // 调整主音符的音高
+    if (mainPart.includes(',')) {
+      mainPart = mainPart.replace(',', '');
+    } else {
+      mainPart += "'";
+    }
+    
+    newValue = mainPart + suffixPart;
     this.updateEditingValue(newValue);
   },
   
   // 音高降低
   pitchDown() {
-    const { editingValue } = this.data;
-    let newValue = editingValue || '';
+    const { editingValue, superscriptMode, superscriptContent } = this.data;
     
-    // 如果有'（高音），先去掉一个
-    if (newValue.includes("'")) {
-      newValue = newValue.replace("'", '');
-    } else {
-      // 没有高音，添加低音,
-      newValue += ',';
+    // 如果在上标模式中，调整上标内容的音高
+    if (superscriptMode) {
+      let newContent = superscriptContent || '';
+      if (newContent.includes("'")) {
+        newContent = newContent.replace("'", '');
+      } else {
+        newContent += ',';
+      }
+      this.setData({ superscriptContent: newContent });
+      this.updateSuperscriptDisplay();
+      return;
     }
     
+    // 检查是否有内容
+    let newValue = editingValue || '';
+    if (!newValue || newValue === '' || newValue === '-') {
+      wx.showToast({ title: '请先输入主音符', icon: 'none' });
+      return;
+    }
+    
+    // 解析音符，处理上标情况
+    const superscriptMatch = newValue.match(/^(.+?)(\^?\{[^}]*\})$/);
+    let mainPart = newValue;
+    let suffixPart = '';
+    
+    if (superscriptMatch) {
+      mainPart = superscriptMatch[1];
+      suffixPart = superscriptMatch[2];
+    }
+    
+    // 调整主音符的音高
+    if (mainPart.includes("'")) {
+      mainPart = mainPart.replace("'", '');
+    } else {
+      mainPart += ',';
+    }
+    
+    newValue = mainPart + suffixPart;
     this.updateEditingValue(newValue);
   },
   
-  // 音高复原
+  // 音高复原（保留供外部调用，但胶囊调节器使用setPitchLevel）
   pitchReset() {
-    const { editingValue } = this.data;
+    this.setPitchLevel(2); // 设为原音档位
+  },
+
+  // ========== 胶囊音高调节器相关 ==========
+  
+  /**
+   * 设置音高档位并应用到当前编辑的音符
+   * @param {number} level 档位 0-4: 倍低音、低音、原音、高音、倍高音
+   */
+  setPitchLevel(level) {
+    // 边界检查
+    if (level < 0) level = 0;
+    if (level > 4) level = 4;
+    
+    const { editingValue, superscriptMode, superscriptContent, pitchLevel: prevLevel } = this.data;
+    
+    // 如果档位没变化，不做处理
+    if (level === prevLevel) return;
+    
+    // 更新档位显示
+    this.setData({ 
+      pitchLevel: level,
+      pitchToastVisible: true 
+    });
+    
+    // 显示toast提示
+    this.showPitchToast();
+    
+    // 计算相对于原音(level=2)的音高偏移
+    // level 0: -2 (两个逗号)
+    // level 1: -1 (一个逗号)
+    // level 2: 0 (原音，无符号)
+    // level 3: +1 (一个撇号)
+    // level 4: +2 (两个撇号)
+    const offset = level - 2;
+    
+    // 如果在上标模式中，调整上标内容的音高
+    if (superscriptMode) {
+      let baseContent = (superscriptContent || '').replace(/['',]+/g, ''); // 移除所有音高符号
+      let newContent = baseContent;
+      
+      if (offset > 0) {
+        newContent = baseContent + "'".repeat(offset);
+      } else if (offset < 0) {
+        newContent = baseContent + ','.repeat(-offset);
+      }
+      
+      this.setData({ superscriptContent: newContent });
+      this.updateSuperscriptDisplay();
+      return;
+    }
+    
+    // 处理主音符
     let newValue = editingValue || '';
+    if (!newValue || newValue === '' || newValue === '-') {
+      return; // 没有内容时只更新档位显示
+    }
     
-    // 移除所有'和,
-    newValue = newValue.replace(/['',]+/g, '');
+    // 解析音符，处理上标情况
+    const superscriptMatch = newValue.match(/^(.+?)(\^?\{[^}]*\})$/);
+    let mainPart = newValue;
+    let suffixPart = '';
     
-    this.updateEditingValue(newValue);
+    if (superscriptMatch) {
+      mainPart = superscriptMatch[1];
+      suffixPart = superscriptMatch[2];
+    }
+    
+    // 移除主音符中的所有音高符号，然后根据档位添加新的
+    let basePart = mainPart.replace(/['',]+/g, '');
+    
+    if (offset > 0) {
+      mainPart = basePart + "'".repeat(offset);
+    } else if (offset < 0) {
+      mainPart = basePart + ','.repeat(-offset);
+    } else {
+      mainPart = basePart;
+    }
+    
+    newValue = mainPart + suffixPart;
+    
+    // 直接更新编辑值，避免重复计算音高档位
+    this.setData({
+      editingValue: newValue,
+      virtualKeyboardDisplay: newValue,
+      virtualKeyboardRendered: this.renderNoteForDisplay(newValue),
+      vkParsed: this.parseNoteForVK(newValue)
+    });
+    this.prevEditingValue = newValue;
+  },
+
+  /**
+   * 显示音高提示toast
+   */
+  showPitchToast() {
+    // 清除之前的定时器
+    if (this._pitchToastTimer) {
+      clearTimeout(this._pitchToastTimer);
+    }
+    
+    this.setData({ pitchToastVisible: true });
+    
+    // 1秒后隐藏
+    this._pitchToastTimer = setTimeout(() => {
+      this.setData({ pitchToastVisible: false });
+    }, 1000);
+  },
+
+  /**
+   * 音高调节器向上按钮点击
+   */
+  pitchUp() {
+    const { pitchLevel } = this.data;
+    if (pitchLevel < 4) {
+      wx.vibrateShort({ type: 'light' });
+      this.setPitchLevel(pitchLevel + 1);
+    }
+  },
+
+  /**
+   * 音高调节器向下按钮点击
+   */
+  pitchDown() {
+    const { pitchLevel } = this.data;
+    if (pitchLevel > 0) {
+      wx.vibrateShort({ type: 'light' });
+      this.setPitchLevel(pitchLevel - 1);
+    }
+  },
+
+  /**
+   * 音高调节器拖动开始
+   */
+  onPitchTouchStart(e) {
+    this.setData({ pitchDragging: true });
+    // 立即处理初始位置
+    this.handlePitchDrag(e);
+  },
+
+  /**
+   * 音高调节器拖动中
+   */
+  onPitchTouchMove(e) {
+    if (!this.data.pitchDragging) return;
+    this.handlePitchDrag(e);
+  },
+
+  /**
+   * 音高调节器拖动结束
+   */
+  onPitchTouchEnd() {
+    this.setData({ pitchDragging: false });
+  },
+
+  /**
+   * 处理音高调节器拖动
+   */
+  handlePitchDrag(e) {
+    // 获取触摸点位置
+    const touch = e.touches[0];
+    
+    // 使用wx.createSelectorQuery获取轨道位置
+    const query = wx.createSelectorQuery().in(this);
+    query.select('.pitch-capsule-track').boundingClientRect((rect) => {
+      if (!rect) return;
+      
+      const trackTop = rect.top;
+      const trackHeight = rect.height;
+      const touchY = touch.clientY;
+      
+      // 计算相对位置（从底部算起）
+      const relativeY = touchY - trackTop;
+      let progress = (trackHeight - relativeY) / trackHeight;
+      
+      // 限制范围
+      if (progress < 0) progress = 0;
+      if (progress > 1) progress = 1;
+      
+      // 映射到5个档位
+      const newLevel = Math.round(progress * 4);
+      
+      if (newLevel !== this.data.pitchLevel) {
+        wx.vibrateShort({ type: 'light' });
+        this.setPitchLevel(newLevel);
+      }
+    }).exec();
+  },
+
+  /**
+   * 根据当前编辑的音符值反推音高档位
+   * 在打开虚拟键盘或切换音符时调用
+   */
+  updatePitchLevelFromNote() {
+    const { editingValue, superscriptMode, superscriptContent } = this.data;
+    
+    let octaveUp = 0;
+    let octaveDown = 0;
+
+    if (superscriptMode) {
+      // 在上标编辑模式下，根据上标内容反推档位
+      const supParsed = this.parseSupContent(superscriptContent);
+      octaveUp = supParsed.octaveUp;
+      octaveDown = supParsed.octaveDown;
+    } else {
+      // 在主音符模式下，解析完整字符串并提取主音符部分的音高符号
+      const parsed = this.parseNoteForVK(editingValue);
+      octaveUp = parsed.octaveUp;
+      octaveDown = parsed.octaveDown;
+    }
+    
+    // 计算净偏移
+    const netOffset = octaveUp - octaveDown;
+    
+    // 映射到档位（-2到+2映射为0到4）
+    let level = 2 + netOffset;
+    if (level < 0) level = 0;
+    if (level > 4) level = 4;
+    
+    this.setData({ pitchLevel: level });
+  },
+  
+  // 更新上标模式下的显示
+  updateSuperscriptDisplay() {
+    const { superscriptMode, superscriptContent, editingValue } = this.data;
+    
+    // 解析当前主音符
+    const parsed = this.parseNoteForVK(editingValue);
+    
+    // 根据上标模式更新解析结果，同时解析上标内容的音高信息
+    if (superscriptMode === 'right') {
+      parsed.rightSup = superscriptContent;
+      const supParsed = this.parseSupContent(superscriptContent);
+      parsed.rightSupBase = supParsed.baseNote;
+      parsed.rightSupOctaveUp = supParsed.octaveUp;
+      parsed.rightSupOctaveDown = supParsed.octaveDown;
+    } else if (superscriptMode === 'left') {
+      parsed.leftSup = superscriptContent;
+      const supParsed = this.parseSupContent(superscriptContent);
+      parsed.leftSupBase = supParsed.baseNote;
+      parsed.leftSupOctaveUp = supParsed.octaveUp;
+      parsed.leftSupOctaveDown = supParsed.octaveDown;
+    }
+    
+    // 构建显示字符串
+    let display = '';
+    if (parsed.leftSup !== null) {
+      display += '^{' + parsed.leftSup + '}';
+    }
+    display += this.buildMainPart(parsed);
+    if (parsed.rightSup !== null) {
+      display += '^{' + parsed.rightSup + '}';
+    }
+    
+    this.setData({
+      virtualKeyboardDisplay: display,
+      vkParsed: parsed
+    });
   },
   
   // 添加下划线
   addUnderline() {
-    const { editingValue } = this.data;
+    const { editingValue, superscriptMode, superscriptContent } = this.data;
+    
+    // 如果在上标模式中，给上标内容添加下划线
+    if (superscriptMode) {
+      let newContent = superscriptContent || '';
+      if (!newContent.includes('_')) {
+        newContent += '_';
+      }
+      this.setData({ superscriptContent: newContent });
+      this.updateSuperscriptDisplay();
+      return;
+    }
+    
     let newValue = editingValue || '';
     
-    // 如果没有_，添加
-    if (!newValue.includes('_')) {
-      newValue += '_';
+    // 检查是否有内容
+    if (!newValue || newValue === '' || newValue === '-') {
+      wx.showToast({ title: '请先输入主音符', icon: 'none' });
+      return;
+    }
+    
+    // 解析音符，处理上标情况
+    const superscriptMatch = newValue.match(/^(.+?)(\^?\{[^}]*\})$/);
+    if (superscriptMatch) {
+      let mainPart = superscriptMatch[1];
+      if (!mainPart.includes('_')) {
+        mainPart += '_';
+      }
+      newValue = mainPart + superscriptMatch[2];
+    } else {
+      if (!newValue.includes('_')) {
+        newValue += '_';
+      }
     }
     
     this.updateEditingValue(newValue);
   },
   
-  // 右上标
-  rightSuperscript() {
-    const { editingValue } = this.data;
+  // 插入备注到当前音符列上方
+  insertNoteAnnotation() {
+    const { editing, notations } = this.data;
     
-    // 进入右上标模式
+    if (!editing) {
+      wx.showToast({ title: '请先选择音符位', icon: 'none' });
+      return;
+    }
+    
+    const { sheet, measure, beat, subdivision } = editing;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+    
+    // 获取当前subdivision
+    const currentMeasure = notation.measures[measure];
+    const currentBeat = currentMeasure?.beats?.[beat];
+    const currentSubdivision = currentBeat?.subdivisions?.[subdivision];
+    
+    if (!currentSubdivision) return;
+    
+    // 检查当前是否已有备注
+    const currentAnnotation = currentSubdivision.annotation || '';
+    
+    // 显示自定义模态框
     this.setData({
-      superscriptMode: 'right',
-      virtualKeyboardDisplay: editingValue + '^{|}',
-      superscriptContent: ''
+      showAnnotationModal: true,
+      annotationModalMode: 'add',
+      currentAnnotation: {
+        sheet: sheet,
+        measure: measure,
+        beat: beat,
+        subdivision: subdivision,
+        text: currentAnnotation
+      }
     });
   },
   
-  // 左上标
-  leftSuperscript() {
+  // 编辑现有备注
+  editAnnotation(e) {
+    const { sheet, measure, beat, subdivision } = e.currentTarget.dataset;
+    const { notations } = this.data;
+    
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+    
+    const currentMeasure = notation.measures[measure];
+    const currentBeat = currentMeasure?.beats?.[beat];
+    const currentSubdivision = currentBeat?.subdivisions?.[subdivision];
+    
+    if (!currentSubdivision) return;
+    
+    const currentAnnotation = currentSubdivision.annotation || '';
+    
+    this.setData({
+      showAnnotationModal: true,
+      annotationModalMode: 'edit',
+      currentAnnotation: {
+        sheet: sheet,
+        measure: measure,
+        beat: beat,
+        subdivision: subdivision,
+        text: currentAnnotation
+      }
+    });
+  },
+  
+  // 确认备注输入
+  confirmAnnotation() {
+    const { currentAnnotation, notations } = this.data;
+    const newAnnotation = (currentAnnotation.text || '').trim();
+    
+    const notationsClone = JSON.parse(JSON.stringify(notations));
+    const targetNotation = notationsClone.find(n => n.id === currentAnnotation.sheet);
+    
+    if (targetNotation) {
+      const targetSubdivision = targetNotation.measures[currentAnnotation.measure]?.beats?.[currentAnnotation.beat]?.subdivisions?.[currentAnnotation.subdivision];
+      if (targetSubdivision) {
+        if (newAnnotation) {
+          targetSubdivision.annotation = newAnnotation;
+        } else {
+          // 如果输入为空，删除备注字段
+          delete targetSubdivision.annotation;
+        }
+        
+        this.setData({ 
+          notations: notationsClone,
+          showAnnotationModal: false,
+          annotationModalMode: 'add',
+          currentAnnotation: { sheet: null, measure: null, beat: null, subdivision: null, text: '' }
+        });
+        this.markNotationChanged();
+        
+        if (newAnnotation) {
+          wx.showToast({ title: '注记已更新', icon: 'success' });
+        } else {
+          wx.showToast({ title: '注记已清除', icon: 'none' });
+        }
+      }
+    }
+  },
+  
+  // 取消备注输入
+  cancelAnnotation() {
+    this.setData({
+      showAnnotationModal: false,
+      annotationModalMode: 'add',
+      currentAnnotation: { sheet: null, measure: null, beat: null, subdivision: null, text: '' }
+    });
+  },
+  
+  // 更新备注输入
+  updateAnnotationText(e) {
+    const text = e.detail.value;
+    this.setData({
+      'currentAnnotation.text': text
+    });
+  },
+  
+  // 处理备注输入框失去焦点
+  onAnnotationBlur(e) {
+    // 移除自动清除逻辑，只在确认/取消时处理
+  },
+  
+  // 复制当前音符位的底层源代码
+  copyCurrentNote() {
     const { editingValue } = this.data;
     
-    // 进入左上标模式
-    this.setData({
-      superscriptMode: 'left',
-      virtualKeyboardDisplay: '^{|}' + editingValue,
-      superscriptContent: ''
+    if (!editingValue || editingValue === '' || editingValue === '-') {
+      wx.showToast({ title: '当前音符为空', icon: 'none' });
+      return;
+    }
+    
+    // 保存到虚拟剪贴板
+    this.setData({ vkClipboard: editingValue });
+    
+    wx.showToast({ 
+      title: '已复制', 
+      icon: 'success',
+      duration: 1000
     });
+  },
+  
+  // 粘贴音符
+  pasteNote() {
+    const { vkClipboard } = this.data;
+    
+    if (!vkClipboard) {
+      wx.showToast({ title: '剪贴板为空', icon: 'none' });
+      return;
+    }
+    
+    // 粘贴到当前编辑位置
+    this.updateEditingValue(vkClipboard);
+    
+    wx.showToast({ 
+      title: '已粘贴', 
+      icon: 'success',
+      duration: 1000
+    });
+  },
+  
+  // 切换左上标模式
+  toggleLeftSuperscript() {
+    const { superscriptMode, editingValue, superscriptContent } = this.data;
+    
+    if (superscriptMode === 'left') {
+      // 已经在左上标模式，完成并退出
+      this.completeSuperscript();
+    } else {
+      // 解析当前值，提取已有的左上标
+      const parsed = this.parseNoteForVK(editingValue);
+      
+      // 检查是否已有主音符
+      if (!parsed.baseNote || parsed.baseNote === '' || parsed.baseNote === '-') {
+        wx.showToast({ title: '请先输入主音符', icon: 'none' });
+        return;
+      }
+      
+      // 进入左上标模式
+      this.setData({
+        superscriptMode: 'left',
+        superscriptContent: parsed.leftSup || '',
+        virtualKeyboardDisplay: '^{' + (parsed.leftSup || '') + '}' + this.buildMainPart(parsed) + (parsed.rightSup !== null ? '^{' + parsed.rightSup + '}' : '')
+      });
+      this.updateVkParsedForSuperscript('left');
+      
+      // 同步更新音高档位（基于上标内容）
+      this.updatePitchLevelFromNote();
+    }
+  },
+  
+  // 切换右上标模式
+  toggleRightSuperscript() {
+    const { superscriptMode, editingValue, superscriptContent } = this.data;
+    
+    if (superscriptMode === 'right') {
+      // 已经在右上标模式，完成并退出
+      this.completeSuperscript();
+    } else {
+      // 解析当前值，提取已有的右上标
+      const parsed = this.parseNoteForVK(editingValue);
+      
+      // 检查是否已有主音符
+      if (!parsed.baseNote || parsed.baseNote === '' || parsed.baseNote === '-') {
+        wx.showToast({ title: '请先输入主音符', icon: 'none' });
+        return;
+      }
+      
+      // 进入右上标模式
+      this.setData({
+        superscriptMode: 'right',
+        superscriptContent: parsed.rightSup || '',
+        virtualKeyboardDisplay: (parsed.leftSup !== null ? '^{' + parsed.leftSup + '}' : '') + this.buildMainPart(parsed) + '^{' + (parsed.rightSup || '') + '}'
+      });
+      this.updateVkParsedForSuperscript('right');
+      
+      // 同步更新音高档位（基于上标内容）
+      this.updatePitchLevelFromNote();
+    }
+  },
+  
+  // 构建主音符部分字符串
+  buildMainPart(parsed) {
+    return parsed.baseNote + "'".repeat(parsed.octaveUp) + ",".repeat(parsed.octaveDown) + (parsed.underline ? '_' : '');
+  },
+  
+  // 更新vkParsed用于上标模式显示
+  updateVkParsedForSuperscript(mode) {
+    const { editingValue, superscriptContent } = this.data;
+    const parsed = this.parseNoteForVK(editingValue);
+    
+    if (mode === 'left') {
+      parsed.leftSup = superscriptContent;
+    } else if (mode === 'right') {
+      parsed.rightSup = superscriptContent;
+    }
+    
+    this.setData({ vkParsed: parsed });
+  },
+  
+  // 右上标（兼容旧方法）
+  rightSuperscript() {
+    this.toggleRightSuperscript();
+  },
+  
+  // 左上标（兼容旧方法）
+  leftSuperscript() {
+    this.toggleLeftSuperscript();
   },
   
   // 处理上标输入
   handleSuperscriptInput(key) {
     const { superscriptContent, superscriptMode, editingValue } = this.data;
     const newContent = superscriptContent + key;
+    const parsed = this.parseNoteForVK(editingValue);
+    
+    // 解析新上标内容的音高信息
+    const supParsed = this.parseSupContent(newContent);
     
     if (superscriptMode === 'right') {
+      parsed.rightSup = newContent;
+      parsed.rightSupBase = supParsed.baseNote;
+      parsed.rightSupOctaveUp = supParsed.octaveUp;
+      parsed.rightSupOctaveDown = supParsed.octaveDown;
       this.setData({
         superscriptContent: newContent,
-        virtualKeyboardDisplay: editingValue + '^{' + newContent + '}'
+        virtualKeyboardDisplay: (parsed.leftSup !== null ? '^{' + parsed.leftSup + '}' : '') + this.buildMainPart(parsed) + '^{' + newContent + '}',
+        vkParsed: parsed
       });
     } else if (superscriptMode === 'left') {
+      parsed.leftSup = newContent;
+      parsed.leftSupBase = supParsed.baseNote;
+      parsed.leftSupOctaveUp = supParsed.octaveUp;
+      parsed.leftSupOctaveDown = supParsed.octaveDown;
       this.setData({
         superscriptContent: newContent,
-        virtualKeyboardDisplay: '^{' + newContent + '}' + editingValue
+        virtualKeyboardDisplay: '^{' + newContent + '}' + this.buildMainPart(parsed) + (parsed.rightSup !== null ? '^{' + parsed.rightSup + '}' : ''),
+        vkParsed: parsed
       });
     }
   },
@@ -5899,35 +7684,319 @@ Page({
   // 完成上标输入
   completeSuperscript() {
     const { superscriptMode, superscriptContent, editingValue } = this.data;
-    let newValue = editingValue || '';
+    const parsed = this.parseNoteForVK(editingValue);
     
+    // 更新上标内容
     if (superscriptMode === 'right') {
-      newValue = newValue + '^{' + superscriptContent + '}';
+      parsed.rightSup = superscriptContent;
     } else if (superscriptMode === 'left') {
-      newValue = '^{' + superscriptContent + '}' + newValue;
+      parsed.leftSup = superscriptContent;
+    }
+    
+    // 重建完整值
+    let newValue = '';
+    if (parsed.leftSup !== null) {
+      newValue = '^{' + parsed.leftSup + '}';
+    }
+    newValue += this.buildMainPart(parsed);
+    if (parsed.rightSup !== null) {
+      newValue += '^{' + parsed.rightSup + '}';
     }
     
     this.setData({
       editingValue: newValue,
       virtualKeyboardDisplay: newValue,
       virtualKeyboardRendered: this.renderNoteForDisplay(newValue),
+      vkParsed: this.parseNoteForVK(newValue),
       superscriptMode: null,
       superscriptContent: ''
     });
     
     this.prevEditingValue = newValue;
+    
+    // 同步更新音高档位（基于主音符）
+    this.updatePitchLevelFromNote();
   },
   
-  // 向左移动光标
+  // 确认输入并关闭键盘
+  confirmAndClose() {
+    const { editing, editingValue } = this.data;
+    
+    // 如果在上标模式中，先完成上标
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+    
+    // 提交编辑
+    if (editing) {
+      this.commitInlineEdit(editing, this.data.editingValue);
+    }
+    
+    // 关闭键盘
+    this.setData({
+      editing: null,
+      editingValue: '',
+      showVirtualKeyboard: false,
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+    
+    // 恢复tabBar
+    wx.showTabBar({ animation: true });
+  },
+  
+  // 移动到下一行（同位置的下一个subdivision）
+  moveToNextLine() {
+    const { editing, notations } = this.data;
+    if (!editing) return;
+    
+    const { sheet, measure, beat, subdivision, hand, index } = editing;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+    
+    // 先提交当前编辑
+    this.commitInlineEdit(editing, this.data.editingValue);
+    
+    // 获取每行小节数
+    const measuresPerRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    
+    // 计算当前所在行号（从0开始）
+    const currentRow = Math.floor(measure / measuresPerRow);
+    
+    // 计算下一行的第一个小节索引
+    const nextRowFirstMeasure = (currentRow + 1) * measuresPerRow;
+    
+    // 检查是否超出范围
+    const totalMeasures = notation.measures?.length || 0;
+    if (nextRowFirstMeasure >= totalMeasures) {
+      // 已经是最后一行，保持不动
+      return;
+    }
+    
+    // 跳转到下一行第一个小节的第一个beat的第一个subdivision
+    // 保持手和索引不变
+    this.navigateToSlot(sheet, nextRowFirstMeasure, 0, 0, hand, index);
+    
+    // 自动滚动到新位置
+    this.scrollToActiveCell();
+  },
+  
+  // 向上移动（移动到上一个相邻槽位）
+  // 槽位顺序：rightHand[0] -> rightHand[1] -> leftHand[0] -> leftHand[1]
+  moveCursorUp() {
+    const { editing, notations } = this.data;
+    if (!editing) return;
+
+    const { sheet, measure, beat, subdivision, hand, index } = editing;
+    
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+    
+    // 先提交当前编辑
+    this.commitInlineEdit(editing, this.data.editingValue);
+
+    // 确定上一个槽位
+    let newHand = hand;
+    let newIndex = index;
+    
+    // 槽位顺序：rightHand[0](0) -> rightHand[1](1) -> leftHand[0](2) -> leftHand[1](3)
+    // 当前位置映射
+    let currentPos = (hand === 'right' ? 0 : 2) + index;
+    
+    // 向上移动
+    if (currentPos > 0) {
+      currentPos -= 1;
+      newHand = currentPos < 2 ? 'right' : 'left';
+      newIndex = currentPos % 2;
+    }
+    // 如果已经在最顶部，保持不动
+    
+    // 导航到新位置
+    this.navigateToSlot(sheet, measure, beat, subdivision, newHand, newIndex);
+  },
+  
+  // 向下移动（移动到下一个相邻槽位）
+  moveCursorDown() {
+    const { editing, notations } = this.data;
+    if (!editing) return;
+
+    const { sheet, measure, beat, subdivision, hand, index } = editing;
+    
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+    
+    // 先提交当前编辑
+    this.commitInlineEdit(editing, this.data.editingValue);
+
+    // 确定下一个槽位
+    let newHand = hand;
+    let newIndex = index;
+    
+    // 槽位顺序：rightHand[0](0) -> rightHand[1](1) -> leftHand[0](2) -> leftHand[1](3)
+    // 当前位置映射
+    let currentPos = (hand === 'right' ? 0 : 2) + index;
+    
+    // 向下移动
+    if (currentPos < 3) {
+      currentPos += 1;
+      newHand = currentPos < 2 ? 'right' : 'left';
+      newIndex = currentPos % 2;
+    }
+    // 如果已经在最底部，保持不动
+    
+    // 导航到新位置
+    this.navigateToSlot(sheet, measure, beat, subdivision, newHand, newIndex);
+  },
+  
+  // 导航到指定槽位
+  navigateToSlot(sheet, measure, beat, subdivision, hand, index) {
+    const { notations } = this.data;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+    
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+    
+    const slotArray = notation.measures[measure]?.beats[beat]?.subdivisions[subdivision]?.[hand === 'right' ? 'rightHand' : 'leftHand'];
+    const currentValue = Array.isArray(slotArray) ? (slotArray[index] || '') : '';
+    
+    this.setData({
+      editing: { sheet, measure, beat, subdivision, hand, index },
+      editingValue: currentValue,
+      virtualKeyboardDisplay: currentValue,
+      virtualKeyboardRendered: this.renderNoteForDisplay(currentValue),
+      vkParsed: this.parseNoteForVK(currentValue),
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+    
+    this.prevEditing = this.data.editing;
+    this.prevEditingValue = currentValue;
+  },
+  
+  // 向左移动编辑位置（移动到上一个subdivision）
   moveCursorLeft() {
-    // TODO: 实现光标移动
-    wx.showToast({ title: '光标移动待实现', icon: 'none' });
+    const { editing, notations } = this.data;
+    if (!editing) return;
+
+    const { sheet, measure, beat, subdivision, hand, index } = editing;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+
+    // 先提交当前编辑
+    this.commitInlineEdit(editing, this.data.editingValue);
+
+    let newMeasure = measure;
+    let newBeat = beat;
+    let newSubdivision = subdivision - 1;
+
+    // 如果当前subdivision是第一个，移动到上一个beat的最后一个subdivision
+    if (newSubdivision < 0) {
+      newBeat = beat - 1;
+      if (newBeat < 0) {
+        // 移动到上一个measure
+        newMeasure = measure - 1;
+        if (newMeasure < 0) {
+          wx.showToast({ title: '已是第一个音符位', icon: 'none' });
+          return;
+        }
+        newBeat = notation.measures[newMeasure].beats.length - 1;
+      }
+      newSubdivision = notation.measures[newMeasure].beats[newBeat].subdivisions.length - 1;
+    }
+
+    // 获取新位置的值
+    const newSlotArray = notation.measures[newMeasure].beats[newBeat].subdivisions[newSubdivision][hand === 'right' ? 'rightHand' : 'leftHand'];
+    const newValue = Array.isArray(newSlotArray) ? (newSlotArray[index] || '') : '';
+
+    this.setData({
+      editing: { sheet, measure: newMeasure, beat: newBeat, subdivision: newSubdivision, hand, index },
+      editingValue: newValue,
+      virtualKeyboardDisplay: newValue,
+      virtualKeyboardRendered: this.renderNoteForDisplay(newValue),
+      vkParsed: this.parseNoteForVK(newValue),
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+
+    this.prevEditing = this.data.editing;
+    this.prevEditingValue = newValue;
   },
   
-  // 向右移动光标
+  // 向右移动编辑位置（移动到下一个subdivision）
   moveCursorRight() {
-    // TODO: 实现光标移动
-    wx.showToast({ title: '光标移动待实现', icon: 'none' });
+    const { editing, notations } = this.data;
+    if (!editing) return;
+
+    const { sheet, measure, beat, subdivision, hand, index } = editing;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+
+    // 先提交当前编辑
+    this.commitInlineEdit(editing, this.data.editingValue);
+
+    const currentBeat = notation.measures[measure].beats[beat];
+    let newMeasure = measure;
+    let newBeat = beat;
+    let newSubdivision = subdivision + 1;
+
+    // 如果当前subdivision是最后一个，移动到下一个beat的第一个subdivision
+    if (newSubdivision >= currentBeat.subdivisions.length) {
+      newBeat = beat + 1;
+      newSubdivision = 0;
+      if (newBeat >= notation.measures[measure].beats.length) {
+        // 移动到下一个measure
+        newMeasure = measure + 1;
+        newBeat = 0;
+        if (newMeasure >= notation.measures.length) {
+          wx.showToast({ title: '已是最后一个音符位', icon: 'none' });
+          return;
+        }
+      }
+    }
+
+    // 获取新位置的值
+    const newSlotArray = notation.measures[newMeasure].beats[newBeat].subdivisions[newSubdivision][hand === 'right' ? 'rightHand' : 'leftHand'];
+    const newValue = Array.isArray(newSlotArray) ? (newSlotArray[index] || '') : '';
+
+    this.setData({
+      editing: { sheet, measure: newMeasure, beat: newBeat, subdivision: newSubdivision, hand, index },
+      editingValue: newValue,
+      virtualKeyboardDisplay: newValue,
+      virtualKeyboardRendered: this.renderNoteForDisplay(newValue),
+      vkParsed: this.parseNoteForVK(newValue),
+      superscriptMode: null,
+      superscriptContent: ''
+    });
+
+    this.prevEditing = this.data.editing;
+    this.prevEditingValue = newValue;
+  },
+
+  // 切换到原生键盘
+  switchToNativeKeyboard() {
+    // 隐藏虚拟键盘，让原生键盘自动唤起
+    this.setData({
+      showVirtualKeyboard: false
+    });
+    // 恢复tabBar
+    wx.showTabBar({ animation: true });
   }
 });
 

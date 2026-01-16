@@ -19,53 +19,146 @@ function readableError(err, fallback) {
   return fallback || '未知错误';
 }
 
-// 解析简谱音符，提取基础音符和八度标记
-// @param {string} note - 音符字符串，可能包含 ^ (上加点) 或 _ (下加点)
-// @returns {Object} {baseNote: string, hasOctaveUp: boolean, hasOctaveDown: boolean}
+// 解析简谱音符，提取基础音符、八度标记、下划线和上标
+// 支持格式: 1' (高八度), 1,, (低两个八度), 1_ (带下划线), ^{H}1, 1^{H}
+// @param {string} note - 音符字符串
+// @returns {Object} {baseNote, octaveUp, octaveDown, underline, leftSup, rightSup}
 function parseSimplifiedNote(note) {
   if (!note || typeof note !== 'string') {
-    return { baseNote: '', hasOctaveUp: false, hasOctaveDown: false };
+    return { baseNote: '', octaveUp: 0, octaveDown: 0, underline: false, leftSup: '', rightSup: '' };
   }
   
+  let octaveUp = 0;
+  let octaveDown = 0;
+  let underline = false;
   let baseNote = '';
-  let hasOctaveUp = false;
-  let hasOctaveDown = false;
+  let leftSup = '';
+  let rightSup = '';
+  let remaining = note;
   
-  for (let i = 0; i < note.length; i++) {
-    const char = note[i];
-    if (char === '^') {
-      hasOctaveUp = true;
-    } else if (char === '_') {
-      hasOctaveDown = true;
-    } else {
-      baseNote += char;
+  // 解析左上标 ^{...}
+  if (remaining.indexOf('^{') === 0) {
+    const endIdx = remaining.indexOf('}');
+    if (endIdx > 2) {
+      leftSup = remaining.substring(2, endIdx);
+      remaining = remaining.substring(endIdx + 1);
     }
   }
   
-  return { baseNote, hasOctaveUp, hasOctaveDown };
+  // 解析右上标 ...^{...}
+  const rightSupIdx = remaining.lastIndexOf('^{');
+  if (rightSupIdx > 0) {
+    const endBrace = remaining.indexOf('}', rightSupIdx);
+    if (endBrace > rightSupIdx + 2) {
+      rightSup = remaining.substring(rightSupIdx + 2, endBrace);
+      remaining = remaining.substring(0, rightSupIdx);
+    }
+  }
+  
+  // 统计 ' 的数量（高八度）
+  for (let i = 0; i < remaining.length; i++) {
+    if (remaining[i] === "'") {
+      octaveUp++;
+    }
+  }
+  
+  // 统计 , 的数量（低八度）
+  for (let i = 0; i < remaining.length; i++) {
+    if (remaining[i] === ',') {
+      octaveDown++;
+    }
+  }
+  
+  // 检查是否有 _ （时值减半下划线）
+  if (remaining.indexOf('_') !== -1) {
+    underline = true;
+  }
+  
+  // 提取基础音符（移除 ', , 和 _）
+  for (let i = 0; i < remaining.length; i++) {
+    if (remaining[i] !== "'" && remaining[i] !== ',' && remaining[i] !== '_') {
+      baseNote += remaining[i];
+    }
+  }
+  
+  return {
+    baseNote,
+    octaveUp,
+    octaveDown,
+    underline,
+    leftSup,
+    rightSup,
+    // 兼容旧版本的属性
+    hasOctaveUp: octaveUp > 0,
+    hasOctaveDown: octaveDown > 0
+  };
 }
 
-// 绘制八度点（上加点或下加点）
+// 解析上标内容的音高信息
+function parseSupContent(supStr) {
+  const result = {
+    baseNote: '',
+    octaveUp: 0,
+    octaveDown: 0
+  };
+  
+  if (!supStr || supStr === '') return result;
+  
+  // 统计 ' 的数量（升八度）
+  for (let i = 0; i < supStr.length; i++) {
+    if (supStr[i] === "'") {
+      result.octaveUp++;
+    }
+  }
+  
+  // 统计 , 的数量（降八度）
+  for (let i = 0; i < supStr.length; i++) {
+    if (supStr[i] === ',') {
+      result.octaveDown++;
+    }
+  }
+  
+  // 提取基础音符（移除特殊符号）
+  for (let i = 0; i < supStr.length; i++) {
+    if (supStr[i] !== "'" && supStr[i] !== ',') {
+      result.baseNote += supStr[i];
+    }
+  }
+  
+  return result;
+}
+
+// 绘制多个八度点（上加点或下加点）
 // @param {CanvasRenderingContext2D} ctx - Canvas 上下文
 // @param {number} x - 中心X坐标
-// @param {number} y - 中心Y坐标
+// @param {number} y - 起始Y坐标
 // @param {boolean} isUp - 是否是上加点（true=上加点，false=下加点）
+// @param {number} dotCount - 点的数量
 // @param {number} dotSize - 点的大小
 // @param {number} dotGap - 点之间的间距
 // @param {string} color - 点的颜色
-function drawOctaveDots(ctx, x, y, isUp, dotSize, dotGap, color) {
-  // 根据是否为上/下加点确定点数和方向
-  const dotCount = 1; // 每个位置绘制1个点
-  const startY = isUp ? y : y;
+function drawOctaveDots(ctx, x, y, isUp, dotCount, dotSize, dotGap, color) {
+  if (!dotCount || dotCount <= 0) return;
+  
   const direction = isUp ? -1 : 1; // 上加点向上，下加点向下
   
   ctx.fillStyle = color || '#000000';
   for (let i = 0; i < dotCount; i++) {
-    const dotY = startY + (i * dotGap * direction);
+    const dotY = y + (i * (dotSize + dotGap) * direction);
     ctx.beginPath();
     ctx.arc(x, dotY, dotSize / 2, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+// 绘制下划线
+function drawUnderline(ctx, x, y, width, thickness, color) {
+  ctx.strokeStyle = color || '#000000';
+  ctx.lineWidth = thickness;
+  ctx.beginPath();
+  ctx.moveTo(x - width / 2, y);
+  ctx.lineTo(x + width / 2, y);
+  ctx.stroke();
 }
 
 // 弹窗提示导出失败原因，方便调试
@@ -125,10 +218,28 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   var globalTempo = data.globalTempo;
   var mainTitleColor = data.mainTitleColor;
   var subTitleColor = data.subTitleColor;
-  var rightHandColor = data.rightHandColor;
-  var leftHandColor = data.leftHandColor;
   var orientation = data.orientation;
   var a4Orientation = data.a4Orientation || 'portrait'; // A4纸张方向，默认纵向
+  
+  // 导出自定义颜色配置
+  var colorMode = data.exportColorMode || 'dual'; // 'dual' 双色模式, 'single' 单色模式
+  var singleColor = data.exportSingleColor || '#314D63';
+  var exportRightHandColor = data.exportRightHandColor || data.rightHandColor || '#F4D096';
+  var exportLeftHandColor = data.exportLeftHandColor || data.leftHandColor || '#314D63';
+  
+  // 根据颜色模式确定实际使用的颜色
+  var rightHandColor, leftHandColor;
+  if (colorMode === 'single') {
+    rightHandColor = singleColor;
+    leftHandColor = singleColor;
+  } else {
+    rightHandColor = exportRightHandColor;
+    leftHandColor = exportLeftHandColor;
+  }
+  
+  // 背景图配置
+  var bgOpacity = data.exportBgOpacity !== undefined ? data.exportBgOpacity : 0.1;
+  var bgSize = data.exportBgSize !== undefined ? data.exportBgSize : 0.67;
   
   const ctx = canvas.getContext('2d');
   const dpr = 3; // 设备像素比，提高清晰度
@@ -175,8 +286,13 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     
     // 获取样式设置来计算高度
     const style = notation.style || {};
-    const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
-    const lineSpacing = style.lineSpacing || 65;
+    // 根据宽松/紧凑模式调整默认值：宽松模式增加50%
+    const isLooseMode = data.exportLayoutMode === 'loose';
+    const defaultMeasureHeight = isLooseMode ? 240 : 160; // 宽松模式: 240rpx, 紧凑模式: 160rpx
+    const defaultLineSpacing = isLooseMode ? 98 : 65;     // 宽松模式: 98rpx, 紧凑模式: 65rpx
+    
+    const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
+    const lineSpacing = style.lineSpacing || defaultLineSpacing;
     const lineSpacingPx = Math.round(lineSpacing * 0.5);
     
     // 将rpx转换为px（假设1rpx ≈ 0.5px）
@@ -201,15 +317,17 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     
     let currentY = 10;
     
-    // 绘制标题区
-    currentY = drawTitleBlock(ctx, mainTitle, subTitle, globalTempo, 
-                               mainTitleColor, subTitleColor, 0, currentY, width);
+    // 绘制标题区 - 传递整个data对象和图标
+    currentY = drawTitleBlock(ctx, data, 0, currentY, width, icons);
+    
+    // 获取导出布局模式
+    const exportLayoutMode = data.exportLayoutMode || 'compact';
     
     // 绘制所有谱面模块
     notations.forEach((notation, idx) => {
       const measuresPerRow = resolveMeasuresPerRow(notation);
       currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
-                                     rightHandColor, leftHandColor, measuresPerRow, isLandscape);
+                                     rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode);
     });
     
     // 预加载图片水印与背景，然后叠加绘制后导出
@@ -217,8 +335,14 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       var watermarkImg = images.watermarkImg;
       var bgImg = images.bgImg;
       var brandingImg = images.brandingImg;
+      var icons = {
+        timingIcon: images.timingIcon,
+        noteChangeIcon: images.noteChangeIcon,
+        crownIcon: images.crownIcon,
+        starIcon: images.starIcon
+      };
       addTopRightWatermarkWithLabel(ctx, watermarkImg, width, totalHeight);
-      addCornerBackgroundImage(ctx, bgImg, width, totalHeight, 0.1);
+      addCornerBackgroundImage(ctx, bgImg, width, totalHeight, bgOpacity, bgSize);
       addBottomCenterBranding(ctx, brandingImg, width, totalHeight);
       wx.canvasToTempFilePath({
         canvas,
@@ -242,53 +366,338 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       var watermarkImg = images.watermarkImg;
       var bgImg = images.bgImg;
       var brandingImg = images.brandingImg;
+      var icons = {
+        timingIcon: images.timingIcon,
+        noteChangeIcon: images.noteChangeIcon,
+        crownIcon: images.crownIcon,
+        starIcon: images.starIcon
+      };
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-        rightHandColor, leftHandColor, resolve, reject, watermarkImg, bgImg, brandingImg);
+        rightHandColor, leftHandColor, resolve, reject, watermarkImg, bgImg, brandingImg, icons);
     }).catch((err) => {
       console.warn('水印/背景图片加载失败，分页模式使用文字水印', readableError(err));
       // 图片加载失败则使用文字水印回退
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
-        rightHandColor, leftHandColor, resolve, reject, null, null, null);
+        rightHandColor, leftHandColor, resolve, reject, null, null, null, null);
     });
   }
 }
 
 /**
- * 绘制标题区块
+ * 绘制节拍器图标（简化版）
  */
-function drawTitleBlock(ctx, mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor, x, y, width) {
-  const blockHeight = 70;
+function drawMetronomeIcon(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.fillStyle = color;
   
-  // 不绘制白色背景框，直接绘制文字
-  ctx.fillStyle = mainTitleColor || '#314D63';
+  // 绘制底座（矩形）
+  const baseWidth = size * 0.7;
+  const baseHeight = size * 0.2;
+  ctx.fillRect(x + (size - baseWidth) / 2, y + size - baseHeight, baseWidth, baseHeight);
+  
+  // 绘制主体（三角形）
+  ctx.beginPath();
+  ctx.moveTo(x + size / 2, y); // 顶点
+  ctx.lineTo(x + size * 0.2, y + size * 0.8); // 左下
+  ctx.lineTo(x + size * 0.8, y + size * 0.8); // 右下
+  ctx.closePath();
+  ctx.fill();
+  
+  // 绘制摆锤（小圆）
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size * 0.5, size * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+/**
+ * 绘制谱式图标（简化版）
+ */
+function drawNotationTypeIcon(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = size * 0.1;
+  
+  // 绘制五线谱的三条线
+  const lineSpacing = size * 0.25;
+  for (let i = 0; i < 3; i++) {
+    const lineY = y + size * 0.2 + i * lineSpacing;
+    ctx.beginPath();
+    ctx.moveTo(x, lineY);
+    ctx.lineTo(x + size, lineY);
+    ctx.stroke();
+  }
+  
+  // 绘制音符符头
+  ctx.beginPath();
+  ctx.arc(x + size * 0.3, y + size * 0.45, size * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 绘制符干
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.45, y + size * 0.45);
+  ctx.lineTo(x + size * 0.45, y + size * 0.1);
+  ctx.stroke();
+  
+  ctx.restore();
+}
+
+/**
+ * 绘制难度图标（简化版）
+ */
+function drawDifficultyIcon(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size * 0.08;
+  
+  // 绘制皇冠底座
+  const baseY = y + size * 0.75;
+  ctx.fillRect(x, baseY, size, size * 0.25);
+  
+  // 绘制三个尖峰
+  ctx.beginPath();
+  // 左峰
+  ctx.moveTo(x, baseY);
+  ctx.lineTo(x + size * 0.15, y);
+  ctx.lineTo(x + size * 0.3, baseY);
+  // 中峰
+  ctx.lineTo(x + size * 0.35, y + size * 0.15);
+  ctx.lineTo(x + size * 0.5, y);
+  ctx.lineTo(x + size * 0.65, y + size * 0.15);
+  ctx.lineTo(x + size * 0.7, baseY);
+  // 右峰
+  ctx.lineTo(x + size * 0.85, y);
+  ctx.lineTo(x + size, baseY);
+  ctx.closePath();
+  ctx.fill();
+  
+  // 绘制装饰圆点
+  ctx.fillStyle = '#ffffff';
+  const dotSize = size * 0.08;
+  ctx.beginPath();
+  ctx.arc(x + size * 0.15, y + size * 0.3, dotSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + size * 0.5, y + size * 0.25, dotSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + size * 0.85, y + size * 0.3, dotSize, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+/**
+ * 绘制标题区块
+ * @param {Object} data - 包含所有元信息的数据对象
+ * @param {Object} icons - 包含各种图标的对象 {timingIcon, noteChangeIcon, crownIcon, starIcon}
+ */
+function drawTitleBlock(ctx, data, x, y, width, icons) {
+  const mainTitle = data.mainTitle;
+  const subTitle = data.subTitle;
+  const globalTempo = data.globalTempo;
+  const mainTitleColor = data.mainTitleColor || '#314D63';
+  const subTitleColor = data.subTitleColor || '#8FB9AB';
+  const composer = data.composer || '';
+  const rootNote = data.rootNote || '';
+  const scaleType = data.scaleType || '';
+  const noteCount = data.noteCount || '';
+  const introduction = data.introduction || '';
+  const notationType = data.notationType || 'digital';
+  const difficulty = data.difficulty || 1;
+  
+  let currentY = y;
+  
+  // 1. 主标题
+  ctx.fillStyle = mainTitleColor;
   ctx.font = 'bold 24px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(mainTitle || 'Handpan Note', width / 2, y + 25);
+  ctx.fillText(mainTitle || 'Handpan Note', width / 2, currentY + 25);
+  currentY += 35;
   
-  ctx.fillStyle = subTitleColor || '#8FB9AB';
-  ctx.font = '16px sans-serif';
-  ctx.fillText(subTitle || '', width / 2, y + 50);
+  // 2. 副标题行：副标题 | 制谱人 | 主音-调式 音位数音
+  const subTitleParts = [];
+  if (subTitle) subTitleParts.push(subTitle);
+  if (composer) subTitleParts.push(composer);
+  // 调式名称处理：如果包含 " / "，取第一部分
+  const scaleDisplay = scaleType.indexOf(' / ') > -1 ? scaleType.split(' / ')[0] : scaleType;
+  if (rootNote && scaleDisplay) {
+    subTitleParts.push(`${rootNote}-${scaleDisplay} ${noteCount}音`);
+  }
   
-  ctx.fillStyle = '#314D63';
-  ctx.font = '14px sans-serif';
+  if (subTitleParts.length > 0) {
+    ctx.fillStyle = subTitleColor;
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(subTitleParts.join(' | '), width / 2, currentY + 15);
+    currentY += 25;
+  }
+  
+  // 3. 简介文本（如果存在）
+  if (introduction && introduction.trim()) {
+    currentY += 5;
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    // 简介可能较长，需要处理换行
+    const maxWidth = width * 0.9;
+    const introLines = wrapText(ctx, introduction, maxWidth);
+    introLines.forEach((line, idx) => {
+      ctx.fillText(line, width / 2, currentY + 12 + idx * 16);
+    });
+    currentY += introLines.length * 16 + 5;
+  }
+  
+  // 4. 参数信息行：速度 | 谱式 | 难度（三个参数同行，图标+值 垂直居中）
+  currentY += 12;
+  const paramsY = currentY + 10;
+  const iconSize = 14;
+  const paramGap = 6; // 图标与文字间距
+  
+  // 计算三列位置（均匀分布）
+  const col1X = width * 0.17;  // 速度
+  const col2X = width * 0.50;  // 谱式
+  const col3X = width * 0.83;  // 难度
+  
+  // 速度：图标 + 值
   ctx.textAlign = 'left';
-  // 将速度标识更靠近左侧页面边缘一点（缩小内边距偏移）
-  ctx.fillText(`♫ = ${globalTempo}`, x , y + 68);
+  ctx.textBaseline = 'middle';
   
-  return y + blockHeight + 10;
+  // 绘制速度图标
+  if (icons && icons.timingIcon) {
+    ctx.drawImage(icons.timingIcon, col1X - 40, paramsY - iconSize / 2, iconSize, iconSize);
+  } else {
+    drawMetronomeIcon(ctx, col1X - 40, paramsY - iconSize / 2, iconSize, '#8FB9AB');
+  }
+  
+  // 绘制速度数值
+  ctx.fillStyle = '#314D63';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText(`${globalTempo}`, col1X - 40 + iconSize + paramGap, paramsY);
+  
+  // 谱式：图标 + 值
+  ctx.textAlign = 'left';
+  
+  // 绘制谱式图标
+  if (icons && icons.noteChangeIcon) {
+    ctx.drawImage(icons.noteChangeIcon, col2X - 40, paramsY - iconSize / 2, iconSize, iconSize);
+  } else {
+    drawNotationTypeIcon(ctx, col2X - 40, paramsY - iconSize / 2, iconSize, '#8FB9AB');
+  }
+  
+  // 绘制谱式数值
+  ctx.fillStyle = '#314D63';
+  ctx.font = 'bold 13px sans-serif';
+  const notationTypeDisplay = notationType === 'simplified' ? '简谱' : '数字谱';
+  ctx.fillText(notationTypeDisplay, col2X - 40 + iconSize + paramGap, paramsY);
+  
+  // 难度：图标 + 星星
+  ctx.textAlign = 'left';
+  
+  // 绘制难度图标
+  if (icons && icons.crownIcon) {
+    ctx.drawImage(icons.crownIcon, col3X - 45, paramsY - iconSize / 2, iconSize, iconSize);
+  } else {
+    drawDifficultyIcon(ctx, col3X - 45, paramsY - iconSize / 2, iconSize, '#8FB9AB');
+  }
+  
+  // 绘制星星
+  const starSize = 9;
+  const starGap = 1;
+  const starStartX = col3X - 45 + iconSize + paramGap;
+  for (let i = 0; i < 5; i++) {
+    const starX = starStartX + i * (starSize + starGap);
+    if (icons && icons.starIcon) {
+      // 使用实际星星图标，根据难度值调整透明度
+      ctx.globalAlpha = i < difficulty ? 1.0 : 0.3;
+      ctx.drawImage(icons.starIcon, starX, paramsY - starSize / 2, starSize, starSize);
+      ctx.globalAlpha = 1.0;
+    } else {
+      drawStar(ctx, starX, paramsY - starSize / 2, starSize, i < difficulty ? '#FFD700' : '#E0E0E0');
+    }
+  }
+  
+  currentY += 22;
+  
+  return currentY + 10;
+}
+
+
+
+/**
+ * 文字换行处理
+ */
+function wrapText(ctx, text, maxWidth) {
+  const lines = [];
+  const paragraphs = text.split('\n');
+  
+  paragraphs.forEach(paragraph => {
+    let line = '';
+    for (let i = 0; i < paragraph.length; i++) {
+      const testLine = line + paragraph[i];
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && line.length > 0) {
+        lines.push(line);
+        line = paragraph[i];
+      } else {
+        line = testLine;
+      }
+    }
+    if (line) lines.push(line);
+  });
+  
+  return lines.length > 0 ? lines : [''];
+}
+
+/**
+ * 绘制五角星
+ */
+function drawStar(ctx, x, y, size, color) {
+  const spikes = 5;
+  const outerRadius = size / 2;
+  const innerRadius = outerRadius * 0.4;
+  
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  
+  for (let i = 0; i < spikes * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const angle = (Math.PI / 2) + (i * Math.PI / spikes);
+    const px = x + outerRadius + Math.cos(angle) * radius;
+    const py = y + outerRadius - Math.sin(angle) * radius;
+    
+    if (i === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+  
+  ctx.closePath();
+  ctx.fill();
 }
 
 /**
  * 绘制单个谱面模块（不包含白色卡片框）
  */
-function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false) {
+function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false, exportLayoutMode = 'compact') {
   // 获取样式设置，默认值与界面保持一致
   const style = notation.style || {};
-  const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
-  const noteFontSize = style.noteFontSize || 28; // 默认28rpx，转换为px约为14px
-  const lineSpacing = style.lineSpacing || 65; // 默认65rpx，转换为px约为32.5px
+  // 直接使用 exportLayoutMode 判断是否为宽松模式
+  const isLooseMode = exportLayoutMode === 'loose';
+  const defaultMeasureHeight = isLooseMode ? 240 : 160; // 宽松模式: 240rpx, 紧凑模式: 160rpx
+  const defaultLineSpacing = isLooseMode ? 98 : 65;     // 宽松模式: 98rpx, 紧凑模式: 65rpx
+  const defaultNoteFontSize = isLooseMode ? 36 : 28;    // 宽松模式: 36rpx, 紧凑模式: 28rpx
+  
+  const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
+  const noteFontSize = style.noteFontSize || defaultNoteFontSize;
+  const lineSpacing = style.lineSpacing || defaultLineSpacing;
   
   // 将rpx转换为px（假设1rpx ≈ 0.5px）
   const noteFontSizePx = Math.round(noteFontSize * 0.5);
@@ -329,7 +738,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
     const measureY = currentY + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor, 
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode);
   });
   
   const sectionHeight = 50 + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + 15;
@@ -342,12 +751,18 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
  * @param {number} rows - 绘制多少行
  * @param {boolean} showLabel - 是否绘制模块标签
  */
-function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false) {
+function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false, exportLayoutMode = 'compact') {
   // 获取样式设置，默认值与界面保持一致
   const style = notation.style || {};
-  const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
-  const noteFontSize = style.noteFontSize || 28; // 默认28rpx，转换为px约为14px
-  const lineSpacing = style.lineSpacing || 65; // 默认65rpx，转换为px约为32.5px
+  // 直接使用 exportLayoutMode 判断是否为宽松模式
+  const isLooseMode = exportLayoutMode === 'loose';
+  const defaultMeasureHeight = isLooseMode ? 240 : 160;
+  const defaultLineSpacing = isLooseMode ? 98 : 65;
+  const defaultNoteFontSize = isLooseMode ? 36 : 28;
+  
+  const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
+  const noteFontSize = style.noteFontSize || defaultNoteFontSize;
+  const lineSpacing = style.lineSpacing || defaultLineSpacing;
   
   // 将rpx转换为px（假设1rpx ≈ 0.5px）
   const noteFontSizePx = Math.round(noteFontSize * 0.5);
@@ -394,7 +809,7 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
     const measureY = y + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor,
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode);
   }
 
   const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + 15;
@@ -415,7 +830,7 @@ function drawNotationSheet(ctx, notation, x, y, width, rightHandColor, leftHandC
 function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
                              mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
                              rightHandColor, leftHandColor, resolve, reject,
-                             watermarkImg, bgImg, brandingImg) {
+                             watermarkImg, bgImg, brandingImg, icons) {
   // 根据A4方向确定页面尺寸
   const a4Orientation = data.a4Orientation || 'portrait';
   const isA4Landscape = (a4Orientation === 'landscape');
@@ -476,8 +891,13 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     
     // 获取样式设置来计算高度
     const style = notation.style || {};
-    const measureHeightRpx = style.measureHeight || 160; // 默认160rpx
-    const lineSpacing = style.lineSpacing || 65;
+    // 直接使用 data.exportLayoutMode 判断模式
+    const isLooseMode = data.exportLayoutMode === 'loose';
+    const defaultMeasureHeight = isLooseMode ? 240 : 160;
+    const defaultLineSpacing = isLooseMode ? 98 : 65;
+    
+    const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
+    const lineSpacing = style.lineSpacing || defaultLineSpacing;
     const lineSpacingPx = Math.round(lineSpacing * 0.5);
     
     // 将rpx转换为px
@@ -546,8 +966,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     
     // 第一页绘制标题
     if (page.includeTitle) {
-      currentY = drawTitleBlock(ctx, mainTitle, subTitle, globalTempo, 
-                               mainTitleColor, subTitleColor, leftMargin, currentY, pageWidth);
+      currentY = drawTitleBlock(ctx, data, leftMargin, currentY, pageWidth, icons);
     } else {
       currentY += 10;
     }
@@ -560,6 +979,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     }
 
     // 绘制该页的谱面片段（可跨页拆分模块）
+    const exportLayoutMode = data.exportLayoutMode || 'compact';
     page.segments.forEach(seg => {
       const measuresPerRow = resolveMeasuresPerRow(seg.notation);
       currentY = drawNotationSectionPartial(
@@ -574,7 +994,8 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         seg.rowStart,
         seg.rows,
         seg.showLabel,
-        isLandscape
+        isLandscape,
+        exportLayoutMode
       );
     });
     
@@ -583,7 +1004,10 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
       addTopRightWatermarkWithLabel(ctx, watermarkImg, pageWidth, pageHeight, isA4Landscape);
     }
     if (bgImg) {
-      addCornerBackgroundImage(ctx, bgImg, pageWidth, pageHeight, 0.1);
+      // 从data获取背景配置
+      const bgOpacity = data.exportBgOpacity !== undefined ? data.exportBgOpacity : 0.1;
+      const bgSize = data.exportBgSize !== undefined ? data.exportBgSize : 0.67;
+      addCornerBackgroundImage(ctx, bgImg, pageWidth, pageHeight, bgOpacity, bgSize);
     }
     if (!watermarkImg && !bgImg) {
       // 图片都不可用时回退文字
@@ -610,7 +1034,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
 }
 
 /**
- * 预加载水印、背景图片和品牌 Logo
+ * 预加载水印、背景图片、品牌 Logo 和参数图标
  */
 function preloadWatermarkImages(canvas) {
   var wmCandidates = [
@@ -631,12 +1055,48 @@ function preloadWatermarkImages(canvas) {
     '../../assets/img/logo3.png',
     '../assets/img/logo3.png'
   ];
+  var timingCandidates = [
+    '/assets/icons/timing.png',
+    'assets/icons/timing.png',
+    '../../assets/icons/timing.png',
+    '../assets/icons/timing.png'
+  ];
+  var noteChangeCandidates = [
+    '/assets/icons/note_change.png',
+    'assets/icons/note_change.png',
+    '../../assets/icons/note_change.png',
+    '../assets/icons/note_change.png'
+  ];
+  var crownCandidates = [
+    '/assets/icons/crown.svg',
+    'assets/icons/crown.svg',
+    '../../assets/icons/crown.svg',
+    '../assets/icons/crown.svg'
+  ];
+  var starCandidates = [
+    '/assets/icons/star.svg',
+    'assets/icons/star.svg',
+    '../../assets/icons/star.svg',
+    '../assets/icons/star.svg'
+  ];
   return Promise.all([
     resolveImageFromCandidates(canvas, wmCandidates),
     resolveImageFromCandidates(canvas, bgCandidates),
-    resolveImageFromCandidates(canvas, brandingCandidates).catch(function() { return null; })
+    resolveImageFromCandidates(canvas, brandingCandidates).catch(function() { return null; }),
+    resolveImageFromCandidates(canvas, timingCandidates).catch(function() { return null; }),
+    resolveImageFromCandidates(canvas, noteChangeCandidates).catch(function() { return null; }),
+    resolveImageFromCandidates(canvas, crownCandidates).catch(function() { return null; }),
+    resolveImageFromCandidates(canvas, starCandidates).catch(function() { return null; })
   ]).then(function(results){
-    return { watermarkImg: results[0], bgImg: results[1], brandingImg: results[2] };
+    return { 
+      watermarkImg: results[0], 
+      bgImg: results[1], 
+      brandingImg: results[2],
+      timingIcon: results[3],
+      noteChangeIcon: results[4],
+      crownIcon: results[5],
+      starIcon: results[6]
+    };
   });
 }
 
@@ -728,7 +1188,7 @@ function loadImage(canvas, src) {
 // 计算右上角水印与文字的布局参数
 function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false) {
   var margin = 20;
-  var baseScale = 0.12; // 基础比例：相对页面宽度的12%
+  var baseScale = 0.08; // 基础比例：相对页面宽度的12%
   // A4横向时水印尺寸减小1/3
   var scale = isA4Landscape ? baseScale * (2/3) : baseScale;
   var imgWidth = pageWidth * scale;
@@ -770,13 +1230,17 @@ function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight, isA4La
 }
 
 /**
- * 右下角背景图（宽度为页面的 2/3，保持比例）
+ * 右下角背景图
+ * @param {number} alpha - 透明度 (0-1)
+ * @param {number} sizeScale - 大小比例 (0-1), 默认0.67（2/3）
  */
-function addCornerBackgroundImage(ctx, image, pageWidth, pageHeight, alpha) {
+function addCornerBackgroundImage(ctx, image, pageWidth, pageHeight, alpha, sizeScale) {
   if (alpha === undefined) alpha = 0.1;
+  if (sizeScale === undefined) sizeScale = 2/3;
   // 当页面为横向（A4 横向）时，使用更小的背景图比例，避免占用过多空间
   const isLandscape = pageWidth > pageHeight;
-  const scale = isLandscape ? 0.35 : (2 / 3);
+  // 基于传入的 sizeScale 进行调整，横向时减半
+  const scale = isLandscape ? sizeScale * 0.5 : sizeScale;
   const bgWidth = pageWidth * scale;
   const aspect = image.height / image.width;
   const bgHeight = bgWidth * aspect;
@@ -848,21 +1312,18 @@ function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight) {
 /**
  * 绘制单个小节
  * 音符位置轨道：
- * - 右手第一个轨道：23%
- * - 右手第二个轨道：43%
- * - 左手第一个轨道：70%
- * - 左手第二个轨道：90%
+
  */
-function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow) {
+function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode) {
   const beatCount = Array.isArray(measure.beats) ? measure.beats.length : 4;
   const beatWidth = width / (beatCount || 4);
   const lineHeight = measureHeight || 70; // 使用传入的高度或默认值
   
   // 定义固定的音符轨道位置（百分比）
-  const trackRightHand1 = 0.23;   // 23%
-  const trackRightHand2 = 0.43;   // 43%
-  const trackLeftHand1 = 0.7;     // 70%
-  const trackLeftHand2 = 0.9;     // 90%
+  const trackRightHand1 = 0.12;   // 12%
+  const trackRightHand2 = 0.38;   // 38%
+  const trackLeftHand1 = 0.65;     // 65%
+  const trackLeftHand2 = 0.91;     // 91%
   
   // 绘制小节编号（统一在左侧小节线上方，水平居中对齐）
   if (typeof measureIndex === 'number') {
@@ -928,79 +1389,113 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       ctx.textBaseline = 'middle';
       
       const noteX = subX + subdivisionWidth / 2;
-      const dotSize = Math.round(fontSize * 0.28);  // 点的大小
-      const dotGap = Math.round(fontSize * 0.08);   // 点与文字之间的间距
-      // 计算文字的顶部和底部位置（textBaseline='middle'时，文字中心在y坐标）
-      // 上加点位置 = 文字中心 - 文字高度/2 - 间距 - 点半径
-      // 下加点位置 = 文字中心 + 文字高度/2 + 间距 + 点半径
-      const textHalfHeight = fontSize * 0.45;  // 文字高度约等于字号的90%，取一半
-      const octaveUpOffset = textHalfHeight*1.1 + dotGap + dotSize / 2;    // 上加点：从中心向上
-      const octaveDownOffset = textHalfHeight*0.8 + dotGap + dotSize / 2;  // 下加点：从中心向下
+      
+      // 直接使用 exportLayoutMode 判断是否为紧凑模式
+      const isCompactMode = exportLayoutMode !== 'loose';
+      
+      // 紧凑模式下音高圆点参数调整
+      const dotSize = isCompactMode 
+        ? Math.round(fontSize * 0.20)   // 紧凑模式：缩小1/3（原0.25）
+        : Math.round(fontSize * 0.25);  // 宽松模式：原始大小
+      const dotGap = isCompactMode 
+        ? 0.5   // 紧凑模式：固定1rpx（约0.5px）
+        : Math.round(fontSize * 0.03);   // 宽松模式：原始间距-
+      const supFontSize = Math.round(fontSize * 0.55); // 上标字号
+      const supDotSize = isCompactMode 
+        ? Math.round(fontSize * 0.13)   // 紧凑模式：
+        : Math.round(fontSize * 0.12);  // 宽松模式：
+      const supDotGap = isCompactMode ? 0.5 : dotGap; // 上标圆点间距
+      const underlineThickness = Math.round(fontSize * 0.11);  // 下划线粗细
+      const underlineWidth = Math.round(fontSize * 0.8);  // 下划线宽度
+      
+      // 计算文字的顶部和底部位置
+      const textHalfHeight = fontSize * 0.45;
+      // 紧凑模式下减小音高圆点与音符的垂直距离
+      const octaveUpOffset = isCompactMode
+        ? textHalfHeight * 1.1 + dotGap + dotSize / 2   // 紧凑模式：偏移更小
+        : textHalfHeight * 1.1 + dotGap + dotSize / 2;   // 宽松模式：原始偏移
+      const octaveDownOffset = isCompactMode
+        ? textHalfHeight * 0.6 + dotGap + dotSize / 2    // 紧凑模式：偏移更小
+        : textHalfHeight * 0.6 + dotGap + dotSize / 2;   // 宽松模式：原始偏移-
+      const underlineOffset = textHalfHeight * 0.9 + 2;  // 下划线在文字下方
+      
+      // 上标内的音高圆点偏移（紧凑模式下偏移更大以避免重叠）
+      const supOctaveUpOffset = isCompactMode ? supFontSize * 0.65 : supFontSize * 0.65;//+
+      const supOctaveDownOffset = isCompactMode ? supFontSize * 0.45 : supFontSize * 0.4;
+      
+      // 绘制单个音符的辅助函数
+      const drawNoteWithFeatures = (note, noteX, noteY, color) => {
+        const parsed = parseSimplifiedNote(note);
+        ctx.fillStyle = color;
+        
+        // 绘制左上标
+        if (parsed.leftSup) {
+          const supParsed = parseSupContent(parsed.leftSup);
+          const supX = noteX - fontSize * 0.5;
+          const supY = noteY - fontSize * 0.4;
+          ctx.font = 'bold ' + supFontSize + 'px sans-serif';
+          ctx.fillText(supParsed.baseNote, supX, supY);
+          // 上标的八度点
+          if (supParsed.octaveUp > 0) {
+            drawOctaveDots(ctx, supX, supY - supOctaveUpOffset, true, supParsed.octaveUp, supDotSize, supDotGap, color);
+          }
+          if (supParsed.octaveDown > 0) {
+            drawOctaveDots(ctx, supX, supY + supOctaveDownOffset, false, supParsed.octaveDown, supDotSize, supDotGap, color);
+          }
+        }
+        
+        // 绘制主音符
+        ctx.font = 'bold ' + fontSize + 'px sans-serif';
+        ctx.fillText(parsed.baseNote, noteX, noteY);
+        
+        // 绘制八度点（支持多个）
+        if (parsed.octaveUp > 0) {
+          drawOctaveDots(ctx, noteX, noteY - octaveUpOffset, true, parsed.octaveUp, dotSize, dotGap, color);
+        }
+        if (parsed.octaveDown > 0) {
+          drawOctaveDots(ctx, noteX, noteY + octaveDownOffset, false, parsed.octaveDown, dotSize, dotGap, color);
+        }
+        
+        // 绘制下划线
+        if (parsed.underline) {
+          drawUnderline(ctx, noteX, noteY + underlineOffset, underlineWidth, underlineThickness, color);
+        }
+        
+        // 绘制右上标
+        if (parsed.rightSup) {
+          const supParsed = parseSupContent(parsed.rightSup);
+          const supX = noteX + fontSize * 0.5;
+          const supY = noteY - fontSize * 0.4;
+          ctx.font = 'bold ' + supFontSize + 'px sans-serif';
+          ctx.fillText(supParsed.baseNote, supX, supY);
+          // 上标的八度点（使用紧凑模式参数）
+          if (supParsed.octaveUp > 0) {
+            drawOctaveDots(ctx, supX, supY - supOctaveUpOffset, true, supParsed.octaveUp, supDotSize, supDotGap, color);
+          }
+          if (supParsed.octaveDown > 0) {
+            drawOctaveDots(ctx, supX, supY + supOctaveDownOffset, false, supParsed.octaveDown, supDotSize, supDotGap, color);
+          }
+        }
+      };
       
       // 右手（上方）- 使用指定的颜色
-      // 使用固定轨道位置，无论是否有两个音符
       if (subdivision.rightHand && subdivision.rightHand[0]) {
-        ctx.fillStyle = rightHandColor || '#F4D096';
-        const note0 = subdivision.rightHand[0];
-        const parsed0 = parseSimplifiedNote(note0);
         const noteY0 = y + lineHeight * trackRightHand1;
-        ctx.fillText(parsed0.baseNote, noteX, noteY0);
-        
-        // 绘制八度点（简谱上加点/下加点）
-        if (parsed0.hasOctaveUp) {
-          drawOctaveDots(ctx, noteX, noteY0 - octaveUpOffset, true, dotSize, dotGap, rightHandColor);
-        }
-        if (parsed0.hasOctaveDown) {
-          drawOctaveDots(ctx, noteX, noteY0 + octaveDownOffset, false, dotSize, dotGap, rightHandColor);
-        }
+        drawNoteWithFeatures(subdivision.rightHand[0], noteX, noteY0, rightHandColor || '#F4D096');
       }
       if (subdivision.rightHand && subdivision.rightHand[1]) {
-        ctx.fillStyle = rightHandColor || '#F4D096';
-        const note1 = subdivision.rightHand[1];
-        const parsed1 = parseSimplifiedNote(note1);
         const noteY1 = y + lineHeight * trackRightHand2;
-        ctx.fillText(parsed1.baseNote, noteX, noteY1);
-        
-        // 绘制八度点
-        if (parsed1.hasOctaveUp) {
-          drawOctaveDots(ctx, noteX, noteY1 - octaveUpOffset, true, dotSize, dotGap, rightHandColor);
-        }
-        if (parsed1.hasOctaveDown) {
-          drawOctaveDots(ctx, noteX, noteY1 + octaveDownOffset, false, dotSize, dotGap, rightHandColor);
-        }
+        drawNoteWithFeatures(subdivision.rightHand[1], noteX, noteY1, rightHandColor || '#F4D096');
       }
       
       // 左手（下方）- 使用指定的颜色
-      // 使用固定轨道位置，无论是否有两个音符
       if (subdivision.leftHand && subdivision.leftHand[0]) {
-        ctx.fillStyle = leftHandColor || '#314D63';
-        const note0 = subdivision.leftHand[0];
-        const parsed0 = parseSimplifiedNote(note0);
         const noteY0 = y + lineHeight * trackLeftHand1;
-        ctx.fillText(parsed0.baseNote, noteX, noteY0);
-        
-        // 绘制八度点
-        if (parsed0.hasOctaveUp) {
-          drawOctaveDots(ctx, noteX, noteY0 - octaveUpOffset, true, dotSize, dotGap, leftHandColor);
-        }
-        if (parsed0.hasOctaveDown) {
-          drawOctaveDots(ctx, noteX, noteY0 + octaveDownOffset, false, dotSize, dotGap, leftHandColor);
-        }
+        drawNoteWithFeatures(subdivision.leftHand[0], noteX, noteY0, leftHandColor || '#314D63');
       }
       if (subdivision.leftHand && subdivision.leftHand[1]) {
-        ctx.fillStyle = leftHandColor || '#314D63';
-        const note1 = subdivision.leftHand[1];
-        const parsed1 = parseSimplifiedNote(note1);
         const noteY1 = y + lineHeight * trackLeftHand2;
-        ctx.fillText(parsed1.baseNote, noteX, noteY1);
-        
-        // 绘制八度点
-        if (parsed1.hasOctaveUp) {
-          drawOctaveDots(ctx, noteX, noteY1 - octaveUpOffset, true, dotSize, dotGap, leftHandColor);
-        }
-        if (parsed1.hasOctaveDown) {
-          drawOctaveDots(ctx, noteX, noteY1 + octaveDownOffset, false, dotSize, dotGap, leftHandColor);
-        }
+        drawNoteWithFeatures(subdivision.leftHand[1], noteX, noteY1, leftHandColor || '#314D63');
       }
     });
   });
@@ -1208,32 +1703,262 @@ async function imagesToPDF(imagePaths, fileName, onProgress) {
     const pdfBytes = await pdfDoc.save();
     console.log('PDF生成成功，大小:', pdfBytes.length);
     
-    checkCancelled(95, '正在写入文件...');
+    checkCancelled(95, '正在保存文件...');
     
-    // 写入文件
+    // 先强制清理所有旧的导出文件，释放空间
+    await cleanupAllExportFiles();
+    
+    // 写入临时文件
     const fs = wx.getFileSystemManager();
-    const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+    const tempFilePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
     
-    return new Promise((resolve, reject) => {
-      fs.writeFile({
-        filePath: filePath,
-        data: pdfBytes.buffer,
-        success: () => {
-          console.log('PDF文件保存成功:', filePath);
-          reportProgress(100, '导出完成！');
-          resolve(filePath);
-        },
-        fail: (err) => {
-          console.error('写入PDF文件失败:', err);
-          reject(new Error('写入PDF文件失败: ' + readableError(err)));
-        }
+    try {
+      await new Promise((resolve, reject) => {
+        fs.writeFile({
+          filePath: tempFilePath,
+          data: pdfBytes.buffer,
+          success: resolve,
+          fail: reject
+        });
       });
-    });
+    } catch (writeErr) {
+      console.error('写入临时文件失败:', writeErr);
+      // 如果仍然失败，尝试让用户直接通过分享保存
+      return await saveViaShare(pdfBytes.buffer, fileName, reportProgress);
+    }
+    
+    console.log('临时文件写入成功:', tempFilePath);
+    
+    // 首先尝试使用 saveFileToPick 让用户选择保存位置（基础库 2.24.4+）
+    // 这是最佳方案，会直接调起系统文件管理器
+    console.log('准备调用 wx.saveFileToPick，让用户选择保存位置...');
+    
+    try {
+      const savedPath = await saveFileToUserPick(tempFilePath, fileName);
+      console.log('用户已选择保存位置，文件已保存到:', savedPath);
+      reportProgress(100, '导出完成！');
+      
+      // 延迟删除临时文件，确保文件系统操作完成
+      setTimeout(() => {
+        fs.unlink({ 
+          filePath: tempFilePath, 
+          success: () => console.log('临时文件已清理'),
+          fail: (err) => console.log('临时文件清理失败（可能已被移动）:', err)
+        });
+      }, 1000);
+      
+      return savedPath;
+    } catch (pickErr) {
+      console.error('wx.saveFileToPick 调用失败:', pickErr);
+      
+      // 检查是否是用户取消
+      const errMsg = pickErr.errMsg || pickErr.message || '';
+      if (errMsg.includes('cancel') || errMsg.includes('取消')) {
+        console.log('用户取消了文件保存');
+        // 不删除临时文件，让用户可以稍后手动处理
+        reportProgress(100, '已取消');
+        throw new Error('USER_CANCELLED');
+      }
+      
+      // 如果是 API 不支持的错误，给出明确提示
+      if (errMsg.includes('not supported') || errMsg.includes('not implemented') || pickErr.message === 'saveFileToPick API 不可用') {
+        console.log('当前环境不支持 wx.saveFileToPick API，文件已保存到临时目录');
+        reportProgress(100, '导出完成');
+        // 返回临时文件路径，不删除文件，让用户在成功弹窗中选择是否分享
+        return tempFilePath;
+      }
+      
+      // 其他未知错误
+      console.error('保存文件时发生未知错误:', pickErr);
+      reportProgress(100, '保存失败');
+      
+      // 返回临时文件路径，不删除文件
+      return tempFilePath;
+    }
     
   } catch (err) {
     console.error('PDF生成失败:', err);
     throw err;
   }
+}
+
+/**
+ * 让用户选择保存位置（调起系统文件管理器）
+ * @param {string} tempFilePath - 临时文件路径
+ * @param {string} fileName - 文件名
+ * @returns {Promise<string>} - 保存后的文件路径
+ */
+function saveFileToUserPick(tempFilePath, fileName) {
+  return new Promise((resolve, reject) => {
+    // 检查 API 是否可用
+    if (typeof wx.saveFileToPick !== 'function') {
+      console.warn('wx.saveFileToPick API 不存在');
+      reject(new Error('saveFileToPick API 不可用'));
+      return;
+    }
+    
+    console.log('调用 wx.saveFileToPick API...');
+    console.log('临时文件路径:', tempFilePath);
+    console.log('文件名:', fileName);
+    
+    wx.saveFileToPick({
+      filePath: tempFilePath,
+      fileName: fileName,
+      success: (res) => {
+        console.log('wx.saveFileToPick 成功:', res);
+        resolve(res.savedFilePath || res.filePath || tempFilePath);
+      },
+      fail: (err) => {
+        console.error('wx.saveFileToPick 失败:', err);
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * 备用方案：使用分享功能保存文件
+ * @param {string} filePath - 文件路径
+ * @param {string} fileName - 文件名
+ * @param {Object} fs - 文件系统管理器
+ * @returns {Promise<void>}
+ */
+function shareFileFallback(filePath, fileName, fs) {
+  return new Promise((resolve, reject) => {
+    if (typeof wx.shareFileMessage !== 'function') {
+      reject(new Error('wx.shareFileMessage API 不可用'));
+      return;
+    }
+    
+    console.log('准备通过分享方式保存文件...');
+    
+    // 直接调用分享，不再显示额外的提示框（已经在上层显示过了）
+    wx.shareFileMessage({
+      filePath: filePath,
+      fileName: fileName,
+      success: () => {
+        console.log('文件分享成功');
+        // 延迟5秒后删除临时文件，确保传输完成
+        setTimeout(() => {
+          if (fs) {
+            fs.unlink({ 
+              filePath: filePath,
+              success: () => console.log('临时文件已清理'),
+              fail: () => console.log('临时文件清理失败（可能仍在传输中）')
+            });
+          }
+        }, 5000);
+        resolve();
+      },
+      fail: (err) => {
+        console.error('文件分享失败:', err);
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * 通过分享方式保存文件（备用方案）
+ * @param {ArrayBuffer} data - 文件数据
+ * @param {string} fileName - 文件名
+ * @param {Function} reportProgress - 进度回调
+ * @returns {Promise<string>}
+ */
+function saveViaShare(data, fileName, reportProgress) {
+  return new Promise((resolve, reject) => {
+    // 使用 base64 编码保存到较小的临时文件
+    const fs = wx.getFileSystemManager();
+    const tempPath = `${wx.env.USER_DATA_PATH}/temp_${Date.now()}.pdf`;
+    
+    // 先尝试强力清理
+    cleanupAllExportFiles().then(() => {
+      fs.writeFile({
+        filePath: tempPath,
+        data: data,
+        success: () => {
+          reportProgress(100, '请选择保存方式');
+          
+          // 提示用户通过分享保存
+          wx.showModal({
+            title: '存储空间不足',
+            content: 'PDF已生成，请通过"发送给朋友"或"保存到微信收藏"来保存文件',
+            confirmText: '分享文件',
+            cancelText: '取消',
+            success: (res) => {
+              if (res.confirm) {
+                wx.shareFileMessage({
+                  filePath: tempPath,
+                  success: () => {
+                    // 分享成功后删除临时文件
+                    fs.unlink({ filePath: tempPath, fail: () => {} });
+                    resolve(tempPath);
+                  },
+                  fail: (err) => {
+                    reject(new Error('分享失败: ' + readableError(err)));
+                  }
+                });
+              } else {
+                reject(new Error('用户取消保存'));
+              }
+            }
+          });
+        },
+        fail: (err) => {
+          reject(new Error('存储空间严重不足，无法生成PDF文件。请清理微信存储空间后重试。'));
+        }
+      });
+    });
+  });
+}
+
+/**
+ * 强制清理所有导出相关的临时文件
+ * @returns {Promise<void>}
+ */
+function cleanupAllExportFiles() {
+  return new Promise((resolve) => {
+    const fs = wx.getFileSystemManager();
+    const userDataPath = wx.env.USER_DATA_PATH;
+    
+    fs.readdir({
+      dirPath: userDataPath,
+      success: (res) => {
+        const files = res.files || [];
+        const exportFiles = files.filter(name => {
+          const n = name.toLowerCase();
+          return n.endsWith('.pdf') || 
+                 n.endsWith('.png') || 
+                 n.endsWith('.jpg') ||
+                 n.startsWith('notation_') ||
+                 n.startsWith('export_') ||
+                 n.startsWith('temp_');
+        });
+        
+        if (exportFiles.length === 0) {
+          resolve();
+          return;
+        }
+        
+        console.log(`清理 ${exportFiles.length} 个导出临时文件...`);
+        let completed = 0;
+        
+        exportFiles.forEach(fileName => {
+          fs.unlink({
+            filePath: `${userDataPath}/${fileName}`,
+            complete: () => {
+              completed++;
+              if (completed >= exportFiles.length) {
+                console.log('临时文件清理完成');
+                resolve();
+              }
+            }
+          });
+        });
+      },
+      fail: () => resolve()
+    });
+  });
 }
 
 /**
@@ -1246,7 +1971,7 @@ function readFileAsArrayBuffer(filePath) {
       filePath: filePath,
       encoding: '', // 不指定编码，返回 ArrayBuffer
       success: (res) => {
-        console.log('文件读取成功，数据类型:', typeof res.data, res.data instanceof ArrayBuffer);
+        // 不打印 res.data 避免真机调试内存溢出
         resolve(res.data);
       },
       fail: (err) => {

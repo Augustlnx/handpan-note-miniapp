@@ -375,6 +375,28 @@
   align-items: center;
 }
 
+/* 谱面区域五音/拍样式 */
+.segment-pattern .quintuplet-note-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.segment-pattern .quintuplet-note-wrapper .underline {
+  position: absolute;
+  bottom: -8rpx;
+  left: -4rpx;
+  width: calc(200% + 8rpx);
+  height: 4rpx;
+  background: #314D63;
+  border-radius: 2rpx;
+}
+
+.segment-pattern .quintuplet-note-wrapper.linked {
+  margin-right: 0;
+}
+
 .note {
   width: 28rpx;
   height: 28rpx;
@@ -809,6 +831,51 @@
   font-size: 28rpx;
   color: #000000;
   line-height: 1.5;
+}
+
+/* 五音/拍节奏显示样式 */
+.quintuplet-pattern {
+  display: flex;
+  gap: 4rpx;
+}
+
+.quintuplet-note-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.quintuplet-note-wrapper .note,
+.quintuplet-note-wrapper .rest {
+  width: 16rpx;
+  height: 16rpx;
+}
+
+.quintuplet-note-wrapper .note {
+  border-radius: 50%;
+  background: #314D63;
+}
+
+.quintuplet-note-wrapper .rest {
+  height: 4rpx;
+  background: #314D63;
+  align-self: center;
+  margin-top: 6rpx;
+}
+
+.quintuplet-note-wrapper .underline {
+  position: absolute;
+  bottom: -8rpx;
+  left: -2rpx;
+  width: calc(200% + 4rpx);
+  height: 4rpx;
+  background: #314D63;
+  border-radius: 2rpx;
+}
+
+.quintuplet-note-wrapper.linked {
+  margin-right: 0;
 }
 
 .manual-pattern {

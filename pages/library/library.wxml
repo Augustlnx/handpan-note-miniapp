@@ -43,16 +43,16 @@
 
       <view class="action-buttons">
         <view class="action-btn" wx:if="{{currentPath.length > 0}}" bindtap="navigateBackFolder">
-          <image class="action-icon" src="/assets/icons/library/上一步_back.png" mode="aspectFit"></image>
+          <image class="action-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
         </view>
         <view class="action-btn" bindtap="toggleSearchBar">
-          <image class="action-icon" src="/assets/icons/library/搜索_search.png" mode="aspectFit"></image>
+          <image class="action-icon" src="/subpackages/resources/icons/library/搜索_search.png" mode="aspectFit"></image>
         </view>
         <view class="action-btn" bindtap="toggleSortMenu">
-          <image class="action-icon" src="/assets/icons/library/排序_sort.png" mode="aspectFit"></image>
+          <image class="action-icon" src="/subpackages/resources/icons/library/排序_sort.png" mode="aspectFit"></image>
         </view>
         <view class="action-btn" bindtap="toggleEditMode">
-          <image class="action-icon" src="/assets/icons/library/更多_more-app.png" mode="aspectFit"></image>
+          <image class="action-icon" src="/subpackages/resources/icons/library/更多_more-app.png" mode="aspectFit"></image>
           <text class="action-text">{{editMode ? '完成' : '批量编辑'}}</text>
         </view>
       </view>
@@ -92,7 +92,7 @@
           <view class="item-checkbox" wx:if="{{editMode}}" catchtap="toggleSelect" data-id="{{item.id}}">
             <view class="checkbox {{item.selected ? 'checked' : ''}}"></view>
           </view>
-            <image class="item-icon-img" src="/assets/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
+            <image class="item-icon-img" src="/subpackages/resources/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
           <view class="item-info">
             <text class="item-name">{{item.name}}</text>
             <text class="item-detail">{{item.fileCount || 0}} 个项目</text>
@@ -112,11 +112,11 @@
           <view class="file-icon">♪</view>
           <view class="item-info">
             <text class="item-name">{{item.file_name}}</text>
-            <text class="item-detail">{{item.tempo}} BPM · {{item.timing}} · {{item.subtitle}}</text>
+            <text class="item-detail">{{item.tempo}} | {{item.composer || 'Unknown'}} | {{item.rootNote || 'D'}}-{{item.scaleType ? (item.scaleType.indexOf(' / ') > -1 ? item.scaleType.split(' / ')[0] : item.scaleType) : 'Kurd'}} {{item.noteCount || 10}}音</text>
           </view>
           <view class="item-star" wx:if="{{item.starred}}" catchtap="toggleStar" data-id="{{item.id}}">
             <!-- emoji占位，后续替换为图片: star.png -->
-            <image class="star-icon-img" src="/assets/icons/library/星星_star.png" mode="aspectFit"></image>
+            <image class="star-icon-img" src="/subpackages/resources/icons/library/星星_star.png" mode="aspectFit"></image>
           </view>
           <view class="item-actions" wx:if="{{!editMode}}" catchtap="showFileMenu" data-item="{{item}}">
             <text class="more-icon">⋯</text>
@@ -129,11 +129,11 @@
       <text class="selected-count">已选择 {{selectedCount}} 项</text>
       <view class="batch-actions">
         <view class="batch-btn" bindtap="batchDelete">
-          <image class="batch-icon" src="/assets/icons/library/file_delete.png" mode="aspectFit"></image>
+          <image class="batch-icon" src="/assets/icons/file_delete.svg" mode="aspectFit"></image>
           <text>删除</text>
         </view>
         <view class="batch-btn" bindtap="batchMove">
-          <image class="batch-icon" src="/assets/icons/library/file-conversion-folder.png" mode="aspectFit"></image>
+          <image class="batch-icon" src="/subpackages/resources/icons/library/file-conversion-folder.png" mode="aspectFit"></image>
           <text>移动</text>
         </view>
       </view>
@@ -143,7 +143,7 @@
   <!-- 公开曲库（开发中） -->
       <view class="library-content public-library" wx:if="{{activeTab === 'public'}}">
         <view class="dev-notice">
-          <image class="dev-icon" src="/assets/icons/library/工程车_engineering-vehicle.png" mode="aspectFit"></image>
+          <image class="dev-icon" src="/subpackages/resources/icons/library/工程车_engineering-vehicle.png" mode="aspectFit"></image>
           <text class="dev-text">作者买不起数据库，公开曲库不正在开发中...</text>
           <text class="dev-subtitle">敬请不期待</text>
         </view>
@@ -153,16 +153,16 @@
         <view class="fab-menu" wx:if="{{showFabMenu}}">
           <view class="fab-menu-item" bindtap="addNewFile">
             <text class="fab-menu-label">新建文件</text>
-            <image class="fab-menu-icon-img" src="/assets/icons/library/file-addition.png" mode="aspectFit"></image>
+            <image class="fab-menu-icon-img" src="/subpackages/resources/icons/library/file-addition.png" mode="aspectFit"></image>
           </view>
           <view class="fab-menu-item" bindtap="addNewFolder">
             <text class="fab-menu-label">新建文件夹</text>
-            <image class="fab-menu-icon-img" src="/assets/icons/library/folder-plus.png" mode="aspectFit"></image>
+            <image class="fab-menu-icon-img" src="/subpackages/resources/icons/library/folder-plus.png" mode="aspectFit"></image>
           </view>
           
         </view>
         <view class="fab-button {{showFabMenu ? 'active' : ''}}" bindtap="toggleFabMenu">
-          <text class="fab-button-text">+</text>
+          <image class="fab-button-icon" src="/subpackages/resources/icons/library/加_plus.svg" mode="aspectFit"></image>
         </view>
       </view>
 
@@ -176,7 +176,7 @@
     </view>
   </view>
 
-  <!-- 输入框弹窗（重命名/新建） -->
+  <!-- 输入框弹窗（重命名/新建文件夹） -->
   <view class="modal-mask" wx:if="{{showInputModal}}" bindtap="closeInputModal">
     <view class="input-modal" catchtap="stopPropagation">
       <text class="modal-title">{{inputModalTitle}}</text>
@@ -188,17 +188,108 @@
     </view>
   </view>
 
+  <!-- 新建文件弹窗（完整信息） -->
+  <view class="modal-mask" wx:if="{{showNewFileModal}}" bindtap="closeNewFileModal">
+    <view class="input-modal new-file-modal" catchtap="stopPropagation">
+      <scroll-view scroll-y class="new-file-scroll">
+        <text class="modal-title">新建曲谱文件</text>
+        
+        <view class="form-group">
+          <text class="form-label">文件名 *</text>
+          <input class="form-input" placeholder="输入文件名" bindinput="onNewFileNameInput" value="{{newFileData.file_name}}" />
+        </view>
+        
+        <view class="form-group">
+          <text class="form-label">曲谱标题</text>
+          <input class="form-input" placeholder="曲谱标题" bindinput="onNewFileTitleInput" value="{{newFileData.title}}" />
+        </view>
+        
+        <view class="form-group">
+          <text class="form-label">副标题</text>
+          <input class="form-input" placeholder="Author: Unknown" bindinput="onNewFileSubtitleInput" value="{{newFileData.subtitle}}" />
+        </view>
+        
+        <view class="form-group">
+          <text class="form-label">制谱人</text>
+          <input class="form-input" placeholder="Your Name" bindinput="onNewFileComposerInput" value="{{newFileData.composer}}" />
+        </view>
+        
+        <view class="form-row">
+          <view class="form-col">
+            <text class="form-label">主音</text>
+            <picker mode="selector" range="{{rootNoteOptions}}" value="{{rootNoteOptions.indexOf(newFileData.rootNote)}}" bindchange="onNewFileRootNoteChange">
+              <view class="picker-value">{{newFileData.rootNote}} ▼</view>
+            </picker>
+          </view>
+          <view class="form-col">
+            <text class="form-label">调式</text>
+            <picker mode="selector" range="{{scaleTypeDisplayOptions}}" value="{{scaleTypeOptions.indexOf(newFileData.scaleType)}}" bindchange="onNewFileScaleTypeChange">
+              <view class="picker-value">{{newFileData.scaleType ? (newFileData.scaleType.indexOf(' / ') > -1 ? newFileData.scaleType.split(' / ')[0] : newFileData.scaleType) : 'Kurd'}} ▼</view>
+            </picker>
+          </view>
+        </view>
+        
+        <view class="form-row">
+          <view class="form-col">
+            <text class="form-label">音位数</text>
+            <picker mode="selector" range="{{noteCountOptions}}" value="{{noteCountOptions.indexOf(newFileData.noteCount)}}" bindchange="onNewFileNoteCountChange">
+              <view class="picker-value">{{newFileData.noteCount}}音 ▼</view>
+            </picker>
+          </view>
+          <view class="form-col">
+            <text class="form-label">速度</text>
+            <input class="form-input" type="number" placeholder="60" bindinput="onNewFileTempoInput" value="{{newFileData.tempo}}" />
+          </view>
+        </view>
+        
+        <view class="form-row">
+          <view class="form-col">
+            <text class="form-label">拍号</text>
+            <picker mode="selector" range="{{timingOptions}}" value="{{timingOptions.indexOf(newFileData.timing)}}" bindchange="onNewFileTimingChange">
+              <view class="picker-value">{{newFileData.timing}} ▼</view>
+            </picker>
+          </view>
+          <view class="form-col">
+            <text class="form-label">谱式</text>
+            <picker mode="selector" range="{{notationTypeOptions}}" value="{{notationTypeOptions.indexOf(newFileData.notationType)}}" bindchange="onNewFileNotationTypeChange">
+              <view class="picker-value">{{newFileData.notationType === 'simplified' ? '简谱' : '数字谱'}} ▼</view>
+            </picker>
+          </view>
+        </view>
+        
+        <view class="form-group">
+          <text class="form-label">难度</text>
+          <view class="difficulty-stars-row">
+            <view wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="difficulty-star-item {{newFileData.difficulty >= item ? 'active' : ''}}" bindtap="onNewFileDifficultyTap" data-star="{{item}}">
+              <image src="/assets/icons/star.svg" mode="aspectFit" class="star-icon-small {{newFileData.difficulty >= item ? '' : 'star-inactive'}}"></image>
+            </view>
+          </view>
+        </view>
+        
+        <view class="form-group">
+          <text class="form-label">简介（选填）</text>
+          <textarea class="form-textarea" placeholder="曲谱简介..." bindinput="onNewFileIntroInput" value="{{newFileData.introduction}}" maxlength="200"></textarea>
+        </view>
+      </scroll-view>
+      
+      <view class="modal-buttons">
+        <button class="modal-btn cancel-btn" bindtap="closeNewFileModal">取消</button>
+        <button class="modal-btn confirm-btn" bindtap="confirmNewFile">创建</button>
+      </view>
+    </view>
+  </view>
+
   <!-- 文件夹选择器（移动文件时使用） -->
   <view class="modal-mask" wx:if="{{showFolderPicker}}" bindtap="closeFolderPicker">
     <view class="folder-picker" catchtap="stopPropagation">
       <text class="modal-title">选择目标文件夹</text>
       <scroll-view class="folder-list" scroll-y>
         <view class="folder-option" bindtap="selectTargetFolder" data-path="[]">
-          <image class="folder-icon-img" src="/assets/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
+          <image class="folder-icon-img" src="/subpackages/resources/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
           <text class="folder-name">主目录</text>
         </view>
         <view class="folder-option" wx:for="{{allFolders}}" wx:key="id" bindtap="selectTargetFolder" data-path="{{item.path}}">
-          <image class="folder-icon-img" src="/assets/icons/library/文件夹-开_folder-open.png" mode="aspectFit"></image>
+          <image class="folder-icon-img" src="/assets/icons/文件夹-开_folder-open.png" mode="aspectFit"></image>
           <text class="folder-name">{{item.displayPath}}</text>
         </view>
       </scroll-view>
@@ -230,14 +321,14 @@
       </view>
       <view class="save-action-bar" wx:if="{{importFolderCurrentPath.length > 0}}">
         <view class="save-back-btn" bindtap="backImportFolder">
-          <image class="save-back-icon" src="/assets/icons/library/上一步_back.png" mode="aspectFit"></image>
+          <image class="save-back-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
         </view>
       </view>
 
       <scroll-view class="save-folder-list" scroll-y>
         <block wx:for="{{importFolderItems}}" wx:key="id">
           <view class="save-list-item save-folder-item" wx:if="{{item.type === 'folder'}}" bindtap="enterImportFolder" data-item="{{item}}">
-            <image class="save-item-icon" src="/assets/icons/library/文件夹-开_folder-open.png" mode="aspectFit"></image>
+            <image class="save-item-icon" src="/assets/icons/文件夹-开_folder-open.png" mode="aspectFit"></image>
             <view class="save-item-info">
               <text class="save-item-name">{{item.name}}</text>
               <text class="save-item-detail">{{item.fileCount || 0}} 个项目</text>

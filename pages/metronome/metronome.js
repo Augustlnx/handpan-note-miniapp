@@ -1,5 +1,8 @@
 // metronome.js - 微信小程序版本
 
+// 引入 Web Audio 管理器
+const { webAudioManager } = require('../../utils/webAudioManager.js');
+
 // 节奏字母映射表 - 一拍四音(十六分音符)
 const RHYTHM_MAP_4 = {
   'A': [1, 0, 0, 0], 'B': [0, 1, 0, 0], 'C': [0, 0, 1, 0], 'D': [0, 0, 0, 1],
@@ -14,9 +17,19 @@ const RHYTHM_MAP_3 = {
   'U': [0, 1, 1], 'V': [1, 0, 1], 'W': [1, 1, 1], 'X': [0, 0, 0]
 };
 
-// 节奏字母映射表 - 一拍五音(五连音) - 组合太多，用户自定义
+// 节奏字母映射表 - 一拍五音(五连音)
+// 正确理解：一拍 = 3个16分音符 + 2个连着的32分音符
+// 用 [音符, 音符, ...] 表示，其中连着的两个32分音符用特殊标记
+// timing 数组表示每个音符的时值：1=16分音符，0.5=32分音符
 const RHYTHM_MAP_5 = {
-  // 五连音组合由用户通过添加片段自定义
+  // 32分音符对在位置1（第1、2个音是32分音符）
+  '①': { notes: [1, 1, 1, 1, 1], timing: [0.5, 0.5, 1, 1, 1], linkedPair: 0 },
+  // 32分音符对在位置2（第2、3个音是32分音符）
+  '②': { notes: [1, 1, 1, 1, 1], timing: [1, 0.5, 0.5, 1, 1], linkedPair: 1 },
+  // 32分音符对在位置3（第3、4个音是32分音符）
+  '③': { notes: [1, 1, 1, 1, 1], timing: [1, 1, 0.5, 0.5, 1], linkedPair: 2 },
+  // 32分音符对在位置4（第4、5个音是32分音符）
+  '④': { notes: [1, 1, 1, 1, 1], timing: [1, 1, 1, 0.5, 0.5], linkedPair: 3 }
 };
 
 // 常见节奏练习片段库 - 按类别分组
@@ -141,7 +154,15 @@ Page({
     tapTimes: [],
     
     // 节奏练习器标签页
-    rhythmActiveTab: 'play'
+    rhythmActiveTab: 'play',
+    // 分包图片重试标志
+    retryRadio: false,
+    retryHeadphone: false,
+    retryRecord: false,
+    retryPlayPause: false,
+    retryCube: false,
+    retryWriting: false,
+    // ...如有其它分包图片可继续添加
   },
 
   // ========== 生命周期函数 ==========
@@ -159,96 +180,125 @@ Page({
     
     // 初始化模式检测
     this.checkMetronomeMode();
+
+    // 1秒后重试加载失败的分包图片
+    setTimeout(() => {
+      if (this.data.retryRadio) {
+        this.setData({
+          radioImgSrc: '/subpackages/resources/icons/metronome/radio.png?t=' + Date.now(),
+          retryRadio: false
+        });
+      }
+      if (this.data.retryHeadphone) {
+        this.setData({
+          headphoneImgSrc: '/subpackages/resources/icons/metronome/耳机声音_headphone-sound.png?t=' + Date.now(),
+          retryHeadphone: false
+        });
+      }
+      if (this.data.retryRecord) {
+        this.setData({
+          recordImgSrc: '/subpackages/resources/icons/metronome/唱片集_record.png?t=' + Date.now(),
+          retryRecord: false
+        });
+      }
+      if (this.data.retryPlayPause) {
+        this.setData({
+          playPauseImgSrc: (this.data.isMetronomeMode ? '/subpackages/resources/icons/metronome/暂停_pause-one.png' : '/subpackages/resources/icons/metronome/播放_play.png') + '?t=' + Date.now(),
+          retryPlayPause: false
+        });
+      }
+      if (this.data.retryCube) {
+        this.setData({
+          cubeImgSrc: '/subpackages/resources/icons/metronome/魔方_cube-five.png?t=' + Date.now(),
+          retryCube: false
+        });
+      }
+      if (this.data.retryWriting) {
+        this.setData({
+          writingImgSrc: '/subpackages/resources/icons/metronome/编辑撰写_writing-fluently.png?t=' + Date.now(),
+          retryWriting: false
+        });
+      }
+    }, 1000);
+  },
+
+  // 图片加载失败重试处理
+  onImgError(e) {
+    const type = e.currentTarget.dataset.type;
+    switch(type) {
+      case 'radio':
+        this.setData({ retryRadio: true });
+        break;
+      case 'headphone':
+        this.setData({ retryHeadphone: true });
+        break;
+      case 'record':
+        this.setData({ retryRecord: true });
+        break;
+      case 'playpause':
+        this.setData({ retryPlayPause: true });
+        break;
+      case 'cube':
+        this.setData({ retryCube: true });
+        break;
+      case 'writing':
+        this.setData({ retryWriting: true });
+        break;
+    }
   },
 
   onReady() {
     // 预加载播放/暂停图标，避免首次切换显示延迟
     const icons = [
-      '/assets/icons/metronome/播放_play.png',
-      '/assets/icons/metronome/暂停_pause-one.png'
+      '/subpackages/resources/icons/metronome/播放_play.png',
+      '/subpackages/resources/icons/metronome/暂停_pause-one.png'
     ];
     icons.forEach(src => {
-      try {
-        wx.getImageInfo({ src });
-      } catch (e) {
-        // 忽略预加载错误，保证不影响主流程
-        console.warn('预加载图标失败:', src, e);
-      }
+      wx.getImageInfo({ 
+        src,
+        fail: () => {
+          // 忽略预加载错误
+        }
+      });
     });
-
-    // 预加载音频，避免预热第一个音卡顿
-    if (this.click1Audio) {
-      this.click1Audio.volume = 0;
-      this.click1Audio.play();
-      setTimeout(() => {
-        this.click1Audio.pause();
-        this.click1Audio.volume = 1;
-      }, 100);
-    }
-    if (this.click2Audio) {
-      this.click2Audio.volume = 0;
-      this.click2Audio.play();
-      setTimeout(() => {
-        this.click2Audio.pause();
-        this.click2Audio.volume = 1;
-      }, 100);
-    }
-    if (this.metronomeAudio) {
-      this.metronomeAudio.volume = 0;
-      this.metronomeAudio.play();
-      setTimeout(() => {
-        this.metronomeAudio.pause();
-        this.metronomeAudio.volume = 1;
-      }, 100);
-    }
+    
+    // 注意：音频预加载已移至 preloadFallbackAudio 和 initWebAudio
+    // 这里不再重复预加载，避免在音频上下文未准备好时报错
   },
 
-  // 初始化音频
+  // 初始化音频 - 使用音频池管理器
   initAudio() {
-    // 主音（1200Hz，清脆“哒”声）
-    this.click1Audio = wx.createInnerAudioContext();
-    this.click1Audio.src = '/assets/audio/click1_主音.wav';
+    // 标记音频系统是否可用
+    this.audioReady = false;
     
-    // 主音备用（用于同时播放时避免冲突）
-    this.click1AudioAlt = wx.createInnerAudioContext();
-    this.click1AudioAlt.src = '/assets/audio/click1_主音.wav';
-    
-    // 辅助音（800Hz，柔和“滴”声）
-    this.click2Audio = wx.createInnerAudioContext();
-    this.click2Audio.src = '/assets/audio/click2_辅助音.wav';
-    this.click2Audio.volume = 0.5; // 辅助音音量稍低
-    
-    // 背景节拍器（600Hz，低沉“咚”声）
-    this.click3Audio = wx.createInnerAudioContext();
-    this.click3Audio.src = '/assets/audio/click3_背景节拍.wav';
-    
-    // 记录主音使用哪个实例，交替使用避免冲突
-    this.useAltClick1 = false;
-    
-    // 预载音频：静音播放一次以加载到内存
-    this.preloadAudio();
+    // 初始化音频池管理器
+    this.initAudioPool();
   },
 
-  // 预载音频避免首次播放卡顿
-  preloadAudio() {
-    const preload = (audio) => {
-      if (!audio) return;
-      const originalVolume = audio.volume;
-      audio.volume = 0;
-      audio.play();
-      setTimeout(() => {
-        audio.stop();
-        audio.volume = originalVolume;
-      }, 50);
-    };
-    
-    // 延迟预载，避免影响页面加载
-    setTimeout(() => {
-      preload(this.click1Audio);
-      preload(this.click1AudioAlt);
-      preload(this.click2Audio);
-      preload(this.click3Audio);
-    }, 500);
+  // 初始化音频池
+  async initAudioPool() {
+    try {
+      const initSuccess = await webAudioManager.init();
+      if (!initSuccess) {
+        console.error('[Metronome] 音频池初始化失败');
+        return;
+      }
+      
+      // 预加载所有音频
+      const loadSuccess = await webAudioManager.preloadAllAudio();
+      if (!loadSuccess) {
+        console.warn('[Metronome] 音频预加载未完全成功，但继续使用');
+      }
+      
+      this.audioReady = true;
+      // 保持兼容性
+      this.useWebAudio = true;
+      console.log('[Metronome] 音频池初始化成功');
+    } catch (e) {
+      console.error('[Metronome] 音频初始化异常: ' + (e.message || e));
+      this.audioReady = false;
+      this.useWebAudio = false;
+    }
   },
 
   // 初始化带节奏图形的库
@@ -278,22 +328,11 @@ Page({
   },
 
   onUnload() {
-    // 销毁音频上下文，添加安全检查
+    // 销毁音频池管理器
     try {
-      if (this.click1Audio && typeof this.click1Audio.destroy === 'function') {
-        this.click1Audio.destroy();
-      }
-      if (this.click1AudioAlt && typeof this.click1AudioAlt.destroy === 'function') {
-        this.click1AudioAlt.destroy();
-      }
-      if (this.click2Audio && typeof this.click2Audio.destroy === 'function') {
-        this.click2Audio.destroy();
-      }
-      if (this.click3Audio && typeof this.click3Audio.destroy === 'function') {
-        this.click3Audio.destroy();
-      }
+      webAudioManager.destroy();
     } catch (e) {
-      console.warn('销毁音频上下文失败:', e);
+      console.warn('销毁音频管理器失败: ' + (e.message || e));
     }
     
     if (this.playTimer) {
@@ -359,7 +398,7 @@ Page({
         console.log('振动成功');
       },
       fail: (err) => {
-        console.log('振动失败', err);
+        console.log('振动失败: ' + (err.errMsg || err));
       }
     });
   },
@@ -476,38 +515,17 @@ Page({
 
   playMetBeat() {
     const isStrong = this.data.metCurrentBeat === 0;
-    // 播放节拍器音频，带简单重试以提高首次播放可靠性
-    const tryPlay = () => {
-      try {
-        if (isStrong && this.click1Audio) {
-          // 强拍使用主音
-          this.click1Audio.seek(0);
-          this.click1Audio.play();
-        } else if (this.click3Audio) {
-          // 弱拍使用背景节拍音
-          this.click3Audio.seek(0);
-          this.click3Audio.play();
-        }
-      } catch (e) {
-        console.error('播放节拍器音频失败，尝试重试:', e);
-        // 小延迟后再尝试一次（仅一轮重试）
-        setTimeout(() => {
-          try {
-            if (isStrong && this.click1Audio) {
-              this.click1Audio.seek(0);
-              this.click1Audio.play();
-            } else if (this.click3Audio) {
-              this.click3Audio.seek(0);
-              this.click3Audio.play();
-            }
-          } catch (e2) {
-            console.error('重试播放节拍器失败:', e2);
-          }
-        }, 30);
+    
+    // 使用音频池管理器播放
+    if (this.audioReady && webAudioManager.isReady()) {
+      if (isStrong) {
+        webAudioManager.play('click1');
+      } else {
+        webAudioManager.play('click3');
       }
-    };
-
-    tryPlay();
+    } else {
+      console.warn('[Metronome] 音频未就绪，跳过播放');
+    }
   },
 
   updateMetVisual() {
@@ -552,6 +570,18 @@ Page({
     bpm = Math.max(40, Math.min(240, bpm));
     // 同步更新节拍器BPM
     this.setData({ bpm, metBpm: bpm });
+    // 显示底部导航栏
+    this.onInputBlur();
+  },
+
+  // 输入框获得焦点时隐藏底部导航栏
+  onInputFocus() {
+    wx.hideTabBar({ animation: true });
+  },
+
+  // 输入框失去焦点时显示底部导航栏
+  onInputBlur() {
+    wx.showTabBar({ animation: true });
   },
 
   onTapTempo() {
@@ -700,22 +730,39 @@ Page({
     if (!this.data.isPlaying) return;
     
     const secondsPerBeat = 60.0 / this.data.bpm;
-    let notesPerBeat = 4; // 默认四音/拍
+    let interval;
     
     if (this.data.isWarmup) {
       this.playWarmupNote();
+      // 预热阶段使用四音/拍
+      interval = (secondsPerBeat / 4) * 1000;
     } else {
-      // 根据当前片段的节奏长度计算间隔
+      // 根据当前片段的节奏长度和timing计算间隔
       const segmentIndex = this.currentSegmentIndex;
       if (segmentIndex < this.data.pattern.length) {
         const segment = this.data.pattern[segmentIndex];
-        notesPerBeat = segment.rhythm.length;
+        const noteIndex = this.currentNoteInSegment;
+        
+        // 如果有timing信息（五音/拍），使用timing计算间隔
+        if (segment.timing && segment.timing.length > 0) {
+          // timing中：1=16分音符，0.5=32分音符
+          // 一拍 = 4个16分音符的时值
+          // 16分音符时值 = secondsPerBeat / 4
+          const sixteenthNote = secondsPerBeat / 4;
+          const currentTiming = segment.timing[noteIndex] || 1;
+          interval = sixteenthNote * currentTiming * 1000;
+        } else {
+          // 普通节奏：均分时值
+          const notesPerBeat = segment.rhythm.length;
+          interval = (secondsPerBeat / notesPerBeat) * 1000;
+        }
+      } else {
+        interval = (secondsPerBeat / 4) * 1000;
       }
+      
       this.playCurrentNote();
       this.nextNote();
     }
-    
-    const interval = (secondsPerBeat / notesPerBeat) * 1000;
     
     // 设置下一个 tick
     this.playTimeout = setTimeout(() => {
@@ -731,25 +778,16 @@ Page({
     this.setData({ warmupBeat: beatIndex });
     
     // 播放预热音（A节奏：1000 - 只在第一个十六分音符响）
-    // 注意：预热的第一拍需要在warmupCounter >= 0时播放
     if (noteIndex === 0) {
-      // 播放背景节拍（每拍的第一个音）
-      if (this.data.metronome && this.click3Audio) {
-        try {
-          this.click3Audio.seek(0);
-          this.click3Audio.play();
-        } catch (e) {
-          console.warn('背景节拍播放失败:', e);
+      // 使用音频池管理器播放
+      if (this.audioReady && webAudioManager.isReady()) {
+        const sounds = [{ name: 'click1' }];
+        if (this.data.metronome) {
+          sounds.push({ name: 'click3' });
         }
-      }
-      // 播放主音
-      if (this.click1Audio) {
-        try {
-          this.click1Audio.seek(0);
-          this.click1Audio.play();
-        } catch (e) {
-          console.warn('主音播放失败:', e);
-        }
+        webAudioManager.playMultiple(sounds);
+      } else {
+        console.warn('[Metronome] 音频未就绪，跳过预热音');
       }
     }
     
@@ -788,30 +826,27 @@ Page({
     const noteIndex = this.currentNoteInSegment;
     const isNote = rhythm[noteIndex] === 1;
     
-    // 播放音频 - 使用交替音频实例避免同时播放冲突
-    try {
-      // 先播放背景节拍（如果是每拍开头）
-      if (this.data.metronome && noteIndex === 0 && this.click3Audio) {
-        this.click3Audio.seek(0);
-        this.click3Audio.play();
+    // 使用音频池管理器播放
+    if (this.audioReady && webAudioManager.isReady()) {
+      const sounds = [];
+      
+      // 背景节拍（每拍开头）
+      if (this.data.metronome && noteIndex === 0) {
+        sounds.push({ name: 'click3' });
       }
       
-      // 再播放主音或辅助音（使用交替实例避免冲突）
+      // 主音或辅助音
       if (isNote && this.data.mainSound) {
-        if (this.useAltClick1 && this.click1AudioAlt) {
-          this.click1AudioAlt.seek(0);
-          this.click1AudioAlt.play();
-        } else if (this.click1Audio) {
-          this.click1Audio.seek(0);
-          this.click1Audio.play();
-        }
-        this.useAltClick1 = !this.useAltClick1;
-      } else if (!isNote && this.data.ghostNote && this.data.mainSound && this.click2Audio) {
-        this.click2Audio.seek(0);
-        this.click2Audio.play();
+        sounds.push({ name: 'click1' });
+      } else if (!isNote && this.data.ghostNote && this.data.mainSound) {
+        sounds.push({ name: 'click2' });
       }
-    } catch (e) {
-      console.error('播放音频失败:', e);
+      
+      if (sounds.length > 0) {
+        webAudioManager.playMultiple(sounds);
+      }
+    } else {
+      console.warn('[Metronome] 音频未就绪，跳过播放');
     }
     
     // 更新视觉
@@ -904,47 +939,95 @@ Page({
   },
 
   updateLetterOptions() {
-    let map;
+    let options = [];
     if (this.data.rhythmType === '4') {
-      map = RHYTHM_MAP_4;
+      options = Object.keys(RHYTHM_MAP_4).map(letter => ({
+        letter,
+        rhythm: RHYTHM_MAP_4[letter],
+        timing: null
+      }));
     } else if (this.data.rhythmType === '3') {
-      map = RHYTHM_MAP_3;
+      options = Object.keys(RHYTHM_MAP_3).map(letter => ({
+        letter,
+        rhythm: RHYTHM_MAP_3[letter],
+        timing: null
+      }));
     } else {
-      map = RHYTHM_MAP_5; // 五连音为空，用户自定义
+      // 五音/拍：4个模板
+      options = Object.keys(RHYTHM_MAP_5).map(letter => ({
+        letter,
+        rhythm: RHYTHM_MAP_5[letter].notes,
+        timing: RHYTHM_MAP_5[letter].timing,
+        linkedPair: RHYTHM_MAP_5[letter].linkedPair
+      }));
     }
-    const options = Object.keys(map).map(letter => ({
-      letter,
-      rhythm: map[letter]
-    }));
     this.setData({ letterOptions: options });
   },
 
   onAddLetter(e) {
     const letter = e.currentTarget.dataset.letter;
-    const map = this.data.rhythmType === '4' ? RHYTHM_MAP_4 : RHYTHM_MAP_3;
-    const rhythm = map[letter];
+    let rhythm, timing, linkedPair;
+    
+    if (this.data.rhythmType === '4') {
+      rhythm = RHYTHM_MAP_4[letter];
+      timing = null;
+      linkedPair = null;
+    } else if (this.data.rhythmType === '3') {
+      rhythm = RHYTHM_MAP_3[letter];
+      timing = null;
+      linkedPair = null;
+    } else {
+      // 五音/拍
+      const mapItem = RHYTHM_MAP_5[letter];
+      if (mapItem) {
+        rhythm = mapItem.notes;
+        timing = mapItem.timing;
+        linkedPair = mapItem.linkedPair;
+      }
+    }
     
     if (rhythm) {
-      const manualPattern = [...this.data.manualPattern, { id: 'seg_' + (++this.segmentIdCounter), letter, rhythm: [...rhythm] }];
+      const newSegment = { 
+        id: 'seg_' + (++this.segmentIdCounter), 
+        letter, 
+        rhythm: [...rhythm],
+        timing: timing ? [...timing] : null,
+        linkedPair: linkedPair !== undefined ? linkedPair : null
+      };
+      const manualPattern = [...this.data.manualPattern, newSegment];
       this.setData({ manualPattern });
     }
   },
 
   onAddSegment() {
-    let defaultLetter, rhythm;
+    let defaultLetter, rhythm, timing, linkedPair;
     if (this.data.rhythmType === '4') {
       defaultLetter = 'P';
       rhythm = RHYTHM_MAP_4[defaultLetter];
+      timing = null;
+      linkedPair = null;
     } else if (this.data.rhythmType === '3') {
       defaultLetter = 'X';
       rhythm = RHYTHM_MAP_3[defaultLetter];
+      timing = null;
+      linkedPair = null;
     } else {
-      // 五连音默认添加全休止
-      defaultLetter = '○';
-      rhythm = [0, 0, 0, 0, 0];
+      // 五音/拍默认添加模板1（32分音符对在位置1）
+      defaultLetter = '①';
+      const mapItem = RHYTHM_MAP_5[defaultLetter];
+      rhythm = mapItem.notes;
+      timing = mapItem.timing;
+      linkedPair = mapItem.linkedPair;
     }
     
-    const manualPattern = [...this.data.manualPattern, { id: 'seg_' + (++this.segmentIdCounter), letter: defaultLetter, rhythm: [...rhythm] }];
+    const newSegment = { 
+      id: 'seg_' + (++this.segmentIdCounter), 
+      letter: defaultLetter, 
+      rhythm: [...rhythm],
+      timing: timing ? [...timing] : null,
+      linkedPair: linkedPair !== undefined ? linkedPair : null
+    };
+    const manualPattern = [...this.data.manualPattern, newSegment];
     this.setData({ manualPattern });
   },
 
@@ -956,23 +1039,44 @@ Page({
     const manualPattern = [...this.data.manualPattern];
     const segment = { ...manualPattern[segIndex] };
     const rhythm = [...segment.rhythm];
-    rhythm[noteIndex] = rhythm[noteIndex] === 1 ? 0 : 1;
     
-    // 查找对应的字母
-    const allMaps = { ...RHYTHM_MAP_4, ...RHYTHM_MAP_3 };
-    const newLetter = Object.keys(allMaps).find(key =>
-      JSON.stringify(allMaps[key]) === JSON.stringify(rhythm)
-    );
-    
-    // 更新节奏，即使没有对应字母也允许切换（五音/拍等自定义节奏）
-    if (newLetter) {
+    // 检查是否是五音/拍片段（有linkedPair属性）
+    if (segment.linkedPair !== null && segment.linkedPair !== undefined) {
+      // 五音/拍：点击时切换32分音符对的位置
+      const currentLinkedPair = segment.linkedPair;
+      // 循环切换位置：0->1->2->3->0
+      const newLinkedPair = (currentLinkedPair + 1) % 4;
+      
+      // 找到对应的模板
+      const templateLetters = ['①', '②', '③', '④'];
+      const newLetter = templateLetters[newLinkedPair];
+      const mapItem = RHYTHM_MAP_5[newLetter];
+      
       segment.letter = newLetter;
+      segment.rhythm = [...mapItem.notes];
+      segment.timing = [...mapItem.timing];
+      segment.linkedPair = mapItem.linkedPair;
     } else {
-      // 对于五音/拍等自定义节奏，用符号表示
-      const noteCount = rhythm.filter(n => n === 1).length;
-      segment.letter = noteCount > 0 ? '●' : '○';
+      // 普通节奏：切换音符/休止
+      rhythm[noteIndex] = rhythm[noteIndex] === 1 ? 0 : 1;
+      
+      // 查找对应的字母
+      const allMaps = { ...RHYTHM_MAP_4, ...RHYTHM_MAP_3 };
+      const newLetter = Object.keys(allMaps).find(key =>
+        JSON.stringify(allMaps[key]) === JSON.stringify(rhythm)
+      );
+      
+      // 更新节奏，即使没有对应字母也允许切换
+      if (newLetter) {
+        segment.letter = newLetter;
+      } else {
+        // 对于自定义节奏，用符号表示
+        const noteCount = rhythm.filter(n => n === 1).length;
+        segment.letter = noteCount > 0 ? '●' : '○';
+      }
+      segment.rhythm = rhythm;
     }
-    segment.rhythm = rhythm;
+    
     manualPattern[segIndex] = segment;
     this.setData({ manualPattern });
   },

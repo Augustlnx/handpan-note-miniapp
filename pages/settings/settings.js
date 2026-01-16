@@ -1,4 +1,5 @@
 const app = getApp();
+const libraryManager = require('../../utils/libraryManager');
 
 Page({
   data: {
@@ -187,6 +188,8 @@ Page({
         if (res.confirm) {
           try {
             wx.clearStorageSync();
+            // 重新初始化示例曲谱
+            libraryManager.initSampleData();
             wx.showToast({
               title: '缓存已清除，请重新启动小程序',
               icon: 'none',

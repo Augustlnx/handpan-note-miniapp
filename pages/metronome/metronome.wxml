@@ -37,7 +37,14 @@
               class="rhythm-segment {{currentSegment === index ? 'playing' : ''}} {{!animation ? 'no-animation' : ''}}"
               data-index="{{index}}">
           <view class="segment-letter">{{item.letter}}</view>
-          <view class="segment-pattern">
+          <view class="segment-pattern" wx:if="{{item.linkedPair !== null && item.linkedPair !== undefined}}">
+            <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
+                  class="quintuplet-note-wrapper {{item.linkedPair === noteIdx || item.linkedPair === noteIdx - 1 ? 'linked' : ''}}">
+              <view class="{{note === 1 ? 'note' : 'rest'}} {{currentSegment === index && currentNote === noteIdx ? 'active' : ''}} {{!animation ? 'no-animation' : ''}}"></view>
+              <view class="underline" wx:if="{{item.linkedPair === noteIdx}}"></view>
+            </view>
+          </view>
+          <view class="segment-pattern" wx:else>
             <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
                   class="{{note === 1 ? 'note' : 'rest'}} {{currentSegment === index && currentNote === noteIdx ? 'active' : ''}} {{!animation ? 'no-animation' : ''}}">
             </view>
@@ -57,7 +64,7 @@
       
         <!-- 拍号选择触发器 -->
         <view class="time-sig-trigger" bindtap="onOpenTimeSigModal">
-          <image class="time-sig-arrow" src="/assets/icons/metronome/radio.png" mode="aspectFit"></image>
+          <image class="time-sig-arrow" src="{{radioImgSrc || '/subpackages/resources/icons/metronome/radio.png'}}" mode="aspectFit" binderror="onImgError" data-type="radio"></image>
           <text class="time-sig-value">{{metBeatsLabel}}</text>
         </view>
         
@@ -73,17 +80,17 @@
     <view class="rhythm-tabs">
       <view class="rhythm-tab {{rhythmActiveTab === 'play' ? 'active' : ''}}" 
             data-tab="play" bindtap="onRhythmTabChange">
-        <image class="tab-icon" src="/assets/icons/metronome/耳机声音_headphone-sound.png" mode="aspectFit"></image>
+        <image class="tab-icon" src="{{headphoneImgSrc || '/subpackages/resources/icons/metronome/耳机声音_headphone-sound.png'}}" mode="aspectFit" binderror="onImgError" data-type="headphone"></image>
         <text>播放</text>
       </view>
       <view class="rhythm-tab {{rhythmActiveTab === 'edit' ? 'active' : ''}}" 
             data-tab="edit" bindtap="onRhythmTabChange">
-        <image class="tab-icon" src="/assets/icons/library/folder-rename.png" mode="aspectFit"></image>
+        <image class="tab-icon" src="/assets/icons/folder-rename.png" mode="aspectFit"></image>
         <text>编辑</text>
       </view>
       <view class="rhythm-tab {{rhythmActiveTab === 'library' ? 'active' : ''}}" 
             data-tab="library" bindtap="onRhythmTabChange">
-        <image class="tab-icon" src="/assets/icons/metronome/唱片集_record.png" mode="aspectFit"></image>
+        <image class="tab-icon" src="{{recordImgSrc || '/subpackages/resources/icons/metronome/唱片集_record.png'}}" mode="aspectFit" binderror="onImgError" data-type="record"></image>
         <text>节奏库</text>
       </view>
     </view>
@@ -106,7 +113,7 @@
             <!-- 中间：播放按钮 -->
             <view class="play-button-container">
               <view class="play-button-v2 {{(isMetronomeMode ? metIsPlaying : isPlaying) ? 'playing' : ''}}" bindtap="onTogglePlay">
-                <image class="play-icon" src="{{(isMetronomeMode ? metIsPlaying : isPlaying) ? '/assets/icons/metronome/暂停_pause-one.png' : '/assets/icons/metronome/播放_play.png'}}" mode="aspectFit"></image>
+                <image class="play-icon" src="{{playPauseImgSrc || ((isMetronomeMode ? metIsPlaying : isPlaying) ? '/subpackages/resources/icons/metronome/暂停_pause-one.png' : '/subpackages/resources/icons/metronome/播放_play.png')}}" mode="aspectFit" binderror="onImgError" data-type="playpause"></image>
               </view>
             </view>
 
@@ -147,7 +154,7 @@
           </view>
           <view class="speed-control-v2">
             <view class="speed-btn-v2" bindtap="onDecreaseSpeed">−</view>
-            <input class="speed-input-v2" type="number" value="{{bpm}}" bindinput="onBpmInput" bindblur="onBpmBlur"/>
+            <input class="speed-input-v2" type="number" value="{{bpm}}" bindinput="onBpmInput" bindfocus="onInputFocus" bindblur="onBpmBlur"/>
             <view class="speed-btn-v2" bindtap="onIncreaseSpeed">+</view>
           </view>
           
@@ -155,7 +162,7 @@
 
         <!-- 随机练习按钮 - 常驻显示 -->
         <view class="random-btn-v2 {{randomMode ? 'active' : ''}}" bindtap="onToggleRandom">
-          <image class="random-icon" src="/assets/icons/metronome/魔方_cube-five.png" mode="aspectFit"></image>
+          <image class="random-icon" src="{{cubeImgSrc || '/subpackages/resources/icons/metronome/魔方_cube-five.png'}}" mode="aspectFit" binderror="onImgError" data-type="cube"></image>
           <text>{{randomMode ? '退出随机练习' : '随机练习'}}</text>
           <view class="help-icon light" data-help="randomPractice" catchtap="onShowHelp">?</view>
         </view>
@@ -167,7 +174,7 @@
       <view class="edit-tab">
         <view class="edit-actions">
           <view class="edit-btn-v2 primary full-width" bindtap="onOpenEditor">
-            <image class="edit-btn-icon" src="/assets/icons/metronome/编辑撰写_writing-fluently.png" mode="aspectFit"></image>
+            <image class="edit-btn-icon" src="{{writingImgSrc || '/subpackages/resources/icons/metronome/编辑撰写_writing-fluently.png'}}" mode="aspectFit" binderror="onImgError" data-type="writing"></image>
             <text>编辑节奏</text>
           </view>
           <view class="edit-btn-v2" bindtap="onClearPattern">
@@ -188,7 +195,7 @@
         <view class="library-actions">
           <view class="library-btn-v2" bindtap="onOpenPersonalLibrary">
             <view class="library-btn-left">
-              <image class="library-btn-icon" src="/assets/icons/library/星星_star.png" mode="aspectFit"></image>
+              <image class="library-btn-icon" src="/subpackages/resources/icons/library/星星_star.png" mode="aspectFit"></image>
               <text>个人节奏库</text>
             </view>
             
@@ -201,7 +208,7 @@
             
           </view>
           <view class="random-btn-v2 {{randomMode ? 'active' : ''}}" bindtap="onToggleRandom">
-            <image class="random-icon" src="/assets/icons/metronome/魔方_cube-five.png" mode="aspectFit"></image>
+            <image class="random-icon" src="/subpackages/resources/icons/metronome//魔方_cube-five.png" mode="aspectFit"></image>
             <text>{{randomMode ? '退出随机练习' : '随机练习'}}</text>
             <view class="help-icon light" data-help="randomPractice" catchtap="onShowHelp">?</view>
           </view>
@@ -238,8 +245,8 @@
         </view>
         <!-- 五音/拍提示 -->
         <view class="quintuplet-hint" wx:if="{{rhythmType === '5'}}">
-          <text class="hint-icon"></text>
-          <text class="hint-text">五音/拍组合过多，请点击下方"添加片段"后，通过点击圆点/横线自定义节奏</text>
+          <text class="hint-icon">💡</text>
+          <text class="hint-text">一拍五音 = 3个16分音符 + 2个连着的32分音符。下划线表示32分音符对的位置。</text>
         </view>
         <view class="letter-keyboard" wx:if="{{letterOptions.length > 0}}">
           <view wx:for="{{letterOptions}}" wx:key="letter"
@@ -247,7 +254,14 @@
                 data-letter="{{item.letter}}"
                 bindtap="onAddLetter">
             <view class="letter-char">{{item.letter}}</view>
-            <view class="letter-pattern">
+            <view class="letter-pattern quintuplet-pattern" wx:if="{{rhythmType === '5'}}">
+              <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="idx" wx:key="idx"
+                    class="quintuplet-note-wrapper {{item.linkedPair === idx || item.linkedPair === idx - 1 ? 'linked' : ''}}">
+                <view class="{{note === 1 ? 'note' : 'rest'}}"></view>
+                <view class="underline" wx:if="{{item.linkedPair === idx}}"></view>
+              </view>
+            </view>
+            <view class="letter-pattern" wx:else>
               <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="idx" wx:key="idx"
                     class="{{note === 1 ? 'note' : 'rest'}}">
               </view>
@@ -265,7 +279,17 @@
           </view>
           <view wx:for="{{manualPattern}}" wx:key="id" class="manual-segment">
             <view class="manual-segment-letter">{{item.letter}}</view>
-            <view class="manual-segment-pattern">
+            <view class="manual-segment-pattern" wx:if="{{item.linkedPair !== null && item.linkedPair !== undefined}}">
+              <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
+                    class="quintuplet-note-wrapper {{item.linkedPair === noteIdx || item.linkedPair === noteIdx - 1 ? 'linked' : ''}}">
+                <view class="{{note === 1 ? 'manual-note' : 'manual-rest'}}"
+                      data-seg="{{index}}"
+                      data-idx="{{noteIdx}}"
+                      bindtap="onToggleNote"></view>
+                <view class="underline" wx:if="{{item.linkedPair === noteIdx}}"></view>
+              </view>
+            </view>
+            <view class="manual-segment-pattern" wx:else>
               <view wx:for="{{item.rhythm}}" wx:for-item="note" wx:for-index="noteIdx" wx:key="noteIdx"
                     class="{{note === 1 ? 'manual-note' : 'manual-rest'}}"
                     data-seg="{{index}}"
@@ -273,7 +297,7 @@
                     bindtap="onToggleNote">
               </view>
             </view>
-            <image class="delete-segment-icon" src="/assets/icons/library/file_delete.png" mode="aspectFit" data-index="{{index}}" bindtap="onDeleteSegment"></image>
+            <image class="delete-segment-icon" src="/assets/icons/file_delete.svg" mode="aspectFit" data-index="{{index}}" bindtap="onDeleteSegment"></image>
           </view>
         </view>
         <view class="add-segment-btn" bindtap="onAddSegment">+ 添加片段 (----)</view>
@@ -353,7 +377,9 @@
         <input class="save-input" 
                placeholder="请输入节奏名称 (如: 我的练习1)" 
                value="{{saveName}}"
-               bindinput="onSaveNameInput"/>
+               bindinput="onSaveNameInput"
+               bindfocus="onInputFocus"
+               bindblur="onInputBlur"/>
         <view class="save-btn" bindtap="onConfirmSave">保存</view>
       </view>
     </view>
@@ -394,7 +420,9 @@
         <input class="repeat-input" 
                type="number" 
                value="{{randomRepeatCount}}" 
-               bindinput="onRepeatCountInput"/>
+               bindinput="onRepeatCountInput"
+               bindfocus="onInputFocus"
+               bindblur="onInputBlur"/>
         <view class="start-random-btn" bindtap="onStartRandom">开始随机练习</view>
       </view>
     </view>
@@ -420,7 +448,7 @@
 
   <!-- 底部Handpan图片 -->
   <view class="pan-container">
-    <image class="pan-image" src="/assets/img/pan.jpg" mode="aspectFit" bindtap="onPanTap"></image>
+    <image class="pan-image" src="/subpackages/resources/img/pan.jpg" mode="aspectFit" bindtap="onPanTap"></image>
   </view>
 
   <!-- 帮助提示弹窗 -->

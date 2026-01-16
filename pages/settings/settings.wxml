@@ -83,11 +83,11 @@
     <text class="about-text"> </text>
     <text class="about-text">Orbit Note 星轨手碟记谱 v5.0.0</text>    <view class="about-links">
       <view class="about-link" bindtap="showUserManual">
-        <image class="about-icon" src="/assets/icons/problem.png"></image>
+        <image class="about-icon" src="/subpackages/resources/icons/settings/problem.png"></image>
         <text>用户手册</text>
       </view>
       <view class="about-link" bindtap="showChangelog">
-        <image class="about-icon" src="/assets/icons/calendar.png"></image>
+        <image class="about-icon" src="/subpackages/resources/icons/settings/calendar.png"></image>
         <text>更新日志</text>
       </view>
       <view class="about-link" bindtap="clearCache">

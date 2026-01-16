@@ -361,9 +361,9 @@
   transition: all 0.3s;
 }
 
-.fab-button-text {
-  width: 100%;
-  height: 100%;
+.fab-button-icon {
+  width: 50%;
+  height: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -837,4 +837,103 @@
   background-color: #314D63;
   color: #fff;
   padding: 0;
+}
+
+/* ========== 新建文件弹窗样式 ========== */
+.new-file-modal {
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.new-file-scroll {
+  flex: 1;
+  max-height: calc(85vh - 180rpx);
+}
+
+.form-group {
+  margin-bottom: 28rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+  font-weight: 500;
+}
+
+.form-input {
+  width: calc(100% - 48rpx);
+  height: 80rpx;
+  padding: 0 24rpx;
+  background-color: #f5f5f5;
+  border-radius: 12rpx;
+  border: 1rpx solid #e0e0e0;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-row {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 28rpx;
+}
+
+.form-col {
+  flex: 1;
+}
+
+.picker-value {
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 24rpx;
+  background-color: #f5f5f5;
+  border-radius: 12rpx;
+  border: 1rpx solid #e0e0e0;
+  font-size: 28rpx;
+  color: #333;
+}
+
+.form-textarea {
+  width: calc(100% - 48rpx);
+  height: 160rpx;
+  padding: 20rpx 24rpx;
+  background-color: #f5f5f5;
+  border-radius: 12rpx;
+  border: 1rpx solid #e0e0e0;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+/* 难度星星选择 */
+.difficulty-stars-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 12rpx 0;
+}
+
+.difficulty-star-item {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #f5f5f5;
+  transition: all 0.2s;
+}
+
+.difficulty-star-item.active {
+  background-color: #fff3e0;
+}
+
+.star-icon-small {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.star-icon-small.star-inactive {
+  opacity: 0.3;
+  filter: grayscale(100%);
 }

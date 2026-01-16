@@ -15,6 +15,7 @@ Page({
     showFolderPicker: false,
     showFabMenu: false, // 悬浮按钮菜单
     showImportModal: false, // 导入弹窗
+    showNewFileModal: false, // 新建文件弹窗
     
     // 数据状态
     currentPath: [], // 当前文件夹路径
@@ -45,6 +46,42 @@ Page({
     importFolderBreadcrumbs: [],
     importFolderCurrentPath: [],
     importSnapshot: null,
+    
+    // 新建文件数据
+    newFileData: {
+      file_name: '',
+      title: '',
+      subtitle: 'Author: Unknown',
+      composer: 'Your Name',
+      rootNote: 'D',
+      scaleType: 'Kurd',
+      noteCount: 10,
+      tempo: 60,
+      timing: '4/4',
+      notationType: 'digital',
+      difficulty: 1,
+      introduction: ''
+    },
+    
+    // 选项数据
+    rootNoteOptions: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+    scaleTypeOptions: [
+      'Aegean', 'Akebono', 'Amara / Celtic Minor', 'Ashakiran / Sabye', 'Avebury',
+      'Blues', 'Equinox', 'Hijaz / Harmonic Minor', 'Integral', 'Kurd / Annaziska',
+      'La Sirena', 'Low Mystic', 'Magic Voyage', 'Major', 'Minor', 'Nordlys',
+      'Onoleo', 'Oxalista', 'Pentatonic', 'Pygmy / Low Pygmy', 'Raga Desh',
+      'Romanian', 'Saladin', 'Ursa Minor', 'Ysha Savita', 'Multi scale', 'Other scale'
+    ],
+    scaleTypeDisplayOptions: [
+      'Aegean', 'Akebono', 'Amara', 'Ashakiran', 'Avebury',
+      'Blues', 'Equinox', 'Hijaz', 'Integral', 'Kurd',
+      'La Sirena', 'Low Mystic', 'Magic Voyage', 'Major', 'Minor', 'Nordlys',
+      'Onoleo', 'Oxalista', 'Pentatonic', 'Pygmy', 'Raga Desh',
+      'Romanian', 'Saladin', 'Ursa Minor', 'Ysha Savita', 'Multi scale', 'Other scale'
+    ],
+    noteCountOptions: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+    timingOptions: ['3/4', '4/4', '6/8', '自由设定'],
+    notationTypeOptions: ['digital', 'simplified'],
   },
 
   onLoad() {
@@ -280,6 +317,13 @@ Page({
       tempo: item.tempo,
       rotation: item.rotation,
       timing: item.timing,
+      notationType: item.notationType || 'digital', // 保留谱式类型
+      composer: item.composer,
+      rootNote: item.rootNote,
+      scaleType: item.scaleType,
+      noteCount: item.noteCount,
+      difficulty: item.difficulty,
+      introduction: item.introduction,
       code: item.code
     };
   },
@@ -333,8 +377,8 @@ Page({
       currentItem: item,
       showMenu: true,
       menuItems: [
-        { text: '重命名', icon: '/assets/icons/library/folder-rename.png', action: 'renameFolder' },
-        { text: '删除', icon: '/assets/icons/library/file_delete.png', action: 'deleteFolder' }
+        { text: '重命名', icon: '/assets/icons/folder-rename.png', action: 'renameFolder' },
+        { text: '删除', icon: '/assets/icons/file_delete.svg', action: 'deleteFolder' }
       ]
     });
   },
@@ -345,11 +389,11 @@ Page({
       currentItem: item,
       showMenu: true,
       menuItems: [
-        { text: '打开', icon: '/assets/icons/library/file-rename.png', action: 'openFile' },
-        { text: '重命名', icon: '/assets/icons/library/folder-rename.png', action: 'renameFile' },
-        { text: item.starred ? '取消收藏' : '收藏', icon: '/assets/icons/library/星星_star.png', action: 'toggleStar' },
-        { text: '移动', icon: '/assets/icons/library/file-conversion-folder.png', action: 'moveFile' },
-        { text: '删除', icon: '/assets/icons/library/file_delete.png', action: 'deleteFile' }
+        { text: '打开', icon: '/subpackages/resources/icons/library/file-rename.png', action: 'openFile' },
+        { text: '重命名', icon: '/assets/icons/folder-rename.png', action: 'renameFile' },
+        { text: item.starred ? '取消收藏' : '收藏', icon: '/subpackages/resources/icons/library/星星_star.png', action: 'toggleStar' },
+        { text: '移动', icon: '/subpackages/resources/icons/library/file-conversion-folder.png', action: 'moveFile' },
+        { text: '删除', icon: '/assets/icons/file_delete.svg', action: 'deleteFile' }
       ]
     });
   },
@@ -404,18 +448,93 @@ Page({
   // ========== 添加操作 ==========
   addNewFile() {
     this.closeFabMenu();
-    this.showInputModal({
-      title: '新建文件',
-      placeholder: '请输入文件名',
-      value: '',
-      callback: (name) => {
-        if (!name) {
-          wx.showToast({ title: '文件名不能为空', icon: 'none' });
-          return;
-        }
+    // 重置新建文件数据
+    this.setData({
+      showNewFileModal: true,
+      newFileData: {
+        file_name: '',
+        title: '',
+        subtitle: 'Author: Unknown',
+        composer: 'Your Name',
+        rootNote: 'D',
+        scaleType: 'Kurd',
+        noteCount: 10,
+        tempo: 60,
+        timing: '4/4',
+        notationType: 'digital',
+        difficulty: 1,
+        introduction: ''
+      }
+    });
+  },
 
-        // 创建默认谱面数据（空模块 A-1，四行占位）
-        const defaultCode = `\\begin{module}{A-1}
+  // 新建文件表单输入处理
+  onNewFileNameInput(e) {
+    this.setData({ 'newFileData.file_name': e.detail.value });
+  },
+
+  onNewFileTitleInput(e) {
+    this.setData({ 'newFileData.title': e.detail.value });
+  },
+
+  onNewFileSubtitleInput(e) {
+    this.setData({ 'newFileData.subtitle': e.detail.value });
+  },
+
+  onNewFileComposerInput(e) {
+    this.setData({ 'newFileData.composer': e.detail.value });
+  },
+
+  onNewFileRootNoteChange(e) {
+    const index = parseInt(e.detail.value);
+    this.setData({ 'newFileData.rootNote': this.data.rootNoteOptions[index] });
+  },
+
+  onNewFileScaleTypeChange(e) {
+    const index = parseInt(e.detail.value);
+    this.setData({ 'newFileData.scaleType': this.data.scaleTypeOptions[index] });
+  },
+
+  onNewFileNoteCountChange(e) {
+    const index = parseInt(e.detail.value);
+    this.setData({ 'newFileData.noteCount': this.data.noteCountOptions[index] });
+  },
+
+  onNewFileTempoInput(e) {
+    let tempo = parseInt(e.detail.value) || 60;
+    tempo = Math.max(20, Math.min(300, tempo));
+    this.setData({ 'newFileData.tempo': tempo });
+  },
+
+  onNewFileTimingChange(e) {
+    const index = parseInt(e.detail.value);
+    this.setData({ 'newFileData.timing': this.data.timingOptions[index] });
+  },
+
+  onNewFileNotationTypeChange(e) {
+    const index = parseInt(e.detail.value);
+    this.setData({ 'newFileData.notationType': this.data.notationTypeOptions[index] });
+  },
+
+  onNewFileDifficultyTap(e) {
+    const level = parseInt(e.currentTarget.dataset.star);
+    this.setData({ 'newFileData.difficulty': level });
+  },
+
+  onNewFileIntroInput(e) {
+    this.setData({ 'newFileData.introduction': e.detail.value });
+  },
+
+  confirmNewFile() {
+    const data = this.data.newFileData;
+    
+    if (!data.file_name) {
+      wx.showToast({ title: '文件名不能为空', icon: 'none' });
+      return;
+    }
+
+    // 创建默认谱面数据（空模块 A-1，四行占位）
+    const defaultCode = `\\begin{module}{A-1}
 [----|----|----|----]\\\\
 [----|----|----|----]\\\\
 [----|----|----|----]\\\\
@@ -423,26 +542,37 @@ Page({
 \\end{module}
 `;
 
-        const newFile = {
-          file_name: name,
-          title: name,
-          subtitle: 'Author: Unknown',
-          tempo: 120,
-          rotation: "手机竖屏（默认）",
-          timing: "4/4",
-          code: defaultCode
-        };
+    const newFile = {
+      file_name: data.file_name,
+      title: data.title || data.file_name,
+      subtitle: data.subtitle || 'Author: Unknown',
+      composer: data.composer || '',
+      rootNote: data.rootNote || 'D',
+      scaleType: data.scaleType || 'Kurd',
+      noteCount: data.noteCount || 10,
+      tempo: data.tempo || 60,
+      rotation: "手机竖屏（默认）",
+      timing: data.timing || "4/4",
+      notationType: data.notationType || 'digital',
+      difficulty: data.difficulty || 1,
+      introduction: data.introduction || '',
+      code: defaultCode
+    };
 
-        const created = libraryManager.addFile(this.data.currentPath, newFile);
-        wx.showToast({ title: `创建成功：${created.file_name}`, icon: 'success' });
-        this.loadLibraryData();
-        
-        // 自动打开新创建的文件
-        setTimeout(() => {
-          this._loadFileToNotation(created);
-        }, 300);
-      }
-    });
+    const created = libraryManager.addFile(this.data.currentPath, newFile);
+    
+    this.setData({ showNewFileModal: false });
+    wx.showToast({ title: `创建成功：${created.file_name}`, icon: 'success' });
+    this.loadLibraryData();
+    
+    // 自动打开新创建的文件
+    setTimeout(() => {
+      this._loadFileToNotation(created);
+    }, 300);
+  },
+
+  closeNewFileModal() {
+    this.setData({ showNewFileModal: false });
   },
 
   addNewFolder() {
