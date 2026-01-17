@@ -304,33 +304,7 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   });
   
   if (!isPaged) {
-    // 长图模式：一次绘制所有内容
-    const totalHeight = titleBlockHeight + notationHeights.reduce((sum, h) => sum + h, 0);
-    
-    canvas.width = width * dpr;
-    canvas.height = totalHeight * dpr;
-    ctx.scale(dpr, dpr);
-    
-    // 绘制背景
-    ctx.fillStyle = '#ffffffff';
-    ctx.fillRect(0, 0, width, totalHeight);
-    
-    let currentY = 10;
-    
-    // 绘制标题区 - 传递整个data对象和图标
-    currentY = drawTitleBlock(ctx, data, 0, currentY, width, icons);
-    
-    // 获取导出布局模式
-    const exportLayoutMode = data.exportLayoutMode || 'compact';
-    
-    // 绘制所有谱面模块
-    notations.forEach((notation, idx) => {
-      const measuresPerRow = resolveMeasuresPerRow(notation);
-      currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
-                                     rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode);
-    });
-    
-    // 预加载图片水印与背景，然后叠加绘制后导出
+    // 长图模式：预加载图片后再绘制所有内容（与分页模式保持一致）
     preloadWatermarkImages(canvas).then(function(images) {
       var watermarkImg = images.watermarkImg;
       var bgImg = images.bgImg;
@@ -341,6 +315,33 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
         crownIcon: images.crownIcon,
         starIcon: images.starIcon
       };
+      
+      const totalHeight = titleBlockHeight + notationHeights.reduce((sum, h) => sum + h, 0);
+      
+      canvas.width = width * dpr;
+      canvas.height = totalHeight * dpr;
+      ctx.scale(dpr, dpr);
+      
+      // 绘制背景
+      ctx.fillStyle = '#ffffffff';
+      ctx.fillRect(0, 0, width, totalHeight);
+      
+      let currentY = 10;
+      
+      // 绘制标题区 - 传递整个data对象和图标
+      currentY = drawTitleBlock(ctx, data, 0, currentY, width, icons);
+      
+      // 获取导出布局模式
+      const exportLayoutMode = data.exportLayoutMode || 'compact';
+      
+      // 绘制所有谱面模块
+      notations.forEach((notation, idx) => {
+        const measuresPerRow = resolveMeasuresPerRow(notation);
+        currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
+                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode);
+      });
+      
+      // 叠加绘制水印与背景后导出
       addTopRightWatermarkWithLabel(ctx, watermarkImg, width, totalHeight);
       addCornerBackgroundImage(ctx, bgImg, width, totalHeight, bgOpacity, bgSize);
       addBottomCenterBranding(ctx, brandingImg, width, totalHeight);
@@ -351,6 +352,33 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       });
     }).catch((err) => {
       console.warn('水印/背景图片加载失败，使用文字水印', readableError(err));
+      
+      // 图片加载失败时，仍需绘制内容（不使用图标）
+      const totalHeight = titleBlockHeight + notationHeights.reduce((sum, h) => sum + h, 0);
+      
+      canvas.width = width * dpr;
+      canvas.height = totalHeight * dpr;
+      ctx.scale(dpr, dpr);
+      
+      // 绘制背景
+      ctx.fillStyle = '#ffffffff';
+      ctx.fillRect(0, 0, width, totalHeight);
+      
+      let currentY = 10;
+      
+      // 绘制标题区 - 传递整个data对象，无图标
+      currentY = drawTitleBlock(ctx, data, 0, currentY, width, null);
+      
+      // 获取导出布局模式
+      const exportLayoutMode = data.exportLayoutMode || 'compact';
+      
+      // 绘制所有谱面模块
+      notations.forEach((notation, idx) => {
+        const measuresPerRow = resolveMeasuresPerRow(notation);
+        currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
+                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode);
+      });
+      
       // 回退为文字水印
       addTextWatermark(ctx, width / 2, totalHeight / 2);
       addBottomCenterBranding(ctx, null, width, totalHeight);
@@ -841,6 +869,9 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
   const topMargin = CONTENT_PADDING / dpr;
   const bottomMargin = CONTENT_PADDING / dpr;
   const contentHeight = pageHeight - topMargin - bottomMargin;
+  // 预留底部间距（至少20rpx约10px），避免内容顶格底部
+  const bottomReserve = 10;
+  const effectiveContentHeight = contentHeight - bottomReserve;
   const isLandscape = data.orientation === 'landscape';
   // 第二页起需预留右上水印高度，避免排版被遮挡
   let watermarkReserveTop = 0;
@@ -908,7 +939,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     let firstSlice = true;
 
     while (rowStart < totalRows) {
-      const available = contentHeight - usedHeight;
+      const available = effectiveContentHeight - usedHeight;
       const labelH = firstSlice ? notationLabelHeight : 0;
       // 估算最多可放行数（保留 sectionGap 间距）
       const perRowApprox = measureHeight + rowGap;
@@ -933,7 +964,7 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
       rowStart += rowsFit;
       firstSlice = false;
 
-      if (rowStart < totalRows && usedHeight + measureHeight > contentHeight) {
+      if (rowStart < totalRows && usedHeight + measureHeight > effectiveContentHeight) {
         flushPage();
       }
     }

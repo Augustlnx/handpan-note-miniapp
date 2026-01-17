@@ -4355,42 +4355,54 @@ Page({
       return;
     }
     
+    // 直接使用原始文件路径进行分享
+    // 不再提前删除文件，让系统有足够时间完成传输
+    this._doShareFile(filePath, fileName);
+  },
+  
+  // 实际执行文件分享
+  _doShareFile(shareFilePath, fileName) {
+    const fs = wx.getFileSystemManager();
+    const that = this;
+    
     // 调用分享功能
     wx.shareFileMessage({
-      filePath: filePath,
+      filePath: shareFilePath,
       fileName: fileName,
       success: () => {
-        console.log('文件分享成功');
+        console.log('文件分享对话框已打开，文件路径:', shareFilePath);
+        
+        // 不立即关闭弹窗，让用户可以再次分享
+        // 也不删除文件，避免传输中断
         wx.showToast({ 
-          title: '分享成功，5秒后删除临时文件', 
-          icon: 'success',
-          duration: 2000
+          title: '请在聊天中完成发送', 
+          icon: 'none',
+          duration: 3000
         });
         
-        // 延迟5秒后删除临时文件，确保传输完成
-        setTimeout(() => {
-          const fs = wx.getFileSystemManager();
-          fs.unlink({ 
-            filePath: filePath,
-            success: () => {
-              console.log('临时文件已清理');
-            },
-            fail: (err) => {
-              console.log('临时文件清理失败（可能仍在传输中）:', err);
-            }
-          });
-        }, 5000);
-        
-        // 关闭成功弹窗
-        this.setData({ showPdfSuccessModal: false });
+        // 注意：不要在这里删除文件！
+        // wx.shareFileMessage 的 success 只表示分享对话框打开
+        // 文件传输是异步的，可能需要很长时间
+        // 文件会在下次导出时被 cleanupAllExportFiles 清理
       },
       fail: (err) => {
         console.error('文件分享失败:', err);
-        wx.showToast({ 
-          title: '分享失败: ' + (err.errMsg || '未知错误'), 
-          icon: 'none',
-          duration: 2000
-        });
+        const errMsg = err.errMsg || '';
+        
+        // 用户取消不算失败
+        if (errMsg.includes('cancel') || errMsg.includes('取消')) {
+          wx.showToast({ 
+            title: '已取消分享', 
+            icon: 'none',
+            duration: 1500
+          });
+        } else {
+          wx.showToast({ 
+            title: '分享失败: ' + (errMsg || '未知错误'), 
+            icon: 'none',
+            duration: 2000
+          });
+        }
       }
     });
   },
