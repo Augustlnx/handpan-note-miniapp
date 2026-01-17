@@ -4299,7 +4299,7 @@ Page({
         // 如果路径不在临时目录，说明用户已经选择了保存位置
         if (!pdfPath.includes('USER_DATA_PATH') && !pdfPath.includes('tmp')) {
           wx.showToast({ 
-            title: 'PDF已保存到您选择的位置', 
+            title: 'PDF生成完毕', 
             icon: 'success',
             duration: 2000
           });

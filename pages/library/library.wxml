@@ -46,13 +46,13 @@
           <image class="action-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
         </view>
         <view class="action-btn" bindtap="toggleSearchBar">
-          <image class="action-icon" src="/subpackages/resources/icons/library/搜索_search.png" mode="aspectFit"></image>
+          <image class="action-icon" src="{{subpkgImgs.search}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="search"></image>
         </view>
         <view class="action-btn" bindtap="toggleSortMenu">
-          <image class="action-icon" src="/subpackages/resources/icons/library/排序_sort.png" mode="aspectFit"></image>
+          <image class="action-icon" src="{{subpkgImgs.sort}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="sort"></image>
         </view>
         <view class="action-btn" bindtap="toggleEditMode">
-          <image class="action-icon" src="/subpackages/resources/icons/library/更多_more-app.png" mode="aspectFit"></image>
+          <image class="action-icon" src="{{subpkgImgs.more}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="more"></image>
           <text class="action-text">{{editMode ? '完成' : '批量编辑'}}</text>
         </view>
       </view>
@@ -92,7 +92,7 @@
           <view class="item-checkbox" wx:if="{{editMode}}" catchtap="toggleSelect" data-id="{{item.id}}">
             <view class="checkbox {{item.selected ? 'checked' : ''}}"></view>
           </view>
-            <image class="item-icon-img" src="/subpackages/resources/icons/library/文件夹-关_folder-close.png" mode="aspectFit"></image>
+            <image class="item-icon-img" src="{{subpkgImgs.folderClose}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="folderClose"></image>
           <view class="item-info">
             <text class="item-name">{{item.name}}</text>
             <text class="item-detail">{{item.fileCount || 0}} 个项目</text>
@@ -116,7 +116,7 @@
           </view>
           <view class="item-star" wx:if="{{item.starred}}" catchtap="toggleStar" data-id="{{item.id}}">
             <!-- emoji占位，后续替换为图片: star.png -->
-            <image class="star-icon-img" src="/subpackages/resources/icons/library/星星_star.png" mode="aspectFit"></image>
+            <image class="star-icon-img" src="{{subpkgImgs.star}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="star"></image>
           </view>
           <view class="item-actions" wx:if="{{!editMode}}" catchtap="showFileMenu" data-item="{{item}}">
             <text class="more-icon">⋯</text>
@@ -133,7 +133,7 @@
           <text>删除</text>
         </view>
         <view class="batch-btn" bindtap="batchMove">
-          <image class="batch-icon" src="/subpackages/resources/icons/library/file-conversion-folder.png" mode="aspectFit"></image>
+          <image class="batch-icon" src="{{subpkgImgs.fileConversion}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="fileConversion"></image>
           <text>移动</text>
         </view>
       </view>
@@ -143,7 +143,7 @@
   <!-- 公开曲库（开发中） -->
       <view class="library-content public-library" wx:if="{{activeTab === 'public'}}">
         <view class="dev-notice">
-          <image class="dev-icon" src="/subpackages/resources/icons/library/工程车_engineering-vehicle.png" mode="aspectFit"></image>
+          <image class="dev-icon" src="{{subpkgImgs.engineering}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="engineering"></image>
           <text class="dev-text">作者买不起数据库，公开曲库不正在开发中...</text>
           <text class="dev-subtitle">敬请不期待</text>
         </view>
@@ -153,16 +153,16 @@
         <view class="fab-menu" wx:if="{{showFabMenu}}">
           <view class="fab-menu-item" bindtap="addNewFile">
             <text class="fab-menu-label">新建文件</text>
-            <image class="fab-menu-icon-img" src="/subpackages/resources/icons/library/file-addition.png" mode="aspectFit"></image>
+            <image class="fab-menu-icon-img" src="{{subpkgImgs.fileAdd}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="fileAdd"></image>
           </view>
           <view class="fab-menu-item" bindtap="addNewFolder">
             <text class="fab-menu-label">新建文件夹</text>
-            <image class="fab-menu-icon-img" src="/subpackages/resources/icons/library/folder-plus.png" mode="aspectFit"></image>
+            <image class="fab-menu-icon-img" src="{{subpkgImgs.folderPlus}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="folderPlus"></image>
           </view>
           
         </view>
         <view class="fab-button {{showFabMenu ? 'active' : ''}}" bindtap="toggleFabMenu">
-          <image class="fab-button-icon" src="/subpackages/resources/icons/library/加_plus.svg" mode="aspectFit"></image>
+          <image class="fab-button-icon" src="{{subpkgImgs.plus}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="plus"></image>
         </view>
       </view>
 

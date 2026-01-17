@@ -155,14 +155,18 @@ Page({
     
     // 节奏练习器标签页
     rhythmActiveTab: 'play',
-    // 分包图片重试标志
-    retryRadio: false,
-    retryHeadphone: false,
-    retryRecord: false,
-    retryPlayPause: false,
-    retryCube: false,
-    retryWriting: false,
-    // ...如有其它分包图片可继续添加
+    // 分包图片动态路径（延迟加载）
+    subpkgImgs: {
+      radio: '',
+      headphone: '',
+      record: '',
+      playPause: '',
+      playPausePause: '',
+      cube: '',
+      writing: '',
+      star: '',
+      pan: ''
+    }
   },
 
   // ========== 生命周期函数 ==========
@@ -181,71 +185,72 @@ Page({
     // 初始化模式检测
     this.checkMetronomeMode();
 
-    // 1秒后重试加载失败的分包图片
+    // 初始化分包图片重试计数器
+    this.subpkgImgRetryCount = {};
+    
+    // 1秒后开始加载分包图片（等待分包下载）
     setTimeout(() => {
-      if (this.data.retryRadio) {
-        this.setData({
-          radioImgSrc: '/subpackages/resources/icons/metronome/radio.png?t=' + Date.now(),
-          retryRadio: false
-        });
-      }
-      if (this.data.retryHeadphone) {
-        this.setData({
-          headphoneImgSrc: '/subpackages/resources/icons/metronome/耳机声音_headphone-sound.png?t=' + Date.now(),
-          retryHeadphone: false
-        });
-      }
-      if (this.data.retryRecord) {
-        this.setData({
-          recordImgSrc: '/subpackages/resources/icons/metronome/唱片集_record.png?t=' + Date.now(),
-          retryRecord: false
-        });
-      }
-      if (this.data.retryPlayPause) {
-        this.setData({
-          playPauseImgSrc: (this.data.isMetronomeMode ? '/subpackages/resources/icons/metronome/暂停_pause-one.png' : '/subpackages/resources/icons/metronome/播放_play.png') + '?t=' + Date.now(),
-          retryPlayPause: false
-        });
-      }
-      if (this.data.retryCube) {
-        this.setData({
-          cubeImgSrc: '/subpackages/resources/icons/metronome/魔方_cube-five.png?t=' + Date.now(),
-          retryCube: false
-        });
-      }
-      if (this.data.retryWriting) {
-        this.setData({
-          writingImgSrc: '/subpackages/resources/icons/metronome/编辑撰写_writing-fluently.png?t=' + Date.now(),
-          retryWriting: false
-        });
-      }
+      this.loadSubpkgImages();
     }, 1000);
   },
 
-  // 图片加载失败重试处理
-  onImgError(e) {
-    const type = e.currentTarget.dataset.type;
-    switch(type) {
-      case 'radio':
-        this.setData({ retryRadio: true });
-        break;
-      case 'headphone':
-        this.setData({ retryHeadphone: true });
-        break;
-      case 'record':
-        this.setData({ retryRecord: true });
-        break;
-      case 'playpause':
-        this.setData({ retryPlayPause: true });
-        break;
-      case 'cube':
-        this.setData({ retryCube: true });
-        break;
-      case 'writing':
-        this.setData({ retryWriting: true });
-        break;
-    }
+  // 分包图片配置
+  getSubpkgImgConfig() {
+    return {
+      radio: '/subpackages/resources/icons/metronome/radio.png',
+      headphone: '/subpackages/resources/icons/metronome/耳机声音_headphone-sound.png',
+      record: '/subpackages/resources/icons/metronome/唱片集_record.png',
+      playPause: '/subpackages/resources/icons/metronome/播放_play.png',
+      playPausePause: '/subpackages/resources/icons/metronome/暂停_pause-one.png',
+      cube: '/subpackages/resources/icons/metronome/魔方_cube-five.png',
+      writing: '/subpackages/resources/icons/metronome/编辑撰写_writing-fluently.png',
+      star: '/subpackages/resources/icons/library/星星_star.png',
+      pan: '/subpackages/resources/img/pan.jpg'
+    };
   },
+
+  // 加载所有分包图片
+  loadSubpkgImages() {
+    const config = this.getSubpkgImgConfig();
+    const subpkgImgs = {};
+    
+    Object.keys(config).forEach(key => {
+      subpkgImgs[key] = config[key];
+    });
+    
+    this.setData({ subpkgImgs });
+  },
+
+  // 分包图片加载失败处理（5秒后重试，最多3次）
+  onSubpkgImgError(e) {
+    const type = e.currentTarget.dataset.type;
+    if (!type) return;
+    
+    // 初始化重试计数
+    if (!this.subpkgImgRetryCount[type]) {
+      this.subpkgImgRetryCount[type] = 0;
+    }
+    
+    // 最多重试3次
+    if (this.subpkgImgRetryCount[type] >= 3) {
+      console.warn(`[Metronome] 分包图片 ${type} 加载失败，已达最大重试次数`);
+      return;
+    }
+    
+    this.subpkgImgRetryCount[type]++;
+    console.log(`[Metronome] 分包图片 ${type} 加载失败，${5}秒后进行第 ${this.subpkgImgRetryCount[type]} 次重试...`);
+    
+    // 5秒后重试
+    setTimeout(() => {
+      const config = this.getSubpkgImgConfig();
+      const newPath = config[type] + '?t=' + Date.now();
+      this.setData({
+        [`subpkgImgs.${type}`]: newPath
+      });
+    }, 5000);
+  },
+
+
 
   onReady() {
     // 预加载播放/暂停图标，避免首次切换显示延迟
@@ -271,8 +276,12 @@ Page({
     // 标记音频系统是否可用
     this.audioReady = false;
     
-    // 初始化音频池管理器
-    this.initAudioPool();
+    // 延迟1秒后初始化音频池，等待分包加载完成
+    // （与分包图片加载策略保持一致）
+    console.log('[Metronome] 等待1秒后初始化音频（等待分包加载）...');
+    setTimeout(() => {
+      this.initAudioPool();
+    }, 1000);
   },
 
   // 初始化音频池
@@ -280,20 +289,20 @@ Page({
     try {
       const initSuccess = await webAudioManager.init();
       if (!initSuccess) {
-        console.error('[Metronome] 音频池初始化失败');
+        console.error('[Metronome] Web Audio 上下文初始化失败');
         return;
       }
       
-      // 预加载所有音频
-      const loadSuccess = await webAudioManager.preloadAllAudio();
+      // 预加载所有音频（启用失败重试机制）
+      const loadSuccess = await webAudioManager.preloadAllAudio(true);
       if (!loadSuccess) {
-        console.warn('[Metronome] 音频预加载未完全成功，但继续使用');
+        console.warn('[Metronome] 音频预加载未完全成功，可能会影响播放');
       }
       
-      this.audioReady = true;
+      this.audioReady = loadSuccess || webAudioManager.isReady();
       // 保持兼容性
       this.useWebAudio = true;
-      console.log('[Metronome] 音频池初始化成功');
+      console.log('[Metronome] 音频初始化完成，就绪状态: ' + this.audioReady);
     } catch (e) {
       console.error('[Metronome] 音频初始化异常: ' + (e.message || e));
       this.audioReady = false;

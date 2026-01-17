@@ -82,12 +82,91 @@ Page({
     noteCountOptions: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
     timingOptions: ['3/4', '4/4', '6/8', '自由设定'],
     notationTypeOptions: ['digital', 'simplified'],
+    
+    // 分包图片动态路径（延迟加载）
+    subpkgImgs: {
+      search: '',
+      sort: '',
+      more: '',
+      folderClose: '',
+      star: '',
+      engineering: '',
+      fileAdd: '',
+      folderPlus: '',
+      plus: '',
+      fileConversion: ''
+    }
   },
 
   onLoad() {
     // 初始化示例数据（仅首次使用时）
     libraryManager.initSampleData();
     this.loadLibraryData();
+    
+    // 初始化分包图片重试计数器
+    this.subpkgImgRetryCount = {};
+    
+    // 1秒后开始加载分包图片（等待分包下载）
+    setTimeout(() => {
+      this.loadSubpkgImages();
+    }, 1000);
+  },
+
+  // 分包图片配置
+  getSubpkgImgConfig() {
+    return {
+      search: '/subpackages/resources/icons/library/搜索_search.png',
+      sort: '/subpackages/resources/icons/library/排序_sort.png',
+      more: '/subpackages/resources/icons/library/更多_more-app.png',
+      folderClose: '/subpackages/resources/icons/library/文件夹-关_folder-close.png',
+      star: '/subpackages/resources/icons/library/星星_star.png',
+      engineering: '/subpackages/resources/icons/library/工程车_engineering-vehicle.png',
+      fileAdd: '/subpackages/resources/icons/library/file-addition.png',
+      folderPlus: '/subpackages/resources/icons/library/folder-plus.png',
+      plus: '/subpackages/resources/icons/library/加_plus.svg',
+      fileConversion: '/subpackages/resources/icons/library/file-conversion-folder.png'
+    };
+  },
+
+  // 加载所有分包图片
+  loadSubpkgImages() {
+    const config = this.getSubpkgImgConfig();
+    const subpkgImgs = {};
+    
+    Object.keys(config).forEach(key => {
+      subpkgImgs[key] = config[key];
+    });
+    
+    this.setData({ subpkgImgs });
+  },
+
+  // 分包图片加载失败处理（5秒后重试，最多3次）
+  onSubpkgImgError(e) {
+    const type = e.currentTarget.dataset.type;
+    if (!type) return;
+    
+    // 初始化重试计数
+    if (!this.subpkgImgRetryCount[type]) {
+      this.subpkgImgRetryCount[type] = 0;
+    }
+    
+    // 最多重试3次
+    if (this.subpkgImgRetryCount[type] >= 3) {
+      console.warn(`[Library] 分包图片 ${type} 加载失败，已达最大重试次数`);
+      return;
+    }
+    
+    this.subpkgImgRetryCount[type]++;
+    console.log(`[Library] 分包图片 ${type} 加载失败，5秒后进行第 ${this.subpkgImgRetryCount[type]} 次重试...`);
+    
+    // 5秒后重试
+    setTimeout(() => {
+      const config = this.getSubpkgImgConfig();
+      const newPath = config[type] + '?t=' + Date.now();
+      this.setData({
+        [`subpkgImgs.${type}`]: newPath
+      });
+    }, 5000);
   },
 
   onShow() {

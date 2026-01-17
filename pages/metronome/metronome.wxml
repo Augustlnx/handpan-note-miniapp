@@ -64,7 +64,7 @@
       
         <!-- 拍号选择触发器 -->
         <view class="time-sig-trigger" bindtap="onOpenTimeSigModal">
-          <image class="time-sig-arrow" src="{{radioImgSrc || '/subpackages/resources/icons/metronome/radio.png'}}" mode="aspectFit" binderror="onImgError" data-type="radio"></image>
+          <image class="time-sig-arrow" src="{{subpkgImgs.radio}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="radio"></image>
           <text class="time-sig-value">{{metBeatsLabel}}</text>
         </view>
         
@@ -80,7 +80,7 @@
     <view class="rhythm-tabs">
       <view class="rhythm-tab {{rhythmActiveTab === 'play' ? 'active' : ''}}" 
             data-tab="play" bindtap="onRhythmTabChange">
-        <image class="tab-icon" src="{{headphoneImgSrc || '/subpackages/resources/icons/metronome/耳机声音_headphone-sound.png'}}" mode="aspectFit" binderror="onImgError" data-type="headphone"></image>
+        <image class="tab-icon" src="{{subpkgImgs.headphone}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="headphone"></image>
         <text>播放</text>
       </view>
       <view class="rhythm-tab {{rhythmActiveTab === 'edit' ? 'active' : ''}}" 
@@ -90,7 +90,7 @@
       </view>
       <view class="rhythm-tab {{rhythmActiveTab === 'library' ? 'active' : ''}}" 
             data-tab="library" bindtap="onRhythmTabChange">
-        <image class="tab-icon" src="{{recordImgSrc || '/subpackages/resources/icons/metronome/唱片集_record.png'}}" mode="aspectFit" binderror="onImgError" data-type="record"></image>
+        <image class="tab-icon" src="{{subpkgImgs.record}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="record"></image>
         <text>节奏库</text>
       </view>
     </view>
@@ -113,7 +113,7 @@
             <!-- 中间：播放按钮 -->
             <view class="play-button-container">
               <view class="play-button-v2 {{(isMetronomeMode ? metIsPlaying : isPlaying) ? 'playing' : ''}}" bindtap="onTogglePlay">
-                <image class="play-icon" src="{{playPauseImgSrc || ((isMetronomeMode ? metIsPlaying : isPlaying) ? '/subpackages/resources/icons/metronome/暂停_pause-one.png' : '/subpackages/resources/icons/metronome/播放_play.png')}}" mode="aspectFit" binderror="onImgError" data-type="playpause"></image>
+                <image class="play-icon" src="{{(isMetronomeMode ? metIsPlaying : isPlaying) ? subpkgImgs.playPausePause : subpkgImgs.playPause}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="playPause"></image>
               </view>
             </view>
 
@@ -162,7 +162,7 @@
 
         <!-- 随机练习按钮 - 常驻显示 -->
         <view class="random-btn-v2 {{randomMode ? 'active' : ''}}" bindtap="onToggleRandom">
-          <image class="random-icon" src="{{cubeImgSrc || '/subpackages/resources/icons/metronome/魔方_cube-five.png'}}" mode="aspectFit" binderror="onImgError" data-type="cube"></image>
+          <image class="random-icon" src="{{subpkgImgs.cube}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="cube"></image>
           <text>{{randomMode ? '退出随机练习' : '随机练习'}}</text>
           <view class="help-icon light" data-help="randomPractice" catchtap="onShowHelp">?</view>
         </view>
@@ -174,7 +174,7 @@
       <view class="edit-tab">
         <view class="edit-actions">
           <view class="edit-btn-v2 primary full-width" bindtap="onOpenEditor">
-            <image class="edit-btn-icon" src="{{writingImgSrc || '/subpackages/resources/icons/metronome/编辑撰写_writing-fluently.png'}}" mode="aspectFit" binderror="onImgError" data-type="writing"></image>
+            <image class="edit-btn-icon" src="{{subpkgImgs.writing}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="writing"></image>
             <text>编辑节奏</text>
           </view>
           <view class="edit-btn-v2" bindtap="onClearPattern">
@@ -195,7 +195,7 @@
         <view class="library-actions">
           <view class="library-btn-v2" bindtap="onOpenPersonalLibrary">
             <view class="library-btn-left">
-              <image class="library-btn-icon" src="/subpackages/resources/icons/library/星星_star.png" mode="aspectFit"></image>
+              <image class="library-btn-icon" src="{{subpkgImgs.star}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="star"></image>
               <text>个人节奏库</text>
             </view>
             
@@ -208,7 +208,7 @@
             
           </view>
           <view class="random-btn-v2 {{randomMode ? 'active' : ''}}" bindtap="onToggleRandom">
-            <image class="random-icon" src="/subpackages/resources/icons/metronome//魔方_cube-five.png" mode="aspectFit"></image>
+            <image class="random-icon" src="{{subpkgImgs.cube}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="cube"></image>
             <text>{{randomMode ? '退出随机练习' : '随机练习'}}</text>
             <view class="help-icon light" data-help="randomPractice" catchtap="onShowHelp">?</view>
           </view>
@@ -448,7 +448,8 @@
 
   <!-- 底部Handpan图片 -->
   <view class="pan-container">
-    <image class="pan-image" src="/subpackages/resources/img/pan.jpg" mode="aspectFit" bindtap="onPanTap"></image>
+    <image class="pan-image" src="{{subpkgImgs.pan}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="pan"></image>
+
   </view>
 
   <!-- 帮助提示弹窗 -->
