@@ -1,0 +1,25 @@
+<!-- 开屏等待页面 -->
+<view class="splash-container">
+  <!-- 海报图片 - 全屏显示 -->
+  <image 
+    wx:if="{{posterSrc}}"
+    class="splash-poster {{imageLoaded ? 'loaded' : ''}}" 
+    src="{{posterSrc}}" 
+    mode="aspectFill"
+    bindload="onImageLoad"
+    binderror="onImageError"
+  />
+  
+  <!-- 右下角按钮 -->
+  <view class="start-button-container {{showButton ? 'show' : ''}}">
+    <button class="start-button {{countdownFinished ? 'ready' : 'disabled-btn'}}" disabled="{{!countdownFinished}}" bindtap="onStartTap">
+      <text class="button-text">立即开始</text>
+      <text class="countdown-text" wx:if="{{!countdownFinished}}">({{countdown}}s)</text>
+    </button>
+  </view>
+  
+  <!-- 加载指示器 - 图片加载前显示 -->
+  <view class="loading-indicator" wx:if="{{!imageLoaded}}">
+    <view class="loading-spinner"></view>
+  </view>
+</view>

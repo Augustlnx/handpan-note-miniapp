@@ -182,7 +182,7 @@
             <text>清空</text>
           </view>
           <view class="edit-btn-v2" bindtap="onOpenSaveDialog">
-            <image class="edit-btn-icon" src="/assets/icons/save.png" mode="aspectFit"></image>
+            <image class="edit-btn-icon" src="/assets/icons/save.svg" mode="aspectFit"></image>
             <text>保存</text>
           </view>
         </view>

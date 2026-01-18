@@ -128,12 +128,10 @@
     <view class="batch-bar" wx:if="{{editMode}}">
       <text class="selected-count">已选择 {{selectedCount}} 项</text>
       <view class="batch-actions">
-        <view class="batch-btn" bindtap="batchDelete">
-          <image class="batch-icon" src="/assets/icons/file_delete.svg" mode="aspectFit"></image>
+        <view class="batch-btn-one" bindtap="batchDelete">
           <text>删除</text>
         </view>
-        <view class="batch-btn" bindtap="batchMove">
-          <image class="batch-icon" src="{{subpkgImgs.fileConversion}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="fileConversion"></image>
+        <view class="batch-btn-two" bindtap="batchMove">
           <text>移动</text>
         </view>
       </view>
@@ -144,8 +142,8 @@
       <view class="library-content public-library" wx:if="{{activeTab === 'public'}}">
         <view class="dev-notice">
           <image class="dev-icon" src="{{subpkgImgs.engineering}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="engineering"></image>
-          <text class="dev-text">作者买不起数据库，公开曲库不正在开发中...</text>
-          <text class="dev-subtitle">敬请不期待</text>
+          <text class="dev-text">正在开发中...</text>
+          <text class="dev-subtitle">敬请期待</text>
         </view>
       </view>
 

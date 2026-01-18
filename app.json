@@ -4,7 +4,6 @@
     "pages/library/library",
     "pages/metronome/metronome",
     "pages/settings/settings"
-    
   ],
   "subpackages": [
     {
@@ -13,6 +12,28 @@
       "pages": [
         "placeholder/index" 
       ]
+    },
+    {
+      "root": "subpackages/packageA",
+      "name": "packageA",
+      "pages": [
+        "page/export/export"
+      ]
+    },
+    {
+      "root": "subpackages/packageB",
+      "name": "packageB",
+      "pages": [
+        "guide_page/guide"
+      ]
+    },
+    {
+      "root": "subpackages/openpage",
+      "name": "openpage",
+      "pages": [
+        "page/splash/splash"
+      ],
+      "independent": true
     }
   ],
   "preloadRule": {
@@ -24,11 +45,20 @@
       "network": "all",
       "packages": ["resources"]
     },
-    "pages/settings/settings":{
-    "network": "all",
-    "packages": ["resources"]
+    "pages/settings/settings": {
+      "network": "all",
+      "packages": ["resources", "packageB"]
+    },
+    "pages/notation/notation": {
+      "network": "all",
+      "packages": ["packageB"]
+    },
+    "subpackages/openpage/page/splash/splash": {
+      "network": "all",
+      "packages": ["__APP__", "resources", "packageB"]
     }
   },
+  "entryPagePath": "subpackages/openpage/page/splash/splash",
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#304859",

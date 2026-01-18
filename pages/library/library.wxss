@@ -440,7 +440,18 @@
   gap: 20rpx;
 }
 
-.batch-btn {
+.batch-btn-one {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 12rpx 32rpx;
+  background-color: #B34540;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}
+
+.batch-btn-two {
   display: flex;
   align-items: center;
   gap: 10rpx;

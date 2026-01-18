@@ -1,0 +1,299 @@
+<view class="export-page-container">
+  <!-- 导出模式选择 -->
+  <view class="page-content" wx:if="{{currentStep === 'mode'}}">
+    <text class="page-title">选择导出模式</text>
+    
+    <view class="export-options">
+      <view class="export-option {{exportMode === 'long' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="long">
+        <view class="option-content">
+          <text class="option-title">长图模式</text>
+          <text class="option-desc">一次导出完整谱面为单张长图</text>
+        </view>
+        <image wx:if="{{exportMode === 'long'}}" class="option-check" src="../../icons/校验_check-one.svg"></image>
+      </view>
+      
+      <view class="export-option {{exportMode === 'paged' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="paged">
+        <view class="option-content">
+          <text class="option-title">分页模式（A4）</text>
+          <text class="option-desc">自动分页，适合打印或分享</text>
+        </view>
+        <image wx:if="{{exportMode === 'paged'}}" class="option-check" src="../../icons/校验_check-one.svg"></image>
+      </view>
+
+      <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
+        <view class="option-content">
+          <text class="option-title">导出为代码</text>
+          <text class="option-desc">生成LaTeX风格代码，可复制分享</text>
+        </view>
+        <image wx:if="{{exportMode === 'code'}}" class="option-check" src="../../icons/校验_check-one.svg"></image>
+      </view>
+    </view>
+    
+    <view class="action-buttons fixed-bottom">
+      <button class="btn-secondary" bindtap="goBack">取消</button>
+      <button class="btn-primary" bindtap="confirmExportMode">确认导出</button>
+    </view>
+  </view>
+
+  <!-- 导出规格设置（分页模式） -->
+  <scroll-view class="page-content scroll-content" scroll-y wx:if="{{currentStep === 'specs'}}">
+    <text class="page-title">导出规格设置</text>
+
+    <!-- A4 方向选择 -->
+    <view class="spec-group">
+      <text class="spec-group-label">A4 方向</text>
+      <view class="spec-options-row">
+        <view class="spec-option {{exportA4Orientation === 'portrait' ? 'selected' : ''}}" data-orientation="portrait" bindtap="selectA4Orientation">
+          <view class="spec-shape shape-portrait"></view>
+          <text class="spec-option-label">纵向</text>
+        </view>
+        <view class="spec-option {{exportA4Orientation === 'landscape' ? 'selected' : ''}}" data-orientation="landscape" bindtap="selectA4Orientation">
+          <view class="spec-shape shape-landscape"></view>
+          <text class="spec-option-label">横向</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 排版模式选择 -->
+    <view class="spec-group">
+      <text class="spec-group-label">排版模式</text>
+      <view class="spec-options-row">
+        <view class="spec-option {{exportLayoutMode === 'loose' ? 'selected' : ''}}" data-mode="loose" bindtap="selectExportLayoutMode">
+          <view class="spec-shape layout-loose"></view>
+          <text class="spec-option-label">宽松模式</text>
+        </view>
+        <view class="spec-option {{exportLayoutMode === 'compact' ? 'selected' : ''}}" data-mode="compact" bindtap="selectExportLayoutMode">
+          <view class="spec-shape layout-compact"></view>
+          <text class="spec-option-label">紧凑模式</text>
+        </view>
+      </view>
+      <view class="spec-hint">
+        <text class="hint-strong">宽松模式</text> 对应谱面视角的"手机竖屏"，<text class="hint-strong">紧凑模式</text> 对应"手机横屏/平板模式"，通常导出推荐选择紧凑模式以充分利用空间。
+      </view>
+    </view>
+
+    <!-- 背景图片设置 -->
+    <view class="spec-group">
+      <text class="spec-group-label">背景图片</text>
+      <view class="slider-row">
+        <text class="slider-label">大小</text>
+        <slider class="export-slider" min="10" max="100" value="{{exportBgSize * 100}}" show-value block-size="20" activeColor="#314D63" bindchange="onExportBgSizeChange" />
+        <text class="slider-unit">%</text>
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">透明度</text>
+        <slider class="export-slider" min="0" max="100" value="{{exportBgOpacity * 100}}" show-value block-size="20" activeColor="#314D63" bindchange="onExportBgOpacityChange" />
+        <text class="slider-unit">%</text>
+      </view>
+    </view>
+
+    <!-- 音符颜色设置 -->
+    <view class="spec-group">
+      <text class="spec-group-label">音符颜色</text>
+      <view class="spec-options-row">
+        <view class="color-mode-option {{exportColorMode === 'dual' ? 'selected' : ''}}" data-mode="dual" bindtap="selectExportColorMode">
+          <view class="color-mode-preview dual-preview">
+            <view class="color-dot" style="background: {{exportRightHandColor}};"></view>
+            <view class="color-dot" style="background: {{exportLeftHandColor}};"></view>
+          </view>
+          <text class="spec-option-label">双色</text>
+        </view>
+        <view class="color-mode-option {{exportColorMode === 'single' ? 'selected' : ''}}" data-mode="single" bindtap="selectExportColorMode">
+          <view class="color-mode-preview single-preview">
+            <view class="color-dot large" style="background: {{exportSingleColor}};"></view>
+          </view>
+          <text class="spec-option-label">单色</text>
+        </view>
+      </view>
+
+      <!-- 双色模式：左右手颜色 -->
+      <view wx:if="{{exportColorMode === 'dual'}}" class="color-pickers">
+        <view class="color-picker-row">
+          <text class="color-picker-label">右手音符</text>
+          <view class="color-picker-controls">
+            <input class="color-input" type="text" value="{{exportRightHandColor}}" data-type="rightHand" bindinput="onExportColorInput" placeholder="#RRGGBB" />
+            <view class="color-picker-trigger" style="background: {{exportRightHandColor}};" data-type="rightHand" bindtap="openExportColorPicker"></view>
+          </view>
+        </view>
+        <view class="color-picker-row">
+          <text class="color-picker-label">左手音符</text>
+          <view class="color-picker-controls">
+            <input class="color-input" type="text" value="{{exportLeftHandColor}}" data-type="leftHand" bindinput="onExportColorInput" placeholder="#RRGGBB" />
+            <view class="color-picker-trigger" style="background: {{exportLeftHandColor}};" data-type="leftHand" bindtap="openExportColorPicker"></view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 单色模式：统一颜色 -->
+      <view wx:if="{{exportColorMode === 'single'}}" class="color-pickers">
+        <view class="color-picker-row">
+          <text class="color-picker-label">音符颜色</text>
+          <view class="color-picker-controls">
+            <input class="color-input" type="text" value="{{exportSingleColor}}" data-type="single" bindinput="onExportColorInput" placeholder="#RRGGBB" />
+            <view class="color-picker-trigger" style="background: {{exportSingleColor}};" data-type="single" bindtap="openExportColorPicker"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部占位，防止按钮遮挡 -->
+    <view class="bottom-placeholder"></view>
+  </scroll-view>
+  
+  <view class="action-buttons fixed-bottom" wx:if="{{currentStep === 'specs'}}">
+    <button class="btn-secondary" bindtap="goBackStep">返回</button>
+    <button class="btn-primary" bindtap="confirmExportSpecs">确认导出</button>
+  </view>
+
+  <!-- 导出预览 + 保存格式（合并） -->
+  <view class="page-content preview-page" wx:if="{{currentStep === 'preview'}}">
+    <text class="page-title">导出预览（{{currentPreviewPage + 1}}/{{exportPreviewImages.length}}）</text>
+    
+    <swiper 
+      class="preview-swiper" 
+      current="{{currentPreviewPage}}" 
+      bindchange="onPreviewPageChange"
+      duration="{{300}}"
+      easing-function="easeOutCubic"
+    >
+      <swiper-item wx:for="{{exportPreviewImages}}" wx:key="index">
+        <image class="preview-image" src="{{item}}" mode="aspectFit"></image>
+      </swiper-item>
+    </swiper>
+
+    <!-- 页码指示器 -->
+    <view class="preview-dots" wx:if="{{exportPreviewImages.length > 1}}">
+      <view 
+        wx:for="{{exportPreviewImages}}" 
+        wx:key="index" 
+        class="preview-dot {{currentPreviewPage === index ? 'active' : ''}}"
+        bindtap="goToPreviewPage"
+        data-index="{{index}}"
+      ></view>
+    </view>
+    
+    <!-- 保存格式选择 -->
+    <view class="format-section">
+      <text class="format-section-title">选择保存格式</text>
+      <view class="format-options">
+        <view class="format-option {{selectedSaveFormat === 'image' ? 'selected' : ''}}" bindtap="selectSaveFormat" data-format="image">
+          <image class="format-icon" src="../../icons/图片文件_image-files.svg"></image>
+          <view class="format-info">
+            <text class="format-title">PNG 图片</text>
+            <text class="format-desc">保存{{exportPreviewImages.length}}张图片到相册</text>
+          </view>
+          <image class="format-check" wx:if="{{selectedSaveFormat === 'image'}}" src="../../icons/校验_check-one.svg"></image>
+        </view>
+        
+        <view class="format-option {{selectedSaveFormat === 'pdf' ? 'selected' : ''}}" bindtap="selectSaveFormat" data-format="pdf">
+          <image class="format-icon" src="../../icons/文件-pdf_file-pdf.svg"></image>
+          <view class="format-info">
+            <text class="format-title">PDF 文档</text>
+            <text class="format-desc">合并为单个PDF文件</text>
+          </view>
+          <image class="format-check" wx:if="{{selectedSaveFormat === 'pdf'}}" src="../../icons/校验_check-one.svg"></image>
+        </view>
+      </view>
+    </view>
+    
+    <view class="action-buttons fixed-bottom">
+      <button class="btn-secondary" bindtap="closeExportPreview">返回</button>
+      <button class="btn-primary" bindtap="confirmSave">保存</button>
+    </view>
+  </view>
+
+  <!-- 导出代码预览 -->
+  <view class="page-content code-page" wx:if="{{currentStep === 'code'}}">
+    <text class="page-title">导出代码</text>
+    
+    <scroll-view class="code-scroll" scroll-y>
+      <view class="code-display">
+        <text class="code-output-text" user-select="true">{{exportedCode}}</text>
+      </view>
+    </scroll-view>
+    
+    <view class="code-actions">
+      <button class="btn-copy" bindtap="copyExportedCode">
+        <image class="copy-icon" src="../../icons/copy.svg"></image>
+        <text>复制代码</text>
+      </button>
+    </view>
+    
+    <view class="action-buttons fixed-bottom single-btn">
+      <button class="btn-secondary full-width" bindtap="goBackStep">返回</button>
+    </view>
+  </view>
+
+  <!-- PDF导出进度弹窗 -->
+  <view wx:if="{{showPdfProgressModal}}" class="modal-overlay" catchtouchmove="stopPropagation">
+    <view class="modal-content pdf-progress-modal" catchtap="stopPropagation">
+      <image class="splash-logo" src="/subpackages/packageB/img/logo5.png"></image>
+     
+      <view class="pdf-progress-header">
+        <image class="pdf-progress-icon" src="/assets/icons/文件-PDF_file-pdf.png" mode="aspectFit"></image>
+        <text class="pdf-progress-title">正在生成PDF</text>
+      </view>
+      
+      <view class="pdf-progress-info">
+        <text class="pdf-progress-stage">{{pdfProgressStage}}</text>
+      </view>
+      
+      <view class="pdf-progress-bar-container">
+        <view class="pdf-progress-bar-bg">
+          <view class="pdf-progress-bar-fill" style="width: {{pdfProgressPercent}}%;"></view>
+        </view>
+        <text class="pdf-progress-percent">{{pdfProgressPercent}}%</text>
+      </view>
+      
+      <view class="pdf-progress-hint">
+        <text>如长时间无响应，可点击取消后重试</text>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="cancelPdfExport">取消</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- PDF导出成功弹窗 -->
+  <view wx:if="{{showPdfSuccessModal}}" class="modal-overlay" catchtouchmove="stopPropagation" bindtap="closePdfSuccessModal">
+    <view class="modal-content pdf-success-modal" catchtap="stopPropagation">
+      <view class="pdf-success-header">
+        <image class="pdf-success-icon" src="../../icons/校验_check-one.svg"></image>
+        <text class="pdf-success-title">PDF导出成功</text>
+      </view>
+      
+      <view class="pdf-file-info">
+        <text class="pdf-file-name">{{exportedPdfFileName}}</text>
+        <text class="pdf-file-size">共 {{exportPreviewImages.length}} 页</text>
+      </view>
+      
+      <view class="pdf-action-buttons">
+        <view class="pdf-action-btn" bindtap="openExportedPdf">
+          <image class="pdf-action-icon" src="/assets/icons/文件夹-开_folder-open.png"></image>
+          <text class="pdf-action-text">打开</text>
+        </view>
+        <view class="pdf-action-btn" bindtap="shareAndDeletePdf">
+          <image class="pdf-action-icon" src="/assets/icons/share.svg"></image>
+          <text class="pdf-action-text">分享后删除</text>
+        </view>
+      </view>
+      
+      <view class="pdf-save-hint">
+        <text class="pdf-save-hint-text">建议通过分享保存到微信文件助手或其他位置，并自动删除临时文件防止缓存占用过高</text>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-primary" bindtap="closePdfSuccessAndFinish">完成</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{isLoading}}" class="loading-overlay">
+    <view class="loading-content">
+      <image class="loading-logo" src="/subpackages/packageB/img/logo5.png" mode="aspectFit"></image>
+      <text class="loading-text">{{loadingText}}</text>
+    </view>
+  </view>
+</view>

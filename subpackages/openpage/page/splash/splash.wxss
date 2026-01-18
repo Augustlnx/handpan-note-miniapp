@@ -1,0 +1,154 @@
+/* 开屏等待页面样式 */
+
+.splash-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #FFFFFF;
+  overflow: hidden;
+}
+
+/* 海报图片 */
+.splash-poster {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.splash-poster.loaded {
+  opacity: 1;
+}
+
+/* 右下角按钮容器 - 更贴近底端 */
+.start-button-container {
+  position: fixed;
+  right: 40rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 30rpx);
+  opacity: 0;
+  transform: translateY(20rpx);
+  transition: all 0.4s ease-out;
+  z-index: 100;
+}
+
+.start-button-container.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 开始按钮 */
+.start-button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 10rpx;
+  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
+  border-radius: 50rpx;
+  box-shadow: 0 8rpx 24rpx rgba(49, 77, 99, 0.35);
+  border: none;
+  min-width:120rpx;
+}
+
+.start-button:disabled {
+  background: #cccccc !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: #999999;
+}
+
+.start-button::after {
+  border: none;
+}
+
+.button-text {
+  font-size:28rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: 2rpx;
+}
+
+.start-button:disabled .button-text,
+.start-button.disabled-btn .button-text {
+  color: #999999;
+}
+
+.countdown-text {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-left: 8rpx;
+}
+
+.start-button:disabled .countdown-text,
+.start-button.disabled-btn .countdown-text {
+  color: rgba(153, 153, 153, 0.85);
+}
+
+/* 倒计时结束后的按钮样式 */
+.start-button.ready {
+  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* 禁用状态的按钮样式 */
+.start-button.disabled-btn {
+  background: #cccccc !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8rpx 24rpx rgba(49, 77, 99, 0.35);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 12rpx 32rpx rgba(49, 77, 99, 0.5);
+  }
+}
+
+/* 加载指示器 */
+.loading-indicator {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #E0E0E0;
+  border-top-color: #314D63;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-text {
+  font-size: 24rpx;
+  color: #666;
+  text-align: center;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 按钮按下效果 */
+.start-button:active {
+  transform: scale(0.95);
+  box-shadow: 0 4rpx 12rpx rgba(49, 77, 99, 0.25);
+}

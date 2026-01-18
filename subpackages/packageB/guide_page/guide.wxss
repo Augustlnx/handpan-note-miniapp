@@ -1,0 +1,213 @@
+/* 新手教程页面样式 */
+
+page {
+  background-color: #F5F7FA;
+  height: 100%;
+}
+
+.guide-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(180deg, #F5F7FA 0%, #E8ECF0 100%);
+}
+
+/* 顶部导航栏 - 增加顶部留白 */
+.guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 30rpx;
+  padding-top: calc(env(safe-area-inset-top) + 100rpx);
+  background-color: #FFFFFF;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.header-left, .header-right {
+  width: 120rpx;
+}
+
+.header-left {
+  text-align: left;
+}
+
+.header-right {
+  text-align: right;
+}
+
+.skip-text {
+  font-size: 28rpx;
+  color: #999999;
+}
+
+.header-center {
+  flex: 1;
+  text-align: center;
+}
+
+.header-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #314D63;
+}
+
+.step-counter {
+  font-size: 26rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+/* 轮播区域 - 切页模式 */
+.guide-swiper {
+  flex: 1;
+  width: 100%;
+}
+
+.guide-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.guide-card {
+  width: 100%;
+  max-width: 650rpx;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 30rpx rgba(49, 77, 99, 0.1);
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+/* 步骤标题区域 */
+.step-header {
+  display: flex;
+  align-items: center;
+  padding: 30rpx;
+  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 24rpx;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.step-description {
+  margin-left: 20rpx;
+  font-size: 30rpx;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+/* 图片展示区域 */
+.image-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  background-color: #FAFBFC;
+}
+
+.guide-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+
+/* 底部区域 */
+.guide-footer {
+  padding: 30rpx 40rpx;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 30rpx);
+  background-color: #FFFFFF;
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+/* 圆点指示器 */
+.dot-indicators {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.dot {
+  width: 16rpx;
+  height: 16rpx;
+  margin: 0 10rpx;
+  border-radius: 50%;
+  background-color: #D8DDE3;
+  transition: all 0.3s ease;
+}
+
+.dot.active {
+  width: 40rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
+}
+
+/* 操作按钮 */
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 30rpx;
+}
+
+.btn-prev, .btn-next {
+  flex: 1;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+}
+
+.btn-prev {
+  background-color: #F0F2F5;
+  color: #666666;
+}
+
+.btn-prev.disabled {
+  opacity: 0.5;
+  color: #AAAAAA;
+}
+
+.btn-next {
+  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
+  color: #FFFFFF;
+  box-shadow: 0 6rpx 20rpx rgba(49, 77, 99, 0.3);
+}
+
+.btn-text {
+  font-size: 30rpx;
+}
+
+.btn-prev::after, .btn-next::after {
+  border: none;
+}
+
+/* 按钮按下效果 */
+.btn-prev:active:not(.disabled) {
+  background-color: #E5E8EB;
+}
+
+.btn-next:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(49, 77, 99, 0.2);
+}

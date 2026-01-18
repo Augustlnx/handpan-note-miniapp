@@ -1,0 +1,78 @@
+<!-- 新手教程页面 -->
+<view class="guide-container">
+  <!-- 顶部导航栏 -->
+  <view class="guide-header">
+    <view class="header-left" bindtap="onSkipTap">
+      <text class="skip-text">跳过</text>
+    </view>
+    <view class="header-center">
+      <text class="header-title">新手教程</text>
+    </view>
+    <view class="header-right">
+      <text class="step-counter">{{currentStep + 1}} / {{totalSteps}}</text>
+    </view>
+  </view>
+
+  <!-- 图片轮播区域 - 切页模式 -->
+  <swiper 
+    class="guide-swiper" 
+    current="{{currentStep}}"
+    duration="{{duration}}"
+    bindchange="onSwiperChange"
+    circular="{{circular}}"
+    easing-function="easeOutCubic"
+    previous-margin="0"
+    next-margin="0"
+  >
+    <swiper-item wx:for="{{guides}}" wx:key="id" class="guide-item">
+      <view class="guide-card">
+        <!-- 步骤标题 -->
+        <view class="step-header">
+          <view class="step-badge">{{item.title}}</view>
+          <text class="step-description">{{item.description}}</text>
+        </view>
+        
+        <!-- 图片展示区域 -->
+        <view class="image-wrapper">
+          <image 
+            class="guide-image" 
+            src="{{item.image}}" 
+            mode="aspectFit"
+            data-index="{{index}}"
+            bindload="onImageLoad"
+            binderror="onImageError"
+          />
+        </view>
+      </view>
+    </swiper-item>
+  </swiper>
+
+  <!-- 底部指示器和按钮 -->
+  <view class="guide-footer">
+    <!-- 圆点指示器 -->
+    <view class="dot-indicators">
+      <view 
+        wx:for="{{guides}}" 
+        wx:key="id" 
+        class="dot {{currentStep === index ? 'active' : ''}}"
+        bindtap="onIndicatorTap"
+        data-index="{{index}}"
+      ></view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="action-buttons">
+      <button 
+        class="btn-prev {{currentStep === 0 ? 'disabled' : ''}}" 
+        bindtap="onPrevTap"
+        disabled="{{currentStep === 0}}"
+      >
+        <text class="btn-text">上一步</text>
+      </button>
+      
+      <button class="btn-next" bindtap="onNextTap">
+        <text class="btn-text">{{currentStep === totalSteps - 1 ? '完成' : '下一步'}}</text>
+      </button>
+    </view>
+  </view>
+</view>

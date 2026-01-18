@@ -274,6 +274,10 @@ Page({
     showIntroModal: false,
     tempIntroduction: '',
     
+    // 删除行确认弹窗
+    showDeleteRowModal: false,
+    pendingDeleteRowInfo: null, // 待删除行的信息 { notationIndex, rowStartIndex, measuresPerRow }
+    
     // 主音选项
     rootNoteOptions: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
     rootNoteDisplayOptions: ['C', 'C# / Db', 'D', 'D# / Eb', 'E', 'F', 'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'],
@@ -922,8 +926,9 @@ Page({
       return;
     }
 
-    // TODO: 实现模块操作的动作记录
-    // this.backupCurrentState();
+    // 备份当前状态（用于撤销）
+    const snapshotAction = this.createFullSnapshotAction('添加模块');
+    this.backupCurrentState(snapshotAction);
 
     // 提取前一个模块的字母前缀 (例如 "A-1" -> "A", "D-4" -> "D")
     const prevLabel = notations[afterIndex].label;
@@ -1085,12 +1090,12 @@ Page({
     const that = this;
     wx.showModal({
       title: '删除谱面',
-      content: '确定删除吗？此操作可能无法恢复。',
+      content: '确定删除吗？可通过撤销恢复。',
       success(res) {
         if (res.confirm) {
-          // 先备份当前状态
-          // TODO: 实现模块操作的动作记录
-          // that.backupCurrentState();
+          // 先备份当前状态（用于撤销）
+          const snapshotAction = that.createFullSnapshotAction('删除模块');
+          that.backupCurrentState(snapshotAction);
           
           // 找到被删除模块的索引和前缀
           const deleteIndex = that.data.notations.findIndex(n => n.id === id);
@@ -1114,6 +1119,8 @@ Page({
           const withOffsets = that.updateMeasureOffsets(filtered);
           that.saveNotationsScoped(withOffsets);
           that.setNotations(withOffsets);
+          
+          wx.showToast({ title: '已删除', icon: 'success' });
         }
       }
     });
@@ -1125,9 +1132,14 @@ Page({
     const that = this;
     wx.showModal({
       title: '重置该板块',
-      content: '确定将该板块的音符数据全部清空吗？',
+      content: '确定将该板块的音符数据全部清空吗？可通过撤销恢复。',
       success(res) {
         if (!res.confirm) return;
+        
+        // 先备份当前状态（用于撤销）
+        const snapshotAction = that.createFullSnapshotAction('重置模块');
+        that.backupCurrentState(snapshotAction);
+        
         const updated = JSON.parse(JSON.stringify(that.data.notations));
         const idx = updated.findIndex(n => n.id === id);
         if (idx === -1) {
@@ -1157,9 +1169,6 @@ Page({
         that.saveNotationsScoped(withOffsets);
         that.setNotations(withOffsets);
         wx.showToast({ title: '已重置', icon: 'success' });
-        // 备份当前状态
-        // TODO: 实现模块操作的动作记录
-        // that.backupCurrentState();
       }
     });
   },
@@ -1182,17 +1191,17 @@ Page({
     });
   },
 
-  // 弹窗确认清空（不可撤销提示）
+  // 弹窗确认清空（可撤销）
   showClearConfirm() {
     const that = this;
     wx.showModal({
       title: '确认清空',
-      content: '将清空所有谱面数据，此操作可能无法恢复，是否继续？',
+      content: '将清空所有谱面数据，可通过撤销恢复，是否继续？',
       success(res) {
         if (res.confirm) {
-          // 先备份当前状态
-          // TODO: 实现模块操作的动作记录
-          // that.backupCurrentState();
+          // 先备份当前状态（用于撤销）
+          const snapshotAction = that.createFullSnapshotAction('清空谱面');
+          that.backupCurrentState(snapshotAction);
           that.performClearNotations();
         }
       }
@@ -1237,17 +1246,17 @@ Page({
     wx.showToast({ title: '已清空谱面', icon: 'success' });
   },
 
-  // 读取示例文件并导入（不可撤销提示）
+  // 读取示例文件并导入（可撤销）
   loadAndImportExample() {
     const that = this;
     wx.showModal({
       title: '确认加载示例',
-      content: '将清空现有谱面并加载示例，此操作可能无法恢复，是否继续？',
+      content: '将清空现有谱面并加载示例，可通过撤销恢复，是否继续？',
       success(res) {
         if (res.confirm) {
-          // 先备份当前状态
-          // TODO: 实现模块操作的动作记录
-          // that.backupCurrentState();
+          // 先备份当前状态（用于撤销）
+          const snapshotAction = that.createFullSnapshotAction('加载示例');
+          that.backupCurrentState(snapshotAction);
           that.performLoadExample();
         }
       }
@@ -1308,9 +1317,6 @@ Page({
           title: `成功加载`,
           icon: 'success'
         });
-        // 备份当前状态
-        // TODO: 实现模块操作的动作记录
-        // that.backupCurrentState();
       } catch (parseErr) {
         console.error('示例导入错误：', parseErr);
         wx.showToast({ title: '加载示例失败: ' + (parseErr.message || '解析失败'), icon: 'none' });
@@ -1932,7 +1938,7 @@ Page({
     return error === '';
   },
 
-  // 恢复模块默认设置
+  // 恢复模块默认样式设置
   resetModuleSettings() {
     const { currentModuleId } = this.data;
     
@@ -1949,7 +1955,7 @@ Page({
       return;
     }
 
-    // 重置为默认设置
+    // 仅重置样式为默认设置
     notation.style = {
       measureHeight: 160,
       noteFontSize: 28,
@@ -1964,33 +1970,17 @@ Page({
     // 重新打开设置界面以显示默认值
     this.openModuleSettings({ currentTarget: { dataset: { id: currentModuleId } } });
     
-    wx.showToast({ title: '已恢复默认设置', icon: 'success' });
-    // TODO: 实现模块操作的动作记录
-    // this.backupCurrentState();
+    wx.showToast({ title: '已恢复默认样式', icon: 'success' });
   },
 
-  // 应用模块设置
+  // 应用模块设置（仅应用样式设置，不再影响谱面结构）
   applyModuleSettings() {
     const { 
       currentModuleId, 
-      moduleLineCount, 
-      moduleTimeSignatureBeats, 
       moduleMeasureHeight,
       moduleNoteFontSize,
       moduleLineSpacing
     } = this.data;
-    
-    // 从实例变量读取模块自定义模板（如果有）
-    const moduleCustomTemplate = this._moduleCustomTemplate !== undefined 
-      ? this._moduleCustomTemplate 
-      : this.data.moduleCustomTemplate;
-    
-    // 验证行数
-    const lineCount = parseInt(moduleLineCount) || 0;
-    if (!lineCount || lineCount < 1 || lineCount > 20) {
-      this.setData({ moduleLineCountError: '请输入1-20之间的整数' });
-      return;
-    }
 
     // 根据横竖屏模式确定验证范围（按18/28缩放）
     const isLandscape = this.data.orientation === 'landscape';
@@ -2014,24 +2004,6 @@ Page({
       this.setData({ moduleLineSpacingError: `行间距请输入${spacingMin}-${spacingMax}之间的数值` });
       return;
     }
-
-    // 验证自定义拍号（如果选择了自由设定）
-    let sanitizedModuleTemplate = moduleCustomTemplate;
-    if (moduleTimeSignatureBeats === 'custom') {
-      if (!moduleCustomTemplate) {
-        this.setData({ moduleCustomTemplateError: '请输入自定义模板' });
-        return;
-      }
-      if (!this.validateModuleCustomTemplate(moduleCustomTemplate)) {
-        return;
-      }
-      sanitizedModuleTemplate = this.sanitizeTemplateString(moduleCustomTemplate);
-      if (!sanitizedModuleTemplate) {
-        this.setData({ moduleCustomTemplateError: '模板不能为空或仅包含小节线' });
-        return;
-      }
-      this.setData({ moduleCustomTemplate: sanitizedModuleTemplate });
-    }
     
     if (!currentModuleId) {
       wx.showToast({ title: '未找到模块', icon: 'none' });
@@ -2051,14 +2023,13 @@ Page({
     const notation = updated[notationIndex];
 
     // 横屏模式下需要将用户输入的值转换回竖屏基准值存储
-    // isLandscape 已在上方验证部分定义
     // 横屏输入值 * 28/18 = 竖屏存储值（反向缩放）
     const reverseScaleRatio = 28 / 18; // 反向缩放比例
     const storedMeasureHeight = isLandscape ? Math.round(moduleMeasureHeight * reverseScaleRatio) : moduleMeasureHeight;
     const storedNoteFontSize = isLandscape ? Math.round(moduleNoteFontSize * reverseScaleRatio) : moduleNoteFontSize;
     const storedLineSpacing = isLandscape ? Math.round(moduleLineSpacing * reverseScaleRatio) : moduleLineSpacing;
 
-    // 应用样式设置（存储竖屏基准值）
+    // 仅应用样式设置（存储竖屏基准值），不影响谱面结构
     if (!notation.style) {
       notation.style = {};
     }
@@ -2066,49 +2037,12 @@ Page({
     notation.style.noteFontSize = storedNoteFontSize;
     notation.style.lineSpacing = storedLineSpacing;
 
-    // 应用行数变化（横屏模式下行数需要乘以2还原为实际小节数）
-    const storedPerRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
-    const currentMeasureCount = (notation.measures || []).length;
-    const currentLines = Math.max(1, Math.ceil(currentMeasureCount / storedPerRow));
-    
-    // 横屏模式下用户输入的行数是竖屏的一半，需要乘以2
-    const actualLineCount = isLandscape ? lineCount * 2 : lineCount;
-
-    if (actualLineCount > currentLines) {
-      // 增加行数
-      const addLines = actualLineCount - currentLines;
-      const addMeasures = addLines * storedPerRow;
-      for (let i = 0; i < addMeasures; i++) {
-        const template = sanitizedModuleTemplate || this.convertBeatsCountToTemplate(moduleTimeSignatureBeats === 'custom' ? 4 : moduleTimeSignatureBeats);
-        notation.measures.push(this.createMeasureFromCustomTemplate(template));
-      }
-    } else if (actualLineCount < currentLines) {
-      // 减少行数
-      const keepMeasures = Math.max(0, actualLineCount * storedPerRow);
-      notation.measures = notation.measures.slice(0, keepMeasures);
-    }
-
-    // 然后应用拍号变化（如果有）
-    if (moduleTimeSignatureBeats === 3 || moduleTimeSignatureBeats === 4) {
-      this.applyModuleTimeSignature(notation, moduleTimeSignatureBeats, true, '');
-      notation.moduleTimeSignature = moduleTimeSignatureBeats;
-      notation.timeSignature = `${moduleTimeSignatureBeats}/4`;
-      notation.moduleCustomTemplate = undefined;
-    } else if (moduleTimeSignatureBeats === 'custom') {
-      this.applyModuleTimeSignature(notation, 'custom', true, sanitizedModuleTemplate);
-      notation.moduleTimeSignature = 'custom';
-      notation.timeSignature = '自由/自由';
-      notation.moduleCustomTemplate = sanitizedModuleTemplate;
-    }
-
     const normalized = this.normalizeBarLines(updated);
     const withOffsets = this.updateMeasureOffsets(normalized);
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
     this.closeModuleSettingsModal();
-    wx.showToast({ title: '设置已修改', icon: 'success' });
-    // TODO: 实现模块操作的动作记录
-    // this.backupCurrentState();
+    wx.showToast({ title: '样式已修改', icon: 'success' });
   },
 
   // 应用模块级拍号设置
@@ -2907,6 +2841,7 @@ Page({
     }
     this.saveNotationsScoped(updatedNotations);
     this.setNotations(updatedNotations);
+    this.markNotationChanged(); // 标记为有更改
     
     // 清理实例变量
     this._labelEditName = undefined;
@@ -3222,11 +3157,13 @@ Page({
       this._editValue = undefined;
       this.setData({ mainTitle: editValue, showEditModal: false, currentEdit: null });
       this.saveTitles();
+      this.markNotationChanged(); // 标记为有更改
       return;
     } else if (currentEdit.type === 'subtitle') {
       this._editValue = undefined;
       this.setData({ subTitle: editValue, showEditModal: false, currentEdit: null });
       this.saveTitles();
+      this.markNotationChanged(); // 标记为有更改
       return;
     } else if (currentEdit.type === 'globalTempo') {
       this._editValue = undefined;
@@ -3301,24 +3238,33 @@ Page({
 
   // 导出选择
   exportPDF() {
-    // 直接打开新的导出选项
-    this.openExportOptions();
-  },
-
-  // 导出为代码
-  exportAsCode() {
-    try {
-      const code = this.generateNotationCode();
-      this.setData({
-        exportedCode: code,
-        showExportCodeModal: true
-      });
-    } catch (err) {
-      wx.showToast({
-        title: '导出失败: ' + err.message,
-        icon: 'none'
-      });
-    }
+    // 将谱面数据存储到全局，供导出页面使用
+    const app = getApp();
+    app.globalData.exportData = {
+      notations: this.data.notations,
+      mainTitle: this.data.mainTitle,
+      subTitle: this.data.subTitle,
+      globalTempo: this.data.globalTempo,
+      mainTitleColor: this.data.mainTitleColor,
+      subTitleColor: this.data.subTitleColor,
+      rightHandColor: this.data.rightHandColor,
+      leftHandColor: this.data.leftHandColor,
+      orientation: this.data.orientation,
+      measuresPerRow: this.data.measuresPerRow,
+      // 元信息
+      composer: this.data.composer,
+      rootNote: this.data.rootNote,
+      scaleType: this.data.scaleType,
+      noteCount: this.data.noteCount,
+      introduction: this.data.introduction,
+      notationType: this.data.notationType,
+      difficulty: this.data.difficulty
+    };
+    
+    // 跳转到导出页面
+    wx.navigateTo({
+      url: '/subpackages/packageA/page/export/export'
+    });
   },
 
   // 触发保存弹窗
@@ -3518,7 +3464,9 @@ Page({
     for (const notation of notations) {
       // 支持备注格式: \begin{module}{名称}{备注}
       const remarkPart = notation.remark ? `{${notation.remark}}` : '';
-      code += `\\begin{module}{${notation.label}}${remarkPart}\n`;
+      // 支持排版样式格式: \begin{module}{名称}{备注}{排版参数}
+      const stylePart = this.generateStyleParam(notation.style);
+      code += `\\begin{module}{${notation.label}}${remarkPart}${stylePart}\n`;
       
       // 根据模板确定每行小节数
       const measuresPerRow = this.getMeasuresPerRowForNotation(notation);
@@ -3527,7 +3475,14 @@ Page({
       for (let i = 0; i < totalMeasures; i += measuresPerRow) {
         const rowMeasures = notation.measures.slice(i, Math.min(i + measuresPerRow, totalMeasures));
         const lineCode = this.generateLineCode(rowMeasures);
+        
+        // 生成行内注记代码
+        const annotationCode = this.generateLineAnnotationCode(rowMeasures);
+        
         code += lineCode;
+        if (annotationCode) {
+          code += annotationCode;
+        }
         
         // 如果不是最后一行，添加换行符
         if (i + measuresPerRow < totalMeasures) {
@@ -3541,6 +3496,45 @@ Page({
     }
     
     return code.trim();
+  },
+
+  // 生成排版样式参数字符串
+  // 返回 {h:160,f:28,s:65} 格式，如果没有自定义样式则返回空字符串
+  generateStyleParam(style) {
+    if (!style) return '';
+    
+    const parts = [];
+    if (style.measureHeight && style.measureHeight !== 160) {
+      parts.push(`h:${style.measureHeight}`);
+    }
+    if (style.noteFontSize && style.noteFontSize !== 28) {
+      parts.push(`f:${style.noteFontSize}`);
+    }
+    if (style.lineSpacing && style.lineSpacing !== 65) {
+      parts.push(`s:${style.lineSpacing}`);
+    }
+    
+    return parts.length > 0 ? `{${parts.join(',')}}` : '';
+  },
+
+  // 生成行内注记代码
+  // 返回 /*"1:速度渐快","5:重音"*/ 格式，如果没有注记则返回空字符串
+  generateLineAnnotationCode(measures) {
+    const annotations = [];
+    let globalIndex = 1;
+    
+    for (const measure of measures) {
+      for (const beat of measure.beats || []) {
+        for (const subdivision of beat.subdivisions || []) {
+          if (subdivision.annotation) {
+            annotations.push(`"${globalIndex}:${subdivision.annotation}"`);
+          }
+          globalIndex++;
+        }
+      }
+    }
+    
+    return annotations.length > 0 ? `/*${annotations.join(',')}*/` : '';
   },
 
   // 生成整个谱面的代码
@@ -3682,35 +3676,7 @@ Page({
     }
   },
 
-  // 关闭导出代码窗口
-  closeExportCodeModal() {
-    this.setData({
-      showExportCodeModal: false,
-      exportedCode: ''
-    });
-  },
-
-  // 复制代码到剪贴板
-  copyExportedCode() {
-    const code = this.data.exportedCode;
-    wx.setClipboardData({
-      data: code,
-      success: () => {
-        wx.showToast({
-          title: '代码已复制',
-          icon: 'success'
-        });
-      },
-      fail: () => {
-        wx.showToast({
-          title: '复制失败',
-          icon: 'none'
-        });
-      }
-    });
-  },
-
-  // 备份当前操作（优化版：记录动作而非完整快照）
+  // 备份当前操作（优化版：支持动作记录和完整快照两种模式）
   backupCurrentState(action) {
     // 如果没有提供action参数，使用旧的全量备份逻辑作为兜底
     if (!action) {
@@ -3734,6 +3700,16 @@ Page({
       redoStack: this.data.redoStack 
     });
   },
+
+  // 创建完整快照备份（用于删除module、重置、刷新、导入等大型操作）
+  createFullSnapshotAction(actionName) {
+    return {
+      type: 'full_snapshot',
+      name: actionName,
+      timestamp: Date.now(),
+      snapshot: JSON.parse(JSON.stringify(this.data.notations))
+    };
+  },
   
   // 记录音符编辑动作
   recordNoteEditAction(notationIndex, mIdx, bIdx, subIdx, handKey, iIdx, oldValue, newValue) {
@@ -3755,10 +3731,44 @@ Page({
   
   // 应用单个动作（用于撤销/重做）
   applyAction(action, isUndo = true) {
-    const { type, path, oldValue, newValue } = action;
-    const targetValue = isUndo ? oldValue : newValue;
+    const { type } = action;
     
+    // 处理完整快照类型
+    if (type === 'full_snapshot') {
+      if (isUndo) {
+        // 撤销：恢复快照
+        const currentSnapshot = JSON.parse(JSON.stringify(this.data.notations));
+        const restoredNotations = action.snapshot;
+        
+        // 更新action的快照为当前状态，以便重做时可以恢复
+        action.snapshot = currentSnapshot;
+        
+        const withOffsets = this.updateMeasureOffsets(restoredNotations);
+        this.saveNotationsScoped(withOffsets);
+        this.setNotations(withOffsets);
+        this.calculatePages();
+        return true;
+      } else {
+        // 重做：恢复到操作后的状态（快照中存储的是操作前的状态，所以重做时需要交换）
+        const currentSnapshot = JSON.parse(JSON.stringify(this.data.notations));
+        const restoredNotations = action.snapshot;
+        
+        // 更新action的快照为当前状态
+        action.snapshot = currentSnapshot;
+        
+        const withOffsets = this.updateMeasureOffsets(restoredNotations);
+        this.saveNotationsScoped(withOffsets);
+        this.setNotations(withOffsets);
+        this.calculatePages();
+        return true;
+      }
+    }
+    
+    // 处理音符编辑类型
     if (type === 'note_edit') {
+      const { path, oldValue, newValue } = action;
+      const targetValue = isUndo ? oldValue : newValue;
+      
       const notations = this.data.notations;
       const notation = notations[path.notationIndex];
       if (!notation) return false;
@@ -3786,7 +3796,7 @@ Page({
       return true;
     }
     
-    // 可以扩展支持其他动作类型
+    // 未知的动作类型
     return false;
   },
 
@@ -4940,6 +4950,10 @@ Page({
       return;
     }
 
+    // 先备份当前状态（用于撤销）
+    const snapshotAction = this.createFullSnapshotAction('导入谱面');
+    this.backupCurrentState(snapshotAction);
+
     const result = this.performImport(code, this.data.importMode, this.data.importTargetModuleId);
     
     if (result.success) {
@@ -4948,8 +4962,6 @@ Page({
         title: result.message,
         icon: 'success'
       });
-      // TODO: 实现其他操作的动作记录
-      // this.backupCurrentState();
     } else {
       this.setData({ importError: result.message });
     }
@@ -4962,19 +4974,46 @@ Page({
     // 移除所有注释（% 开头到行尾）
     code = code.replace(/%[^\n]*/g, '');
     
-    // 提取所有module块，支持可选的备注参数
-    // 格式1: \begin{module}{A-1} 或 格式2: \begin{module}{A-1}{备注}
-    const moduleRegex = /\\begin\{module\}\{([^}]+)\}(?:\{([^}]*)\})?([\s\S]*?)\\end\{module\}/g;
+    // 提取所有module块，支持可选的备注和排版参数
+    // 格式1: \begin{module}{A-1}
+    // 格式2: \begin{module}{A-1}{备注}
+    // 格式3: \begin{module}{A-1}{备注}{排版信息}
+    // 格式4: \begin{module}{A-1}{排版信息} (当第二个括号是排版信息时)
+    const moduleRegex = /\\begin\{module\}\{([^}]+)\}(?:\{([^}]*)\})?(?:\{([^}]*)\})?([\s\S]*?)\\end\{module\}/g;
     let match;
     
     while ((match = moduleRegex.exec(code)) !== null) {
       const moduleName = match[1].trim();
-      const moduleRemark = match[2] ? match[2].trim() : ''; // 可选的备注
-      const moduleContent = match[3].trim();
+      const param2 = match[2] ? match[2].trim() : ''; // 第二个参数（备注或排版信息）
+      const param3 = match[3] ? match[3].trim() : ''; // 第三个参数（排版信息）
+      const moduleContent = match[4].trim();
+      
+      // 解析排版信息和备注
+      let moduleRemark = '';
+      let moduleStyle = null;
+      
+      if (param3) {
+        // 有第三个参数，尝试解析为排版信息
+        moduleStyle = this.parseStyleParam(param3);
+        moduleRemark = param2; // 第二个参数为备注
+      } else if (param2) {
+        // 只有第二个参数，尝试判断是排版信息还是备注
+        const tryStyle = this.parseStyleParam(param2);
+        if (tryStyle) {
+          // 成功解析为排版信息
+          moduleStyle = tryStyle;
+        } else {
+          // 解析失败，视为备注
+          moduleRemark = param2;
+        }
+      }
       
       try {
         const parsedModule = this.parseModuleContent(moduleName, moduleContent);
         parsedModule.remark = moduleRemark; // 添加备注字段
+        if (moduleStyle) {
+          parsedModule.style = moduleStyle; // 添加排版样式字段
+        }
         modules.push(parsedModule);
       } catch (err) {
         throw new Error(`模块 ${moduleName} 解析失败: ${err.message}`);
@@ -4986,6 +5025,43 @@ Page({
     }
     
     return modules;
+  },
+
+  // 解析排版样式参数
+  // 支持格式: h:160,f:28,s:65 或 measureHeight:160,noteFontSize:28,lineSpacing:65
+  // 返回 { measureHeight, noteFontSize, lineSpacing } 或 null
+  parseStyleParam(param) {
+    if (!param || param.length === 0) return null;
+    
+    const style = {};
+    let hasValidParam = false;
+    
+    // 支持简写和完整格式
+    const paramMap = {
+      'h': 'measureHeight',
+      'f': 'noteFontSize',
+      's': 'lineSpacing',
+      'measureHeight': 'measureHeight',
+      'noteFontSize': 'noteFontSize',
+      'lineSpacing': 'lineSpacing'
+    };
+    
+    // 按逗号分割
+    const parts = param.split(',');
+    for (const part of parts) {
+      const kv = part.split(':');
+      if (kv.length !== 2) continue;
+      
+      const key = kv[0].trim();
+      const value = parseInt(kv[1].trim(), 10);
+      
+      if (paramMap[key] && !isNaN(value) && value > 0) {
+        style[paramMap[key]] = value;
+        hasValidParam = true;
+      }
+    }
+    
+    return hasValidParam ? style : null;
   },
 
   // 解析单个模块内容
@@ -5000,16 +5076,26 @@ Page({
     const allMeasures = [];
     let firstLineMeasureCount = 0;
     let maxMeasuresPerLine = 0;
+    let lineAnnotationsMap = {}; // 存储每行的注记信息
     
     // 遍历每一行
     lines.forEach((line, idx) => {
-      const measures = this.parseLine(line);
+      // 先提取行内注记 /*"数字:注记","数字:注记"*/
+      const { cleanLine, annotations } = this.extractLineAnnotations(line);
+      
+      const measures = this.parseLine(cleanLine);
       if (idx === 0) {
         firstLineMeasureCount = measures.length;
       }
       if (measures.length > maxMeasuresPerLine) {
         maxMeasuresPerLine = measures.length;
       }
+      
+      // 将注记信息应用到对应的音符位置
+      if (annotations && Object.keys(annotations).length > 0) {
+        this.applyAnnotationsToMeasures(measures, annotations, allMeasures.length);
+      }
+      
       allMeasures.push(...measures);
     });
     
@@ -5019,6 +5105,54 @@ Page({
       firstLineMeasureCount,
       measuresPerRow: firstLineMeasureCount || maxMeasuresPerLine || 1
     };
+  },
+
+  // 提取行内注记
+  // 格式: /*"1:速度渐快","5:重音"*/
+  // 返回 { cleanLine: 去除注记后的行内容, annotations: { 位置: 注记文本 } }
+  extractLineAnnotations(line) {
+    const annotationRegex = /\/\*([^*]*)\*\//g;
+    const annotations = {};
+    
+    let cleanLine = line;
+    let match;
+    
+    while ((match = annotationRegex.exec(line)) !== null) {
+      const annotationContent = match[1];
+      // 解析 "数字:注记" 格式
+      const itemRegex = /"(\d+):([^"]+)"/g;
+      let itemMatch;
+      
+      while ((itemMatch = itemRegex.exec(annotationContent)) !== null) {
+        const position = parseInt(itemMatch[1], 10);
+        const text = itemMatch[2].trim();
+        if (!isNaN(position) && text) {
+          annotations[position] = text;
+        }
+      }
+      
+      // 从原始行中移除注记
+      cleanLine = cleanLine.replace(match[0], '');
+    }
+    
+    return { cleanLine: cleanLine.trim(), annotations };
+  },
+
+  // 将注记应用到小节中的对应音符位置
+  // position 是基于当前行的全局音符列索引（从1开始）
+  applyAnnotationsToMeasures(measures, annotations, measureOffset) {
+    let globalSubdivisionIndex = 1; // 全局音符列索引，从1开始
+    
+    for (const measure of measures) {
+      for (const beat of measure.beats || []) {
+        for (const subdivision of beat.subdivisions || []) {
+          if (annotations[globalSubdivisionIndex]) {
+            subdivision.annotation = annotations[globalSubdivisionIndex];
+          }
+          globalSubdivisionIndex++;
+        }
+      }
+    }
   },
 
   // 解析一行中的所有小节
@@ -5432,8 +5566,8 @@ Page({
           // 保留整个上标
           result += cleaned.slice(i, j);
           i = j;
-        } else if (/['',,_]/.test(char)) {
-          // 跳过简单修饰符
+        } else if (/['',,]/.test(char)) {
+          // 跳过八度修饰符（' 升八度，, 降八度），但保留 _ 下划线（时值标记）
           i++;
         } else {
           // 保留其他字符（数字、字母、·等）
@@ -6551,18 +6685,18 @@ Page({
     this.loadAndImportExample();
   },
 
-  // 开屏弹窗：用户手册
+  // 开屏弹窗：新手教程
   onSplashViewManual() {
     // 关闭弹窗
     this.closeSplashModal();
     
     // 延迟导航，确保弹窗先关闭
     setTimeout(() => {
-      wx.switchTab({
-        url: '/pages/settings/settings',
+      wx.navigateTo({
+        url: '/subpackages/packageB/guide_page/guide',
         fail: () => {
           wx.showToast({
-            title: '无法打开帮助页面',
+            title: '无法打开新手教程',
             icon: 'none'
           });
         }
@@ -6969,6 +7103,7 @@ Page({
     const withOffsets = this.updateMeasureOffsets(updatedNotations);
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
+    this.markNotationChanged(); // 标记为有更改
     
     wx.showToast({ title: '已添加音符位', icon: 'success' });
   },
@@ -7007,6 +7142,7 @@ Page({
     const withOffsets = this.updateMeasureOffsets(updatedNotations);
     this.saveNotationsScoped(withOffsets);
     this.setNotations(withOffsets);
+    this.markNotationChanged(); // 标记为有更改
     
     // 清除编辑状态
     this.setData({
@@ -7017,6 +7153,131 @@ Page({
     
     
     wx.showToast({ title: '已删除音符位', icon: 'success' });
+  },
+  
+  // 插入行：在当前选中位置的下方插入一行空模板
+  insertRow() {
+    const { editing, notations } = this.data;
+    if (!editing) {
+      wx.showToast({ title: '请先选中一个音符位', icon: 'none' });
+      return;
+    }
+
+    const { sheet, measure } = editing;
+    const notationIndex = notations.findIndex(n => n.id === sheet);
+    if (notationIndex === -1) return;
+
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    const measuresPerRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    
+    // 计算当前行的起始和结束小节索引
+    const currentRowIndex = Math.floor(measure / measuresPerRow);
+    const rowEndIndex = Math.min((currentRowIndex + 1) * measuresPerRow, notation.measures.length);
+    
+    // 获取当前行的小节，用于生成空模板
+    const rowMeasures = notation.measures.slice(currentRowIndex * measuresPerRow, rowEndIndex);
+    
+    // 生成当前行的空模板（保持相同的拍数和细分结构）
+    const emptyRowMeasures = rowMeasures.map(m => {
+      const template = this.buildMeasureTemplate(m);
+      return this.createMeasureFromCustomTemplate(template);
+    });
+    
+    // 在当前行后插入空行
+    notation.measures.splice(rowEndIndex, 0, ...emptyRowMeasures);
+    
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+    this.markNotationChanged(); // 标记为有更改
+    
+    wx.showToast({ title: '已插入空行', icon: 'success' });
+  },
+  
+  // 删除行：弹窗确认后删除当前选中位置的整行
+  deleteRow() {
+    const { editing, notations } = this.data;
+    if (!editing) {
+      wx.showToast({ title: '请先选中一个音符位', icon: 'none' });
+      return;
+    }
+
+    const { sheet, measure } = editing;
+    const notationIndex = notations.findIndex(n => n.id === sheet);
+    if (notationIndex === -1) return;
+
+    const notation = notations[notationIndex];
+    const measuresPerRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    
+    // 计算当前行的起始索引
+    const currentRowIndex = Math.floor(measure / measuresPerRow);
+    const rowStartIndex = currentRowIndex * measuresPerRow;
+    const rowEndIndex = Math.min(rowStartIndex + measuresPerRow, notation.measures.length);
+    const measuresInRow = rowEndIndex - rowStartIndex;
+    
+    // 检查是否是最后一行且模块只有一行
+    if (notation.measures.length <= measuresInRow) {
+      wx.showToast({ title: '至少保留一行', icon: 'none' });
+      return;
+    }
+    
+    // 保存待删除信息并显示确认弹窗
+    this.setData({
+      showDeleteRowModal: true,
+      pendingDeleteRowInfo: {
+        notationIndex,
+        rowStartIndex,
+        measuresPerRow: measuresInRow
+      }
+    });
+  },
+  
+  // 关闭删除行确认弹窗
+  closeDeleteRowModal() {
+    this.setData({
+      showDeleteRowModal: false,
+      pendingDeleteRowInfo: null
+    });
+  },
+  
+  // 确认删除行
+  confirmDeleteRow() {
+    const { pendingDeleteRowInfo, notations } = this.data;
+    if (!pendingDeleteRowInfo) {
+      this.closeDeleteRowModal();
+      return;
+    }
+    
+    // 先备份当前状态（用于撤销）
+    const snapshotAction = this.createFullSnapshotAction('删除行');
+    this.backupCurrentState(snapshotAction);
+    
+    const { notationIndex, rowStartIndex, measuresPerRow } = pendingDeleteRowInfo;
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    
+    // 删除指定行的小节
+    notation.measures.splice(rowStartIndex, measuresPerRow);
+    
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+    
+    // 清除编辑状态和关闭弹窗
+    this.setData({
+      editing: null,
+      editingValue: '',
+      showVirtualKeyboard: false,
+      showDeleteRowModal: false,
+      pendingDeleteRowInfo: null
+    });
+    
+    wx.showToast({ title: '已删除行', icon: 'success' });
   },
   
   // 音高增加

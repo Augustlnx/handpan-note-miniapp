@@ -6,6 +6,12 @@
   overflow: hidden;
   /* 使用全局自定义导航栏样式 */
   padding-top: 128rpx; /* 为自定义导航栏留出空间 (88rpx + 40rpx) */
+  transition: padding-bottom 0.3s ease;
+}
+
+/* 虚拟键盘激活时增加底部边距，确保音符格可见 */
+.notation-container.keyboard-active {
+  padding-bottom: 520rpx; /* 虚拟键盘高度约480rpx + 额外留白 */
 }
 
 /* 背景图片装饰（固定右下角，半透明，不随滚动改变，低于菜单栏） */
@@ -956,6 +962,16 @@
   flex: 1;
   text-align: center;
   margin-bottom: 20rpx;
+  display: block;
+}
+
+.modal-description {
+  font-size: 26rpx;
+  color: #666;
+  text-align: center;
+  margin-bottom: 16rpx;
+  line-height: 1.5;
+  display: block;
 }
 
 .modal-close-icon {
@@ -3646,8 +3662,8 @@
   flex-direction: row;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 12rpx 0rpx;
-  margin: 0 10rpx 10rpx;
+  padding: 12rpx 0rpx 12rpx 0rpx;
+  margin: 0 6rpx 8rpx;
   background: #fff;
   border-radius: 16rpx;
   box-shadow: 2rpx 2rpx 8rpx rgba(0,0,0,0.12);
@@ -3662,10 +3678,10 @@
 }
 
 .vk-icon-desc {
-  font-size: 16rpx;
+  font-size: 14rpx;
   color: #314D63;
   font-weight: bold;
-  margin-top: 4rpx;
+  margin-top: 2rpx;
   text-align: center;
   white-space: nowrap;
   width: 100%;
@@ -3677,8 +3693,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52rpx;
-  height: 52rpx;
+  width: 50rpx;
+  height: 50rpx;
   padding: 2rpx;
   transition: all 0.2s;
 }
@@ -3689,8 +3705,8 @@
 }
 
 .vk-dir-icon {
-  width: 34rpx;
-  height: 34rpx;
+  width: 39rpx;
+  height: 39rpx;
 }
 
 .vk-icon-btn:active {
@@ -4214,14 +4230,54 @@
   gap: 6rpx;
 }
 
+/* 方向盘容器 - 包含帮助按钮 */
+.vk-direction-pad-container {
+  position: relative;
+  width: 250rpx;
+  height: 250rpx;
+}
+
+/* 帮助按钮 - 右上角 */
+.vk-help-corner-btn {
+  position: absolute;
+  top: 6rpx;
+  right: 6rpx;
+  width: 50rpx;
+  height: 50rpx;
+  background: #F2F2F2;
+  border: 4rpx solid #CDCDCD;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.15);
+}
+
+.vk-help-corner-btn:active {
+  transform: scale(0.92);
+  opacity: 0.7;
+}
+
+.vk-help-corner-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.vk-help-corner-icon--active {
+  width: 44rpx;
+  height: 44rpx; 
+}
+
 /* 方向控制盘 - 拟态设计 */
 .vk-direction-pad {
   width: 250rpx;
   height: 250rpx;
 
   border-radius: 50%;
+  border: 4rpx solid #CDCDCD;
   background:  #F2F2F2;
-  box-shadow: 0rpx 3rpx 16rpx #bebebe, 0rpx -3rpx 16rpx #ffffff, inset 0 0 0 1rpx rgba(255,255,255,0.5);
+  /*box-shadow: 0rpx 3rpx 16rpx #bebebe, 0rpx -3rpx 16rpx #ffffff, inset 0 0 0 1rpx rgba(255,255,255,0.5);*/
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr;
   grid-template-rows: 1fr 1.2fr 1fr;

@@ -1,101 +1,168 @@
-<!-- 自定义导航栏 -->
-<view class="custom-nav-bar">
-  <view class="nav-bar-content">
-    <text class="nav-bar-title">Orbit Note</text>
-  </view>
-</view>
 
 <view class="settings-container">
-  <!-- 背景图片装饰 -->
-  <image class="background-image" src="/assets/img/bg2.png" mode="widthFix"></image>
+  <!-- 顶部渐变背景层 -->
+  <view class="top-gradient-bg"></view>
   
-  <view class="card">
-    <text class="page-title">设置</text>
+  <!-- 用户信息区域 -->
+  <view class="user-profile-section" bindtap="onTapUserProfile">
+    <view class="user-avatar-wrapper">
+      <image wx:if="{{isLoggedIn && userAvatar}}" class="user-avatar" src="{{userAvatar}}" mode="aspectFill"></image>
+      <view wx:else class="user-avatar-default"></view>
+    </view>
+    <view class="user-info">
+      <view class="user-nickname-row">
+        <text class="user-nickname">{{userNickname}}</text>
+        <text wx:if="{{!isLoggedIn}}" class="user-arrow">›</text>
+      </view>
+      <text class="user-hint">{{isLoggedIn ? '点击更换头像和昵称' : '点击设置头像和昵称'}}</text>
+    </view>
+  </view>
+
+  <!-- 头像昵称设置弹窗 -->
+  <view wx:if="{{showProfileModal}}" class="modal-overlay" bindtap="closeProfileModal">
+    <view class="modal-content profile-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">设置头像和昵称</text>
+        <image class="modal-close" src="/assets/icons/delete.png" bindtap="closeProfileModal"></image>
+      </view>
+      <view class="profile-edit-content">
+        <!-- 头像选择 -->
+        <view class="avatar-edit-section">
+          <text class="edit-label">选择头像</text>
+          <button class="avatar-choose-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+            <image wx:if="{{tempAvatar || userAvatar}}" class="avatar-preview" src="{{tempAvatar || userAvatar}}" mode="aspectFill"></image>
+            <view wx:else class="avatar-placeholder">
+              <text class="avatar-placeholder-text">+</text>
+            </view>
+          </button>
+          <text class="edit-hint">点击上方选择相册图片</text>
+        </view>
+        <!-- 昵称输入 -->
+        <view class="nickname-edit-section">
+          <text class="edit-label">设置昵称</text>
+          <input class="nickname-input" type="nickname" placeholder="请输入昵称" value="{{tempNickname}}" bindinput="onNicknameInput" bindblur="onNicknameBlur" maxlength="20" />
+        </view>
+        <!-- 操作按钮 -->
+        <view class="profile-edit-buttons">
+          <button class="btn-cancel" bindtap="closeProfileModal">取消</button>
+          <button class="btn-confirm" bindtap="saveProfile">保存</button>
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <!-- VIP卡片 -->
+  <view class="vip-card-wrapper">
+    <!-- VIP 会员标识 -->
+    <view class="pro-badge">PRO</view>
+    
+    <image wx:if="{{vipCardLoaded && !vipCardError}}" 
+           class="vip-card-image" 
+           src="/subpackages/resources/img/vip_card.jpg" 
+           mode="widthFix"
+           bindload="onVipCardLoad"
+           binderror="onVipCardError"></image>
+    <view wx:if="{{!vipCardLoaded || vipCardError}}" class="vip-card-placeholder">
+      <text class="vip-placeholder-text">{{vipCardError ? 'VIP卡片加载失败' : '加载中...'}}</text>
+    </view>
+  </view>
+  
+  <!-- 设置卡片 -->
+  <view class="card settings-card">
+    <text class="section-header">🎨 外观设置</text>
 
     <!-- 主标题颜色 -->
-    <view class="setting-item">
-      <text class="setting-title">主标题颜色</text>
-      <view class="color-setting">
-        
-        <view class="color-picker-wrapper">
-          <view class="color-preview" style="background-color: {{mainTitleColor}}"></view>
-          <input class="color-input" type="text" value="{{mainTitleColor}}" bindinput="onMainTitleColorInput" maxlength="7" />
-        </view>
+    <view class="setting-item-new">
+      <text class="setting-label">主标题颜色</text>
+      <view class="color-picker-row">
+        <view class="color-preview-new" style="background-color: {{mainTitleColor}}"></view>
+        <input class="color-input-new" type="text" value="{{mainTitleColor}}" bindinput="onMainTitleColorInput" maxlength="7" />
       </view>
     </view>
 
     <!-- 副标题颜色 -->
-    <view class="setting-item">
-      <text class="setting-title">副标题颜色</text>
-      <view class="color-setting">
-        
-        <view class="color-picker-wrapper">
-          <view class="color-preview" style="background-color: {{subTitleColor}}"></view>
-          <input class="color-input" type="text" value="{{subTitleColor}}" bindinput="onSubTitleColorInput" maxlength="7" />
-        </view>
+    <view class="setting-item-new">
+      <text class="setting-label">副标题颜色</text>
+      <view class="color-picker-row">
+        <view class="color-preview-new" style="background-color: {{subTitleColor}}"></view>
+        <input class="color-input-new" type="text" value="{{subTitleColor}}" bindinput="onSubTitleColorInput" maxlength="7" />
       </view>
     </view>
 
     <!-- 右手旋律颜色 -->
-    <view class="setting-item">
-      <text class="setting-title">右手旋律颜色（中轴线以上）</text>
-      <view class="color-setting">
-        
-        <view class="color-picker-wrapper">
-          <view class="color-preview" style="background-color: {{rightHandColor}}"></view>
-          <input class="color-input" type="text" value="{{rightHandColor}}" bindinput="onRightHandColorInput" maxlength="7" />
-        </view>
+    <view class="setting-item-new">
+      <text class="setting-label">右手旋律颜色（上方）</text>
+      <view class="color-picker-row">
+        <view class="color-preview-new" style="background-color: {{rightHandColor}}"></view>
+        <input class="color-input-new" type="text" value="{{rightHandColor}}" bindinput="onRightHandColorInput" maxlength="7" />
       </view>
     </view>
 
     <!-- 左手旋律颜色 -->
-    <view class="setting-item">
-      <text class="setting-title">左手旋律颜色（中轴线以下）</text>
-      <view class="color-setting">
-      
-        <view class="color-picker-wrapper">
-          <view class="color-preview" style="background-color: {{leftHandColor}}"></view>
-          <input class="color-input" type="text" value="{{leftHandColor}}" bindinput="onLeftHandColorInput" maxlength="7" />
-        </view>
+    <view class="setting-item-new">
+      <text class="setting-label">左手旋律颜色（下方）</text>
+      <view class="color-picker-row">
+        <view class="color-preview-new" style="background-color: {{leftHandColor}}"></view>
+        <input class="color-input-new" type="text" value="{{leftHandColor}}" bindinput="onLeftHandColorInput" maxlength="7" />
       </view>
     </view>
 
     <!-- 背景图片透明度 -->
-    <view class="setting-item">
-      <text class="setting-title">背景图片透明度</text>
-      <view class="opacity-setting">
-        <text class="opacity-value">{{backgroundOpacity}}%</text>
-        <slider class="opacity-slider" value="{{backgroundOpacity}}" min="0" max="100" step="5" 
-          bindchange="onBackgroundOpacityChange" show-value="{{false}}" activeColor="#8FB9AB" backgroundColor="#E0E0E0" />
+    <view class="setting-item-new opacity-item">
+      <text class="setting-label">背景图片透明度</text>
+      <view class="opacity-row">
+        <slider class="opacity-slider-new" value="{{backgroundOpacity}}" min="0" max="100" step="5" 
+          bindchange="onBackgroundOpacityChange" show-value="{{false}}" activeColor="#8FB9AB" backgroundColor="#E8E8E8" block-size="20" />
+        <text class="opacity-value-new">{{backgroundOpacity}}%</text>
       </view>
     </view>
 
     <!-- 操作按钮 -->
-    <view class="action-buttons">
-      <button class="btn-primary" bindtap="saveSettings">保存设置</button>
-      <button class="btn-secondary" bindtap="resetSettings">恢复默认</button>
+    <view class="action-buttons-new">
+      <button class="btn-save" bindtap="saveSettings">保存设置</button>
+      <button class="btn-reset" bindtap="resetSettings">恢复默认</button>
     </view>
   </view>
 
-  <!-- 关于 -->
-  <view class="card about-section">
-    <text class="about-title">关于</text>
-    <text class="about-text"> </text>
-    <text class="about-text">Orbit Note 星轨手碟记谱 v5.0.0</text>    <view class="about-links">
-      <view class="about-link" bindtap="showUserManual">
-        <image class="about-icon" src="/subpackages/resources/icons/settings/problem.png"></image>
-        <text>用户手册</text>
+  <!-- 关于卡片 -->
+  <view class="card about-card">
+    <text class="section-header">关于</text>
+    <text class="app-version">Orbit Note 星轨手碟记谱 v6.0.0</text>
+    
+    <view class="about-links-new">
+      <view class="about-link-new" bindtap="showUserManual">
+        <image class="about-icon-new" src="/subpackages/resources/icons/settings/problem.png"></image>
+        <text>新手教程</text>
       </view>
-      <view class="about-link" bindtap="showChangelog">
-        <image class="about-icon" src="/subpackages/resources/icons/settings/calendar.png"></image>
+      <view class="about-link-new" bindtap="showChangelog">
+        <image class="about-icon-new" src="/subpackages/resources/icons/settings/calendar.png"></image>
         <text>更新日志</text>
       </view>
-      <view class="about-link" bindtap="clearCache">
-        <image class="about-icon" src="/assets/icons/refresh.png"></image>
+      <view class="about-link-new" bindtap="clearCache">
+        <image wx:if="{{refreshIconLoaded && !refreshIconError}}" 
+               class="about-icon-new" 
+               src="/assets/icons/refresh.png"
+               bindload="onRefreshIconLoad"
+               binderror="onRefreshIconError"></image>
+        <view wx:if="{{!refreshIconLoaded || refreshIconError}}" 
+              class="about-icon-new" 
+              style="background-color: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+          <text style="font-size: 10px; color: #999;">{{refreshIconError ? '加载失败' : '加载中'}}</text>
+        </view>
         <text>清除缓存</text>
       </view>
     </view>
-    <image class="about-logo" src="/assets/img/logo5.png"></image>
+    
+    <image wx:if="{{logoLoaded && !logoError}}" 
+           class="about-logo-new" 
+           src="/subpackages/packageB/img/logo5.png"
+           bindload="onLogoLoad"
+           binderror="onLogoError"></image>
+    <view wx:if="{{!logoLoaded || logoError}}" 
+          class="about-logo-new" 
+          style="background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border-radius: 20rpx;">
+      <text style="font-size: 24rpx; color: #999;">{{logoError ? 'Logo加载失败' : '加载中...'}}</text>
+    </view>
   </view>
 
   <!-- 用户手册弹窗 -->
@@ -115,7 +182,7 @@
           <view class="manual-section">
             <text class="section-title">🎵 基础功能</text>
             <text class="section-text">• <text class="highlight">音符输入</text>：点击任意音符位即可输入，支持上下双音符</text>
-            <text class="section-text">• <text class="highlight">模块管理</text>：支持多个谱面模块，点击“+”添加新模块</text>
+            <text class="section-text">• <text class="highlight">模块管理</text>：支持多个谱面模块，点击"+"添加新模块</text>
             <text class="section-text">• <text class="highlight">拍号设置</text>：支持 4/4、3/4 和自由设定拍号</text>
             <text class="section-text">• <text class="highlight">横竖屏切换</text>：适应不同设备，横屏可显示更多内容</text>
           </view>
@@ -141,7 +208,7 @@
             <text class="section-text"><text class="highlight">Q: 如何删除音符？</text></text>
             <text class="section-text">A: 点击音符位后清空输入框即可</text>
             <text class="section-text"><text class="highlight">Q: 如何切换拍号？</text></text>
-            <text class="section-text">A: 点击顶部“拍号”选项，选择所需拍号即可</text>
+            <text class="section-text">A: 点击顶部"拍号"选项，选择所需拍号即可</text>
             <text class="section-text"><text class="highlight">Q: 数据会丢失吗？</text></text>
             <text class="section-text">A: 所有数据自动保存到本地，如果不进行微信卸载、缓存清理等操作，不会丢失谱面数据</text>
           </view>
@@ -237,6 +304,17 @@
             </view>
           </view>
           
+          <view class="changelog-item">
+            <text class="version-tag">v6.0.0</text>
+            <text class="version-date">2026-01-12</text>
+            <view class="changelog-content">
+              <text class="change-title">✨ 新功能（感谢泡泡老师的优化指导建议）</text>
+              <text class="change-text">• 添加虚拟键盘功能，支持输入上下标、音高符号和时值下划线</text>
+              <text class="change-text">• PDF导出界面优化</text>
+              <text class="change-text">• 用户界面全新升级</text>
+            </view>
+          </view>
+
 
           <view class="changelog-item">
             <text class="version-tag future">v?.?.? （计划中）</text>
@@ -244,14 +322,12 @@
               <text class="change-title">🔮 可能推出</text>
               <text class="change-text">• 云同步功能</text>
               <text class="change-text">• 音频播放引擎</text>
-              <text class="change-text">• 更多导出格式</text>
-              <text class="change-text">• 模板库功能</text>
               <text class="change-text">• 社区分享功能</text>
-              <text class="change-text">• 商城</text>
             </view>
             <text class="article-text">持续画饼中……</text>
           </view>
         </view>
       </scroll-view>
-    </view>  </view>
+    </view>
+  </view>
 </view>

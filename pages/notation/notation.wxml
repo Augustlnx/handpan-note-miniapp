@@ -270,7 +270,7 @@ module.exports = {
   </view>
 </view>
 
-<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}}" catchtap="clearEditing">
+<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}} {{showVirtualKeyboard ? 'keyboard-active' : ''}}" catchtap="clearEditing">
   <!-- 背景图片装饰（固定右下角，半透明，层级低于菜单栏） -->
   <image class="background-image" src="/assets/img/bg2.png" mode="widthFix" style="opacity: {{backgroundOpacity}}"></image>
   
@@ -636,7 +636,7 @@ module.exports = {
             
             <!-- 添加谱面图标（仅展开状态显示） -->
             <view class="add-notation-row" wx:if="{{!notations[pageModule.index].collapsed}}">
-              <image class="add-icon" src="/assets/icons/add.png" data-after-id="{{notation.id}}" bindtap="addNotationAfter"></image>
+              <image class="add-icon" src="/assets/icons/add.svg" data-after-id="{{notation.id}}" bindtap="addNotationAfter"></image>
               <image class="refresh-icon" src="/assets/icons/refresh.png" data-id="{{notation.id}}" bindtap="refreshNotation"></image>
               <image class="tool-icon" src="/assets/icons/tool.png" data-id="{{notation.id}}" bindtap="openModuleSettings"></image>
               <image class="less-icon" src="/assets/icons/less.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse"></image>
@@ -679,11 +679,11 @@ module.exports = {
       <image class="action-btn-icon" src="/assets/icons/metronome.png"></image>
       <text class="action-btn-text">节拍器</text>
       <view class="help-icon-wrap" catchtap="showMetronomeHelp">
-        <image class="help-icon" src="/assets/icons/help.png"></image>
+        <image class="help-icon" src="/assets/icons/help.svg"></image>
       </view>
     </view>
     <view class="action-btn" bindtap="resetNotations">
-      <image class="action-btn-icon" src="/assets/icons/reset.png"></image>
+      <image class="action-btn-icon" src="/assets/icons/reset.svg"></image>
       <text class="action-btn-text">重置</text>
     </view>
     <view class="action-btn" bindtap="undo">
@@ -691,7 +691,7 @@ module.exports = {
       <text class="action-btn-text">撤销</text>
     </view>
     <view class="action-btn" bindtap="saveToLibrary">
-      <image class="action-btn-icon" src="/assets/icons/save.png"></image>
+      <image class="action-btn-icon" src="/assets/icons/save.svg"></image>
       <text class="action-btn-text">保存</text>
     </view>
     <view class="action-btn" bindtap="exportPDF">
@@ -707,7 +707,7 @@ module.exports = {
       <text class="action-btn-text">{{readingMode ? '编辑' : '阅读'}}</text>
     </view>
     <view class="action-btn" bindtap="toggleOrientation">
-      <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.png' : '/assets/icons/竖屏.png'}}"></image>
+      <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.svg' : '/assets/icons/竖屏.svg'}}"></image>
       <text class="action-btn-text">{{orientation === 'landscape' ? '紧凑' : '宽松'}}</text>
     </view>
       <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
@@ -891,60 +891,10 @@ module.exports = {
       <view class="module-settings-scrollable">
       <view class="settings-item">
         <view class="settings-item-header">
-          <image class="settings-icon" src="/assets/icons/timing.png"></image>
-          <text class="settings-label">拍号</text>
-        </view>
-        <view class="settings-item-content">
-          <text class="settings-default-label">默认：{{timeSignatureBeats}}/{{timeSignatureBottom}}</text>
-          <view class="time-signature-picker">
-            <view class="picker-item" bindtap="selectModuleTimeSignature" data-value="4">
-              <text class="picker-text {{moduleTimeSignatureBeats === 4 ? 'active' : ''}}">4/4</text>
-            </view>
-            <view class="picker-item" bindtap="selectModuleTimeSignature" data-value="3">
-              <text class="picker-text {{moduleTimeSignatureBeats === 3 ? 'active' : ''}}">3/4</text>
-            </view>
-            <view class="picker-item" bindtap="selectModuleTimeSignature" data-value="custom">
-              <text class="picker-text {{moduleTimeSignatureBeats === 'custom' ? 'active' : ''}}">自由</text>
-            </view>
-          </view>
-          <view wx:if="{{moduleTimeSignatureBeats === 'custom'}}" class="custom-template-input-section">
-            <textarea
-              class="custom-template-input"
-              value="{{moduleCustomTemplate}}"
-              placeholder="例如：[----|---|-----|--][--|--]"
-              bindinput="onModuleCustomTemplateInput"
-              maxlength="100"
-            />
-            <view wx:if="{{moduleCustomTemplateError}}" class="error-message">{{moduleCustomTemplateError}}</view>
-          </view>
-        </view>
-      </view>
-
-      <view class="settings-item">
-        <view class="settings-item-header">
           <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
           <text class="settings-label">样式设置</text>
         </view>
         <view class="settings-item-content style-settings-content">
-          <!-- 行数设置 -->
-          <view class="style-setting-row">
-            <text class="style-label">行数</text>
-            <view class="style-input-area">
-              <text class="style-default-hint">默认{{orientation === 'landscape' ? 2 : 4}}</text>
-              <input 
-                class="style-input"
-                type="number"
-                value="{{moduleLineCount}}" 
-                placeholder="1-20"
-                bindinput="onModuleLineCountInput"
-                bindconfirm="confirmModuleLineCount"
-                bindblur="confirmModuleLineCount"
-              />
-              <text class="style-unit">行</text>
-            </view>
-          </view>
-          <view wx:if="{{moduleLineCountError}}" class="error-message">{{moduleLineCountError}}</view>
-          
           <!-- 单行高度设置 -->
           <view class="style-setting-row">
             <text class="style-label">单行高度</text>
@@ -1021,7 +971,7 @@ module.exports = {
           </view>
           <view wx:if="{{exportModuleCode}}" style="display: flex; gap: 12rpx; align-items: flex-start; margin-top: 16rpx;">
             <view style="flex: 1; background: #f5f5f5; padding: 16rpx; border-radius: 8rpx; word-break: break-all; font-size: 24rpx; font-family: monospace; max-height: 150rpx; overflow-y: auto; color: #333;">{{exportModuleCode}}</view>
-            <image class="copy-icon" src="/assets/icons/copy.png" style="width: 40rpx; height: 40rpx; flex-shrink: 0; margin-top: 16rpx;" bindtap="copyModuleCode"></image>
+            <image class="copy-icon" src="/assets/icons/copy.svg" style="width: 40rpx; height: 40rpx; flex-shrink: 0; margin-top: 16rpx;" bindtap="copyModuleCode"></image>
           </view>
         </view>
       </view>
@@ -1040,7 +990,7 @@ module.exports = {
       <view class="modal-header-with-help">
         <view class="modal-title">导入乐谱</view>
         <view class="help-icon-wrap-enhanced" catchtap="showImportHelp">
-          <image class="help-icon-enhanced" src="/assets/icons/help.png"></image>
+          <image class="help-icon-enhanced" src="/assets/icons/help.svg"></image>
           <text class="help-hint">查看说明</text>
         </view>
       </view>
@@ -1090,10 +1040,29 @@ module.exports = {
               <text class="code-text">...乐谱内容...</text>
               <text class="code-text">\end{module}</text>
             </view>
+            <text class="help-desc">支持排版样式（可选第三个括号）：</text>
+            <view class="code-block">
+              <text class="code-text">\begin{module}{A-1}{备注}{h:180,f:32,s:70}</text>
+              <text class="code-text">...乐谱内容...</text>
+              <text class="code-text">\end{module}</text>
+            </view>
+            <text class="help-desc">样式参数说明：</text>
+            <text class="help-item">• h: 小节高度 (默认160rpx)</text>
+            <text class="help-item">• f: 音符字号 (默认28rpx)</text>
+            <text class="help-item">• s: 行间距 (默认65rpx)</text>
           </view>
           
           <view class="help-subsection">
-            <text class="help-label">2. 分隔符</text>
+            <text class="help-label">2. 行内注记</text>
+            <text class="help-desc">在行末用 /*"位置:文字"*/ 添加注记：</text>
+            <view class="code-block">
+              <text class="code-text">[(5)/(1)|(6)/(2)|...]/*"1:渐强","5:重音"*/\\</text>
+            </view>
+            <text class="help-desc">位置从1开始，按16分音符计数。注记显示在对应音符上方。</text>
+          </view>
+          
+          <view class="help-subsection">
+            <text class="help-label">3. 分隔符</text>
             <!-- 使用四个反斜杠以在界面上显示双反斜杠 -->
             <text class="help-item">• 换行：\  \（分隔不同视觉行）</text>
             <text class="help-item">• 小节：[ ] （“][”为共用小节线）</text>
@@ -1286,302 +1255,8 @@ module.exports = {
     </view>
   </view>
 
-  <!-- 导出选项模态框 -->
-  <!-- 已移除：导出前图片加载测试弹窗 -->
 
-  <view wx:if="{{showExportOptionsModal}}" class="modal-overlay" bindtap="closeExportOptions">
-    <view class="modal-content" catchtap="stopPropagation">
-      <view class="modal-header">
-        <text class="modal-title">选择导出模式</text>
-      </view>
-      
-      <view class="export-options">
-        <view class="export-option {{exportMode === 'long' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="long">
-          <view class="option-content">
-            <text class="option-title">长图模式</text>
-            <text class="option-desc">一次导出完整谱面为单张长图</text>
-          </view>
-          <image wx:if="{{exportMode === 'long'}}" class="option-check" src="/assets/icons/check.png"></image>
-        </view>
-        
-        <view class="export-option {{exportMode === 'paged' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="paged">
-          <view class="option-content">
-            <text class="option-title">分页模式（A4）</text>
-            <text class="option-desc">自动分页，适合打印或分享</text>
-          </view>
-          <image wx:if="{{exportMode === 'paged'}}" class="option-check" src="/assets/icons/check.png"></image>
-        </view>
-        
-
-
-        <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
-          <view class="option-content">
-            <text class="option-title">导出为代码</text>
-            <text class="option-desc">生成LaTeX风格代码，可复制分享</text>
-          </view>
-          <image wx:if="{{exportMode === 'code'}}" class="option-check" src="/assets/icons/check.png"></image>
-        </view>
-      </view>
-      
-      <view class="modal-buttons">
-        <button class="btn-secondary" bindtap="closeExportOptions">取消</button>
-        <button class="btn-primary" bindtap="confirmExport">确认导出</button>
-      </view>
-    </view>
-  </view>
-
-  <!-- 导出规格设置：在用户选择分页（A4）并点击确认导出时显示 -->
-  <view wx:if="{{showExportSpecsModal}}" class="modal-overlay" bindtap="closeExportSpecsModal">
-    <view class="modal-content export-specs-modal" catchtap="stopPropagation">
-      <view class="modal-header">
-        <text class="modal-title">导出规格设置</text>
-        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeExportSpecsModal"></image>
-      </view>
-
-      <!-- A4 方向选择 -->
-      <view class="export-spec-row spec-row-inline">
-        <text class="export-spec-label">A4 方向</text>
-        <view class="a4-orientation-options">
-          <view class="spec-option {{exportA4Orientation === 'portrait' ? 'selected' : ''}}" data-orientation="portrait" bindtap="selectA4Orientation">
-            <view class="spec-shape shape-portrait"></view>
-            <text class="spec-option-label">纵向</text>
-          </view>
-          <view class="spec-option {{exportA4Orientation === 'landscape' ? 'selected' : ''}}" data-orientation="landscape" bindtap="selectA4Orientation">
-            <view class="spec-shape shape-landscape"></view>
-            <text class="spec-option-label">横向</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 排版模式选择 -->
-      <view class="export-spec-row spec-row-inline" style="margin-top: 10rpx;">
-        <text class="export-spec-label">排版模式</text>
-        <view class="layout-mode-options">
-          <view class="spec-option {{exportLayoutMode === 'loose' ? 'selected' : ''}}" data-mode="loose" bindtap="selectExportLayoutMode">
-            <view class="spec-shape layout-loose"></view>
-            <text class="spec-option-label">宽松模式</text>
-          </view>
-          <view class="spec-option {{exportLayoutMode === 'compact' ? 'selected' : ''}}" data-mode="compact" bindtap="selectExportLayoutMode">
-            <view class="spec-shape layout-compact"></view>
-            <text class="spec-option-label">紧凑模式</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 提示文字（单独一行，允许换行） -->
-      <view class="export-spec-hint">
-        <text class="md-strong">宽松模式</text> 对应谱面视角的“手机竖屏”，<text class="md-strong">紧凑模式</text> 对应“手机横屏/平板模式”，通常导出推荐选择紧凑模式以充分利用空间。
-      </view>
-
-      <!-- 背景图片设置 -->
-      <view class="export-section-title">背景图片</view>
-      <view class="export-spec-row slider-row">
-        <text class="export-spec-label slider-label">大小</text>
-        <slider class="export-slider" min="10" max="100" value="{{exportBgSize * 100}}" show-value block-size="20" activeColor="#314D63" bindchange="onExportBgSizeChange" />
-        <text class="slider-unit">%</text>
-      </view>
-      <view class="export-spec-row slider-row">
-        <text class="export-spec-label slider-label">透明度</text>
-        <slider class="export-slider" min="0" max="100" value="{{exportBgOpacity * 100}}" show-value block-size="20" activeColor="#314D63" bindchange="onExportBgOpacityChange" />
-        <text class="slider-unit">%</text>
-      </view>
-
-      <!-- 音符颜色设置 -->
-      <view class="export-section-title">音符颜色</view>
-      <view class="export-spec-row spec-row-inline">
-        <text class="export-spec-label">颜色模式</text>
-        <view class="color-mode-options">
-          <view class="color-mode-option {{exportColorMode === 'dual' ? 'selected' : ''}}" data-mode="dual" bindtap="selectExportColorMode">
-            <view class="color-mode-preview dual-preview">
-              <view class="color-dot" style="background: {{exportRightHandColor}};"></view>
-              <view class="color-dot" style="background: {{exportLeftHandColor}};"></view>
-            </view>
-            <text class="spec-option-label">双色</text>
-          </view>
-          <view class="color-mode-option {{exportColorMode === 'single' ? 'selected' : ''}}" data-mode="single" bindtap="selectExportColorMode">
-            <view class="color-mode-preview single-preview">
-              <view class="color-dot large" style="background: {{exportSingleColor}};"></view>
-            </view>
-            <text class="spec-option-label">单色</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 双色模式：左右手颜色 -->
-      <view wx:if="{{exportColorMode === 'dual'}}" class="export-color-pickers">
-        <view class="color-picker-row">
-          <text class="color-picker-label">右手音符</text>
-          <view class="color-picker-controls">
-            <input class="color-input" type="text" value="{{exportRightHandColor}}" data-type="rightHand" bindinput="onExportColorInput" placeholder="#RRGGBB" />
-            <view class="color-picker-trigger" style="background: {{exportRightHandColor}};" data-type="rightHand" bindtap="openExportColorPicker"></view>
-          </view>
-        </view>
-        <view class="color-picker-row">
-          <text class="color-picker-label">左手音符</text>
-          <view class="color-picker-controls">
-            <input class="color-input" type="text" value="{{exportLeftHandColor}}" data-type="leftHand" bindinput="onExportColorInput" placeholder="#RRGGBB" />
-            <view class="color-picker-trigger" style="background: {{exportLeftHandColor}};" data-type="leftHand" bindtap="openExportColorPicker"></view>
-          </view>
-        </view>
-      </view>
-
-      <!-- 单色模式：统一颜色 -->
-      <view wx:if="{{exportColorMode === 'single'}}" class="export-color-pickers">
-        <view class="color-picker-row">
-          <text class="color-picker-label">音符颜色</text>
-          <view class="color-picker-controls">
-            <input class="color-input" type="text" value="{{exportSingleColor}}" data-type="single" bindinput="onExportColorInput" placeholder="#RRGGBB" />
-            <view class="color-picker-trigger" style="background: {{exportSingleColor}};" data-type="single" bindtap="openExportColorPicker"></view>
-          </view>
-        </view>
-      </view>
-
-      <view class="modal-buttons">
-        <button class="btn-secondary" bindtap="closeExportSpecsModal">取消</button>
-        <button class="btn-primary" bindtap="confirmExportSpecs">确认导出</button>
-      </view>
-    </view>
-  </view>
-
-
-  <!-- 导出预览窗口（分页模式） -->
-  <view wx:if="{{showExportPreview}}" class="export-preview-overlay" bindtap="closeExportPreview">
-    <view class="export-preview-container" catchtap="stopPropagation">
-      <view class="preview-header">
-        <text class="preview-title">导出预览（{{currentPreviewPage + 1}}/{{exportPreviewImages.length}}）</text>
-        <image class="preview-close" src="/assets/icons/delete.png" bindtap="closeExportPreview"></image>
-      </view>
-      
-      <swiper class="preview-swiper" current="{{currentPreviewPage}}" bindchange="onPreviewPageChange">
-        <swiper-item wx:for="{{exportPreviewImages}}" wx:key="index">
-          <image class="preview-image" src="{{item}}" mode="aspectFit"></image>
-        </swiper-item>
-      </swiper>
-      
-      <view class="preview-actions">
-        <button class="btn-secondary" bindtap="closeExportPreview">取消</button>
-        <button class="btn-primary" bindtap="showExportFormatModal">保存</button>
-      </view>
-    </view>
-  </view>
-
-  <!-- 导出格式选择弹窗 -->
-  <view wx:if="{{showExportFormatPicker}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation" bindtap="closeExportFormatPicker">
-    <view class="modal-content" catchtap="stopPropagation">
-      <view class="modal-title">选择保存格式</view>
-      
-      <view class="export-format-options">
-        <view class="export-format-option" bindtap="saveAsImages">
-          <image class="format-icon" src="/assets/icons/图片文件_image-files.png"></image>
-          <view class="format-info">
-            <text class="format-title">PNG 图片</text>
-            <text class="format-desc">保存{{exportPreviewImages.length}}张图片到相册</text>
-          </view>
-        </view>
-        
-        <view class="export-format-option" bindtap="saveAsPDF">
-          <image class="format-icon" src="/assets/icons/文件-pdf_file-pdf.png"></image>
-          <view class="format-info">
-            <text class="format-title">PDF 文档</text>
-            <text class="format-desc">合并为单个PDF文件，便于打印分享</text>
-          </view>
-        </view>
-      </view>
-      
-      <view class="modal-buttons">
-        <button class="btn-secondary" bindtap="closeExportFormatPicker">取消</button>
-      </view>
-    </view>
-  </view>
-
-  <!-- PDF导出进度弹窗 -->
-  <view wx:if="{{showPdfProgressModal}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation">
-    <view class="modal-content pdf-progress-modal" catchtap="stopPropagation">
-      <!-- Logo 图片 -->
-      <image class="splash-logo" src="/assets/img/logo5.png"></image>
-     
-      <view class="pdf-progress-header">
-        <image class="pdf-progress-icon" src="/assets/icons/文件-PDF_file-pdf.png" mode="aspectFit"></image>
-        <text class="pdf-progress-title">正在生成PDF</text>
-      </view>
-      
-      <view class="pdf-progress-info">
-        <text class="pdf-progress-stage">{{pdfProgressStage}}</text>
-      </view>
-      
-      <view class="pdf-progress-bar-container">
-        <view class="pdf-progress-bar-bg">
-          <view class="pdf-progress-bar-fill" style="width: {{pdfProgressPercent}}%;"></view>
-        </view>
-        <text class="pdf-progress-percent">{{pdfProgressPercent}}%</text>
-      </view>
-      
-      <view class="pdf-progress-hint">
-        <text>如长时间无响应，可点击取消后重试</text>
-      </view>
-      
-      <view class="modal-buttons">
-        <button class="btn-secondary" bindtap="cancelPdfExport">取消</button>
-      </view>
-    </view>
-  </view>
-
-  <!-- PDF导出成功弹窗 -->
-  <view wx:if="{{showPdfSuccessModal}}" class="modal-overlay export-format-overlay" catchtouchmove="stopPropagation" bindtap="closePdfSuccessModal">
-    <view class="modal-content pdf-success-modal" catchtap="stopPropagation">
-      <view class="pdf-success-header">
-        <image class="pdf-success-icon" src="/assets/icons/check.png"></image>
-        <text class="pdf-success-title">PDF导出成功</text>
-      </view>
-      
-      <view class="pdf-file-info">
-        <text class="pdf-file-name">{{exportedPdfFileName}}</text>
-        <text class="pdf-file-size">共 {{exportPreviewImages.length}} 页</text>
-      </view>
-      
-      <view class="pdf-action-buttons">
-        <view class="pdf-action-btn" bindtap="openExportedPdf">
-          <image class="pdf-action-icon" src="/assets/icons/文件夹-开_folder-open.png"></image>
-          <text class="pdf-action-text">打开</text>
-        </view>
-        <view class="pdf-action-btn" bindtap="shareAndDeletePdf">
-          <image class="pdf-action-icon" src="/assets/icons/share.svg"></image>
-          <text class="pdf-action-text">分享后删除</text>
-        </view>
-      </view>
-      
-      <view class="pdf-save-hint">
-        <text class="pdf-save-hint-text">建议通过分享保存到微信文件助手或其他位置，并自动删除临时文件防止缓存占用过高</text>
-      </view>
-      
-      <view class="modal-buttons">
-        <button class="btn-primary" bindtap="closePdfSuccessAndPreview">完成</button>
-      </view>
-    </view>
-  </view>
-
-  <!-- 导出代码预览窗口 -->
-  <view wx:if="{{showExportCodeModal}}" class="modal-overlay" bindtap="closeExportCodeModal">
-    <view class="modal-content export-code-modal" catchtap="stopPropagation">
-      <view class="modal-header">
-        <text class="modal-title">导出代码</text>
-        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeExportCodeModal"></image>
-      </view>
-      
-      <view class="export-code-body">
-        <view class="code-display">
-          <text class="code-output-text" user-select="true">{{exportedCode}}</text>
-        </view>
-      </view>
-      
-      <view class="export-code-actions">
-        <button class="btn-copy" bindtap="copyExportedCode">
-          <image class="copy-icon" src="/assets/icons/copy.png"></image>
-          <text>复制代码</text>
-        </button>
-      </view>
-    </view>
-  </view>
+  <!-- 导出功能已迁移至独立页面: subpackages/packageA/page/export/export -->
 
   <!-- 保存到曲库弹窗 -->
   <view wx:if="{{showSaveToLibraryModal}}" class="modal-overlay" bindtap="closeSaveToLibraryModal">
@@ -1641,16 +1316,16 @@ module.exports = {
   <!-- 保存模式选择弹窗 -->
   <view class="modal-overlay {{showSaveModeModal ? 'show' : ''}}" bindtap="closeSaveModeModal" wx:if="{{showSaveModeModal}}">
     <view class="modal-content" catchtap="stopPropagation">
-      <text class="modal-title">保存方式</text><br/>
-      <text class="modal-description">当前谱面来自曲库文件：{{libraryFileName}}</text>
+      <view class="modal-title">保存方式</view>
+      <view class="modal-description">当前谱面来自曲库文件：{{libraryFileName}}</view>
       
       <view class="save-mode-buttons">
         <button class="save-mode-btn" bindtap="selectSaveMode" data-mode="overwrite">
-          <view class="save-mode-icon">💾</view>
+          <image class="save-mode-icon" src="/assets/icons/save.svg" mode="aspectFit"></image>
           <text class="save-mode-text">保存原文件修改</text>
         </button>
         <button class="save-mode-btn" bindtap="selectSaveMode" data-mode="saveas">
-          <view class="save-mode-icon">📝</view>
+          <image class="save-mode-icon" src="/assets/icons/folder-rename.png" mode="aspectFit"></image>
           <text class="save-mode-text">另存为新文件</text>
         </button>
       </view>
@@ -1760,11 +1435,11 @@ module.exports = {
       </view>
 
       <!-- Logo 图片 -->
-      <image class="splash-logo" src="/assets/img/logo5.png"></image>
+      <image class="splash-logo" src="/subpackages/packageB/img/logo5.png"></image>
       <!-- 弹窗描述 -->
       <view class="splash-description">
         <text class="splash-text">Orbit Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
-        <text class="splash-text">谱面为前端渲染，部分数据加载可能较慢，请耐心等待啦。导出图片有可能因为缓存失败，可以尝试点击“右上角的更多-重新进入小程序”多尝试几次。欢迎分享给其他朋友使用~</text>
+        <text class="splash-text">谱面部分数据加载可能较慢，请耐心等待啦。导出文件有可能因为缓存超限失败，可在设置界面选择清除缓存（会删除所有数据，请提前及时导出创作内容）。欢迎分享给其他朋友使用~</text>
         <text class="splash-text"></text>
       </view>
 
@@ -1778,7 +1453,7 @@ module.exports = {
             <text class="splash-btn-label">查看示例</text>
           </button>
           <button class="splash-btn splash-btn-manual" bindtap="onSplashViewManual">
-            <text class="splash-btn-label">用户手册</text>
+            <text class="splash-btn-label">新手教程</text>
           </button>
         </view>
       </view>
@@ -1873,6 +1548,20 @@ module.exports = {
       </view>
 
       <view class="vk-icon-btn-group">
+        <view class="vk-icon-btn" bindtap="insertRow">
+          <image class="vk-icon" src="/assets/icons/keyboard/add_row_below.png" mode="aspectFit"></image>
+        </view>
+        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">插入行</text>
+      </view>
+
+      <view class="vk-icon-btn-group">
+        <view class="vk-icon-btn" bindtap="deleteRow">
+          <image class="vk-icon" src="/assets/icons/keyboard/delete_row.png" mode="aspectFit"></image>
+        </view>
+        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">删除行</text>
+      </view>
+
+      <view class="vk-icon-btn-group">
         <view class="vk-icon-btn" bindtap="insertNoteAnnotation">
           <image class="vk-icon" src="/assets/icons/keyboard/insert_note.png" mode="aspectFit"></image>
         </view>
@@ -1880,17 +1569,10 @@ module.exports = {
       </view>
 
       <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="toggleKeyboardHelp">
-          <image class="vk-icon" src="{{showKeyboardHelp ? '/assets/icons/keyboard/reduce-help.svg' : '/assets/icons/keyboard/helpcenter.svg'}}" mode="aspectFit"></image>
-        </view>
-        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">收起说明</text>
-      </view>
-
-      <view class="vk-icon-btn-group">
         <view class="vk-icon-btn" bindtap="toggleVirtualKeyboard">
           <image class="vk-icon" src="/assets/icons/keyboard/keyboard-fold.svg" mode="aspectFit"></image>
         </view>
-        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">切换手机键盘</text>
+        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">切换键盘</text>
       </view>
     </view>
 
@@ -2018,13 +1700,23 @@ module.exports = {
 
       <!-- 右侧: 方向盘 + 删除键 -->
       <view class="vk-right-panel">
-        <!-- 方向控制盘 -->
-        <view class="vk-direction-pad">
-          <view class="vk-dir-btn vk-dir-up" bindtap="moveCursorUp"><image src="/assets/icons/keyboard/上_up.svg" class="vk-dir-icon"></image></view>
-          <view class="vk-dir-btn vk-dir-left" bindtap="moveCursorLeft"><image src="/assets/icons/keyboard/左_left.svg" class="vk-dir-icon"></image></view>
-          <view class="vk-dir-btn vk-dir-center" bindtap="moveToNextLine"><text>⏎</text></view>
-          <view class="vk-dir-btn vk-dir-right" bindtap="moveCursorRight"><image src="/assets/icons/keyboard/右_right.svg" class="vk-dir-icon"></image></view>
-          <view class="vk-dir-btn vk-dir-down" bindtap="moveCursorDown"><image src="/assets/icons/keyboard/下_down.svg" class="vk-dir-icon"></image></view>
+        <!-- 方向控制盘容器（包含帮助按钮） -->
+        <view class="vk-direction-pad-container">
+          <!-- 帮助按钮（右上角） -->
+          <view class="vk-help-corner-btn {{showKeyboardHelp ? 'vk-help-corner-btn--active' : ''}}" bindtap="toggleKeyboardHelp">
+            <image 
+              class="vk-help-corner-icon {{showKeyboardHelp ? 'vk-help-corner-icon--active' : ''}}" 
+              src="{{showKeyboardHelp ? '/assets/icons/keyboard/reduce-help.png' : '/assets/icons/keyboard/helpcenter.png'}}" 
+              mode="aspectFit"></image>
+          </view>
+          <!-- 方向控制盘 -->
+          <view class="vk-direction-pad">
+            <view class="vk-dir-btn vk-dir-up" bindtap="moveCursorUp"><image src="/assets/icons/keyboard/上_up.svg" class="vk-dir-icon"></image></view>
+            <view class="vk-dir-btn vk-dir-left" bindtap="moveCursorLeft"><image src="/assets/icons/keyboard/左_left.svg" class="vk-dir-icon"></image></view>
+            <view class="vk-dir-btn vk-dir-center" bindtap="moveToNextLine"><text>⏎</text></view>
+            <view class="vk-dir-btn vk-dir-right" bindtap="moveCursorRight"><image src="/assets/icons/keyboard/右_right.svg" class="vk-dir-icon"></image></view>
+            <view class="vk-dir-btn vk-dir-down" bindtap="moveCursorDown"><image src="/assets/icons/keyboard/下_down.svg" class="vk-dir-icon"></image></view>
+          </view>
         </view>
         <!-- 删除键（单独一行） -->
         <view class="vk-edit-row">
@@ -2113,6 +1805,18 @@ module.exports = {
       <view class="modal-buttons">
         <button class="btn-secondary" bindtap="closeIntroModal">取消</button>
         <button class="btn-primary" bindtap="confirmIntroEdit">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 删除行确认弹窗 -->
+  <view wx:if="{{showDeleteRowModal}}" class="modal-overlay" bindtap="closeDeleteRowModal">
+    <view class="modal-content delete-row-modal" catchtap="stopPropagation">
+      <view class="modal-title">确认删除</view>
+      <view class="modal-description">确定要删除当前行吗？此操作不可撤销。</view>
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeDeleteRowModal">取消</button>
+        <button class="btn-danger" bindtap="confirmDeleteRow">删除</button>
       </view>
     </view>
   </view>
