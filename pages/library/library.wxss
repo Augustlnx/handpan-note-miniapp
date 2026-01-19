@@ -995,12 +995,17 @@
   height: 84rpx;
   line-height: 84rpx;
   padding: 0 24rpx;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafb 100%);
   border-radius: 14rpx;
-  border: 2rpx solid #e8e8e8;
+  border: 2rpx solid rgba(143, 185, 171, 0.3);
   font-size: 28rpx;
-  color: #333;
-  transition: all 0.2s ease;
+  color: #314D63;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2rpx 8rpx rgba(49, 77, 99, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .picker-value:active {

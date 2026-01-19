@@ -712,7 +712,7 @@ module.exports = {
       <view class="layout-submenu" wx:if="{{showLayoutMenu}}" catchtap="stopPropagation">
         <view class="action-btn" bindtap="toggleReadingMode">
           <image class="action-btn-icon" src="{{readingMode ? '/assets/icons/newspaper-folding-active.png' : '/assets/icons/newspaper-folding.png'}}"></image>
-          <text class="action-btn-text">{{readingMode ? '编辑' : '阅读'}}</text>
+          <text class="action-btn-text">{{readingMode ? '阅读' : '编辑'}}</text>
         </view>
         <view class="action-btn" bindtap="toggleOrientation">
           <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.svg' : '/assets/icons/竖屏.svg'}}"></image>
