@@ -7,6 +7,16 @@ App({
       accent: '#F4D096'
     },
     notations: [], // 存储所有谱面数据
+    
+    // 预加载数据 - 由 splash 页面填充，notation 页面消费
+    notationPreloaded: false, // 预加载是否完成的标志
+    preloadedTitles: null,    // 标题和元信息
+    preloadedColors: null,    // 颜色设置
+    preloadedNotations: null, // 谱面数据
+    preloadedTempo: null,     // 速度和节拍器设置
+    preloadedLibraryInfo: null, // 库文件关联信息
+    preloadedSettings: null,  // 其他设置（谱式类型、背景透明度）
+    
     // 示例数据（Urban 曲谱）
     exampleData: {
       "title": "Urban",
@@ -50,5 +60,16 @@ App({
   saveNotations(notations) {
     this.globalData.notations = notations;
     wx.setStorageSync('notations', notations);
+  },
+
+  // 清除预加载数据（notation 页面消费后调用）
+  clearPreloadedData() {
+    this.globalData.notationPreloaded = false;
+    this.globalData.preloadedTitles = null;
+    this.globalData.preloadedColors = null;
+    this.globalData.preloadedNotations = null;
+    this.globalData.preloadedTempo = null;
+    this.globalData.preloadedLibraryInfo = null;
+    this.globalData.preloadedSettings = null;
   }
 })

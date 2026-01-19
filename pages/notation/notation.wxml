@@ -702,19 +702,29 @@ module.exports = {
       <image class="action-btn-icon" src="/assets/icons/upload.png"></image>
       <text class="action-btn-text">导入</text>
     </view>
-    <view class="action-btn" bindtap="toggleReadingMode">
-      <image class="action-btn-icon" src="{{readingMode ? '/assets/icons/newspaper-folding-active.png' : '/assets/icons/newspaper-folding.png'}}"></image>
-      <text class="action-btn-text">{{readingMode ? '编辑' : '阅读'}}</text>
-    </view>
-    <view class="action-btn" bindtap="toggleOrientation">
-      <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.svg' : '/assets/icons/竖屏.svg'}}"></image>
-      <text class="action-btn-text">{{orientation === 'landscape' ? '紧凑' : '宽松'}}</text>
+    <!-- 布局按钮（带二级菜单） -->
+    <view class="layout-menu-container">
+      <view class="action-btn {{showLayoutMenu ? 'layout-btn-active' : ''}}" bindtap="toggleLayoutMenu">
+        <image class="action-btn-icon" src="/assets/icons/layout.svg"></image>
+        <text class="action-btn-text">布局</text>
+      </view>
+      <!-- 布局二级菜单（气泡样式） -->
+      <view class="layout-submenu" wx:if="{{showLayoutMenu}}" catchtap="stopPropagation">
+        <view class="action-btn" bindtap="toggleReadingMode">
+          <image class="action-btn-icon" src="{{readingMode ? '/assets/icons/newspaper-folding-active.png' : '/assets/icons/newspaper-folding.png'}}"></image>
+          <text class="action-btn-text">{{readingMode ? '编辑' : '阅读'}}</text>
+        </view>
+        <view class="action-btn" bindtap="toggleOrientation">
+          <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.svg' : '/assets/icons/竖屏.svg'}}"></image>
+          <text class="action-btn-text">{{orientation === 'landscape' ? '紧凑' : '宽松'}}</text>
+        </view>
+      </view>
     </view>
       <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
       
   </view>
   <image class="action-toggle" 
-    src="/assets/icons/handpan.png" 
+    src="/assets/icons/toolkit.svg" 
     bindtap="toggleActionBar"
     wx:if="{{actionCollapsed}}"></image>
 
@@ -1771,13 +1781,13 @@ module.exports = {
         <view class="form-col">
           <text class="form-label">主音</text>
           <picker mode="selector" range="{{rootNoteDisplayOptions}}" value="{{tempRootNote ? rootNoteOptions.indexOf(tempRootNote) : 2}}" bindchange="onRootNoteChange">
-            <view class="picker-value">{{tempRootNote || 'D'}} ▼</view>
+            <view class="picker-value">{{tempRootNote || 'D'}}</view>
           </picker>
         </view>
         <view class="form-col">
           <text class="form-label">调式</text>
           <picker mode="selector" range="{{scaleTypeOptions}}" value="{{tempScaleType ? scaleTypeOptions.indexOf(tempScaleType) : 9}}" bindchange="onScaleTypeChange">
-            <view class="picker-value">{{tempScaleType && tempScaleType.indexOf(' / ') > -1 ? tempScaleType.split(' / ')[0] : (tempScaleType || 'Kurd')}} ▼</view>
+            <view class="picker-value">{{tempScaleType && tempScaleType.indexOf(' / ') > -1 ? tempScaleType.split(' / ')[0] : (tempScaleType || 'Kurd')}}</view>
           </picker>
         </view>
       </view>
@@ -1785,7 +1795,7 @@ module.exports = {
       <view class="form-group">
         <text class="form-label">音位数</text>
         <picker mode="selector" range="{{noteCountOptions}}" value="{{tempNoteCount ? noteCountOptions.indexOf(tempNoteCount) : 3}}" bindchange="onNoteCountChange">
-          <view class="picker-value">{{tempNoteCount || 10}} 音 ▼</view>
+          <view class="picker-value">{{tempNoteCount || 10}} 音</view>
         </picker>
       </view>
       

@@ -98,6 +98,529 @@ page {
   z-index: 1;
 }
 
+/* ============================================================ */
+/* 全局高级弹窗样式系统 - Premium Modal System */
+/* ============================================================ */
+
+/* 弹窗遮罩层 */
+.g-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  backdrop-filter: blur(4rpx);
+}
+
+.g-modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 弹窗容器 */
+.g-modal {
+  background: #fff;
+  border-radius: 24rpx;
+  width: 90%;
+  max-width: 640rpx;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.25), 0 8rpx 20rpx rgba(0, 0, 0, 0.15);
+  transform: translateY(30rpx) scale(0.95);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+  overflow: hidden;
+}
+
+.g-modal-overlay.show .g-modal {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+/* 弹窗尺寸变体 */
+.g-modal--sm {
+  max-width: 500rpx;
+}
+
+.g-modal--lg {
+  max-width: 750rpx;
+}
+
+.g-modal--xl {
+  max-width: 90%;
+}
+
+/* 弹窗头部 */
+.g-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx 48rpx 24rpx;
+  position: relative;
+  border-bottom: 1rpx solid #f0f0f0;
+  background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+
+.g-modal__header--no-border {
+  border-bottom: none;
+}
+
+/* 弹窗标题 */
+.g-modal__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #314D63;
+  text-align: center;
+  flex: 1;
+  letter-spacing: 1rpx;
+}
+
+/* 弹窗副标题/描述 */
+.g-modal__subtitle {
+  font-size: 26rpx;
+  color: #888;
+  text-align: center;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* 关闭按钮 */
+.g-modal__close {
+  position: absolute;
+  right: 24rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f5f5f5;
+  transition: all 0.2s ease;
+}
+
+.g-modal__close:active {
+  background: #e8e8e8;
+  transform: translateY(-50%) scale(0.9);
+}
+
+.g-modal__close-icon {
+  width: 28rpx;
+  height: 28rpx;
+  opacity: 0.6;
+}
+
+/* 帮助按钮（与关闭按钮同位置或旁边） */
+.g-modal__help {
+  position: absolute;
+  right: 80rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  padding: 8rpx 16rpx;
+  background: linear-gradient(135deg, #8FB9AB 0%, #6FA696 100%);
+  border-radius: 12rpx;
+  box-shadow: 0 4rpx 12rpx rgba(143, 185, 171, 0.3);
+  transition: all 0.2s ease;
+}
+
+.g-modal__help:active {
+  transform: translateY(-50%) scale(0.95);
+  opacity: 0.9;
+}
+
+.g-modal__help-icon {
+  width: 28rpx;
+  height: 28rpx;
+  filter: brightness(0) invert(1);
+}
+
+.g-modal__help-text {
+  font-size: 18rpx;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* 弹窗内容区 */
+.g-modal__body {
+  flex: 1;
+  padding: 24rpx 32rpx;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.g-modal__body--centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.g-modal__body--no-padding {
+  padding: 0;
+}
+
+/* 弹窗描述文字 */
+.g-modal__desc {
+  font-size: 26rpx;
+  color: #666;
+  text-align: center;
+  margin-bottom: 24rpx;
+  line-height: 1.6;
+}
+
+/* 弹窗输入框 */
+.g-modal__input {
+  width: 100%;
+  height: 88rpx;
+  padding: 0 28rpx;
+  background: #f8f9fa;
+  border: 2rpx solid #e8e8e8;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #333;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.g-modal__input:focus {
+  border-color: #8FB9AB;
+  background: #fff;
+  box-shadow: 0 0 0 4rpx rgba(143, 185, 171, 0.15);
+}
+
+.g-modal__input::placeholder {
+  color: #bbb;
+}
+
+/* 弹窗文本域 */
+.g-modal__textarea {
+  width: 100%;
+  min-height: 200rpx;
+  padding: 20rpx 28rpx;
+  background: #f8f9fa;
+  border: 2rpx solid #e8e8e8;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #333;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+  line-height: 1.6;
+}
+
+.g-modal__textarea:focus {
+  border-color: #8FB9AB;
+  background: #fff;
+  box-shadow: 0 0 0 4rpx rgba(143, 185, 171, 0.15);
+}
+
+/* 弹窗底部按钮区 */
+.g-modal__footer {
+  display: flex;
+  padding: 0;
+  border-top: 1rpx solid #f0f0f0;
+  background: #fafbfc;
+}
+
+.g-modal__footer--gap {
+  padding: 20rpx 32rpx 32rpx;
+  gap: 20rpx;
+  background: #fff;
+  border-top: none;
+}
+
+/* 按钮基础样式 */
+.g-modal__btn {
+  flex: 1;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.g-modal__btn::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 1rpx;
+  background: #f0f0f0;
+}
+
+.g-modal__btn:last-child::after {
+  display: none;
+}
+
+.g-modal__btn:active {
+  background: #f5f5f5;
+}
+
+/* 取消按钮 */
+.g-modal__btn--cancel {
+  color: #666;
+}
+
+/* 确认/主要按钮 */
+.g-modal__btn--primary {
+  color: #314D63;
+  font-weight: 700;
+}
+
+/* 危险按钮 */
+.g-modal__btn--danger {
+  color: #e74c3c;
+}
+
+/* 圆角按钮版本（用于间距布局） */
+.g-modal__footer--gap .g-modal__btn {
+  border-radius: 16rpx;
+  height: 88rpx;
+}
+
+.g-modal__footer--gap .g-modal__btn::after {
+  display: none;
+}
+
+.g-modal__footer--gap .g-modal__btn--cancel {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.g-modal__footer--gap .g-modal__btn--cancel:active {
+  background: #e0e0e0;
+}
+
+.g-modal__footer--gap .g-modal__btn--primary {
+  background: linear-gradient(135deg, #314D63 0%, #456275 100%);
+  color: #fff;
+  box-shadow: 0 4rpx 16rpx rgba(49, 77, 99, 0.3);
+}
+
+.g-modal__footer--gap .g-modal__btn--primary:active {
+  background: linear-gradient(135deg, #28404f 0%, #3a5363 100%);
+  transform: translateY(2rpx);
+  box-shadow: 0 2rpx 8rpx rgba(49, 77, 99, 0.3);
+}
+
+.g-modal__footer--gap .g-modal__btn--danger {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: #fff;
+  box-shadow: 0 4rpx 16rpx rgba(231, 76, 60, 0.3);
+}
+
+/* 分隔线 */
+.g-modal__divider {
+  height: 1rpx;
+  background: #f0f0f0;
+  margin: 20rpx 0;
+}
+
+/* 帮助内容区域样式 */
+.g-modal__help-content {
+  background: #f9fafb;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  border-left: 6rpx solid #314D63;
+}
+
+.g-modal__help-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+  line-height: 1.6;
+  font-size: 28rpx;
+  color: #555;
+}
+
+.g-modal__help-line:last-child {
+  margin-bottom: 0;
+}
+
+.g-modal__help-dot {
+  color: #314D63;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.g-modal__help-strong {
+  font-weight: 600;
+  color: #314D63;
+}
+
+.g-modal__help-quote {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  background: #eef2f6;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 代码块样式 */
+.g-modal__code {
+  background: #2c3e50;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin: 16rpx 0;
+}
+
+.g-modal__code-text {
+  font-size: 24rpx;
+  font-family: 'SF Mono', Monaco, monospace;
+  color: #fff;
+  line-height: 1.8;
+  word-break: break-all;
+}
+
+/* 错误提示样式 */
+.g-modal__error {
+  color: #e74c3c;
+  font-size: 24rpx;
+  margin-top: 12rpx;
+  line-height: 1.4;
+}
+
+/* 提示信息 */
+.g-modal__hint {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 12rpx;
+  line-height: 1.5;
+}
+
+/* 加载状态 */
+.g-modal__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 0;
+  gap: 24rpx;
+}
+
+.g-modal__loading-icon {
+  width: 80rpx;
+  height: 80rpx;
+  animation: g-modal-spin 1s linear infinite;
+}
+
+@keyframes g-modal-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.g-modal__loading-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+/* 成功/完成状态 */
+.g-modal__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 0;
+  gap: 20rpx;
+}
+
+.g-modal__success-icon {
+  width: 100rpx;
+  height: 100rpx;
+}
+
+.g-modal__success-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #333;
+}
+
+.g-modal__success-desc {
+  font-size: 26rpx;
+  color: #888;
+  text-align: center;
+}
+
+/* 底部操作栏弹窗（底部滑出） */
+.g-modal-overlay--bottom {
+  align-items: flex-end;
+}
+
+.g-modal-overlay--bottom .g-modal {
+  max-width: 100%;
+  width: 100%;
+  border-radius: 32rpx 32rpx 0 0;
+  transform: translateY(100%);
+  max-height: 70vh;
+}
+
+.g-modal-overlay--bottom.show .g-modal {
+  transform: translateY(0);
+}
+
+/* 表单组样式 */
+.g-form-group {
+  margin-bottom: 28rpx;
+}
+
+.g-form-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+  font-weight: 500;
+}
+
+.g-form-row {
+  display: flex;
+  gap: 20rpx;
+}
+
+.g-form-col {
+  flex: 1;
+}
+
+/* 选择器样式 */
+.g-picker {
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 24rpx;
+  background: #f8f9fa;
+  border: 2rpx solid #e8e8e8;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.g-picker-arrow {
+  font-size: 24rpx;
+  color: #999;
+}
+
 @font-face {
     font-family: 'Tangerine';
     src: url('data:font/woff2;charset=utf-8;base64,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') format('woff2'),

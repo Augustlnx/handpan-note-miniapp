@@ -1,14 +1,16 @@
 // 谱面导出工具 - 纯前端实现（Canvas 绘制）
 
-// A4 尺寸常量（像素，300 DPI）
-const A4_WIDTH = 2480; // 约 210mm（纵向时的宽度）
-const A4_HEIGHT = 3508; // 约 297mm（纵向时的高度）
-const CONTENT_PADDING = 120; // 内容边距
-const CONTENT_WIDTH = A4_WIDTH - CONTENT_PADDING * 2;
-// A4横向时宽高互换
-const A4_LANDSCAPE_WIDTH = A4_HEIGHT;
-const A4_LANDSCAPE_HEIGHT = A4_WIDTH;
-const CONTENT_LANDSCAPE_WIDTH = A4_LANDSCAPE_WIDTH - CONTENT_PADDING * 2;
+// 引入配置文件
+const exportConfig = require('./config.js');
+
+// A4 尺寸常量（从配置文件读取）
+const A4_WIDTH = exportConfig.A4_WIDTH;
+const A4_HEIGHT = exportConfig.A4_HEIGHT;
+const CONTENT_PADDING = exportConfig.CONTENT_PADDING;
+const CONTENT_WIDTH = exportConfig.CONTENT_WIDTH;
+const A4_LANDSCAPE_WIDTH = exportConfig.A4_LANDSCAPE_WIDTH;
+const A4_LANDSCAPE_HEIGHT = exportConfig.A4_LANDSCAPE_HEIGHT;
+const CONTENT_LANDSCAPE_WIDTH = exportConfig.CONTENT_LANDSCAPE_WIDTH;
 
 // ==================== 全局单例模式 ====================
 // 【重要】解决真机上多次导出时 Canvas 和 Image 资源问题
@@ -310,6 +312,14 @@ function exportAsPages(data) {
  * 在 Canvas 上绘制谱面
  */
 function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
+  // 获取模式配置
+  const modeConfig = exportConfig.getExportConfig({
+    exportMode: isPaged ? 'paged' : 'long',
+    a4Orientation: data.a4Orientation || 'portrait',
+    exportLayoutMode: data.exportLayoutMode || 'compact'
+  });
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
   var notations = data.notations;
   var mainTitle = data.mainTitle;
   var subTitle = data.subTitle;
@@ -321,9 +331,9 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   
   // 导出自定义颜色配置
   var colorMode = data.exportColorMode || 'dual'; // 'dual' 双色模式, 'single' 单色模式
-  var singleColor = data.exportSingleColor || '#314D63';
-  var exportRightHandColor = data.exportRightHandColor || data.rightHandColor || '#F4D096';
-  var exportLeftHandColor = data.exportLeftHandColor || data.leftHandColor || '#314D63';
+  var singleColor = data.exportSingleColor || commonConfig.defaultSingleColor;
+  var exportRightHandColor = data.exportRightHandColor || data.rightHandColor || commonConfig.defaultRightHandColor;
+  var exportLeftHandColor = data.exportLeftHandColor || data.leftHandColor || commonConfig.defaultLeftHandColor;
   
   // 根据颜色模式确定实际使用的颜色
   var rightHandColor, leftHandColor;
@@ -335,12 +345,12 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     leftHandColor = exportLeftHandColor;
   }
   
-  // 背景图配置
-  var bgOpacity = data.exportBgOpacity !== undefined ? data.exportBgOpacity : 0.1;
-  var bgSize = data.exportBgSize !== undefined ? data.exportBgSize : 0.67;
+  // 背景图配置（优先使用传入的值，否则使用配置默认值）
+  var bgOpacity = data.exportBgOpacity !== undefined ? data.exportBgOpacity : modeConfig.bgOpacity;
+  var bgSize = data.exportBgSize !== undefined ? data.exportBgSize : modeConfig.bgSizeScale;
   
   const ctx = canvas.getContext('2d');
-  const dpr = 3; // 设备像素比，提高清晰度
+  const dpr = commonConfig.dpr; // 设备像素比
   
   // 根据A4方向确定页面尺寸
   const isA4Landscape = (a4Orientation === 'landscape');
@@ -349,17 +359,17 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
   const pagedContentWidth = isA4Landscape ? CONTENT_LANDSCAPE_WIDTH : CONTENT_WIDTH;
   
   // 根据分页模式选择宽度
-  const width = isPaged ? pagedWidth / dpr : (orientation === 'landscape' ? 600 : 400);
-  const contentWidth = isPaged ? pagedContentWidth / dpr : width - 20;
-  const leftMargin = isPaged ? CONTENT_PADDING / dpr : 10;
+  const width = isPaged ? pagedWidth / dpr : (orientation === 'landscape' ? modeConfig.landscapeWidth : modeConfig.portraitWidth);
+  const contentWidth = isPaged ? pagedContentWidth / dpr : width - (modeConfig.contentPadding || 20);
+  const leftMargin = isPaged ? CONTENT_PADDING / dpr : (modeConfig.leftMargin || 10);
   
   // 计算各个部分的高度
-  const titleBlockHeight = 80;
-  const measureLineHeight = 70; // 每行小节的高度
+  const titleBlockHeight = modeConfig.titleBlockHeight;
+  const measureLineHeight = 70; // 每行小节的高度（基准值）
   const rowGap = 12; // 行间距，避免上下行的竖线视觉连贯
-  const notationLabelHeight = 50; // 模块编号的高度（与 drawNotationSection 中的 y+50 保持一致）
-  const sectionGap = 15; // 模块间距
-  const bottomPadding = 70; // 底部预留间距
+  const notationLabelHeight = modeConfig.notationLabelHeight; // 模块编号的高度
+  const sectionGap = modeConfig.sectionGap; // 模块间距
+  const bottomPadding = modeConfig.bottomPadding || 70; // 底部预留间距
   
   // 计算每个模块需要的行数（模块优先，其次全局，再回退默认）
   const isLandscape = orientation === 'landscape';
@@ -375,8 +385,14 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     if (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0) {
       return data.measuresPerRow;
     }
-    return isPaged ? Math.floor(contentWidth / 250) : (isLandscape ? 2 : 1);
+    return isPaged ? Math.floor(contentWidth / (modeConfig.measuresPerRowFallback || 250)) : (isLandscape ? 2 : 1);
   };
+  
+  // 获取用户调整系数（默认50表示1.0倍，范围0-100）
+  const lineSpacingMultiplier = data.lineSpacingAdjust !== undefined 
+    ? (data.lineSpacingAdjust / 50) : 1.0;
+  const measureHeightMultiplier = data.measureHeightAdjust !== undefined 
+    ? (data.measureHeightAdjust / 50) : 1.0;
   
   const notationHeights = notations.map(notation => {
     const measuresPerRow = resolveMeasuresPerRow(notation);
@@ -385,21 +401,32 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
     
     // 获取样式设置来计算高度
     const style = notation.style || {};
-    // 根据宽松/紧凑模式调整默认值：宽松模式增加50%
-    const isLooseMode = data.exportLayoutMode === 'loose';
-    const defaultMeasureHeight = isLooseMode ? 240 : 160; // 宽松模式: 240rpx, 紧凑模式: 160rpx
-    const defaultLineSpacing = isLooseMode ? 98 : 65;     // 宽松模式: 98rpx, 紧凑模式: 65rpx
+    const exportLayoutMode = data.exportLayoutMode || 'compact';
+    const isLooseMode = exportLayoutMode === 'loose';
     
-    const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
-    const lineSpacing = style.lineSpacing || defaultLineSpacing;
-    const lineSpacingPx = Math.round(lineSpacing * 0.5);
+    // 与 drawNotationSection 中的计算方式完全一致
+    const defaultMeasureHeight = modeConfig.defaultMeasureHeightRpx || 
+      (isLooseMode ? modeConfig.looseMeasureHeightRpx : modeConfig.compactMeasureHeightRpx) || 
+      (isLooseMode ? 240 : 160);
+    const defaultLineSpacing = modeConfig.defaultLineSpacingRpx || 
+      (isLooseMode ? modeConfig.looseLineSpacingRpx : modeConfig.compactLineSpacingRpx) || 
+      (isLooseMode ? 98 : 65);
     
-    // 将rpx转换为px（假设1rpx ≈ 0.5px）
-    const measureHeight = Math.round(measureHeightRpx * 0.5);
+    // 应用用户调整系数
+    const measureHeightRpx = (style.measureHeight || defaultMeasureHeight) * measureHeightMultiplier;
+    const lineSpacing = (style.lineSpacing || defaultLineSpacing) * lineSpacingMultiplier;
+    const rpxToPxRatio = commonConfig.rpxToPxRatio;
+    const lineSpacingPx = Math.round(lineSpacing * rpxToPxRatio);
+    
+    // 将rpx转换为px
+    const measureHeight = Math.round(measureHeightRpx * rpxToPxRatio);
     const rowGap = lineSpacingPx;
     
     const totalRowsHeight = (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap;
-    return notationLabelHeight + totalRowsHeight + sectionGap;
+    // 使用与 drawNotationSection 一致的计算方式
+    const moduleContentOffsetY = modeConfig.moduleContentOffsetY || 50;
+    const sectionBottomPadding = modeConfig.sectionBottomPadding || 15;
+    return moduleContentOffsetY + totalRowsHeight + sectionBottomPadding;
   });
   
   if (!isPaged) {
@@ -415,7 +442,7 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
         starIcon: images.starIcon
       };
       
-      // 底部预留60rpx（约30px），确保谱面内容和页面底端有足够间隔
+      // 底部预留空间，确保谱面内容和页面底端有足够间隔
       const totalHeight = titleBlockHeight + notationHeights.reduce((sum, h) => sum + h, 0) + bottomPadding;
       
       // 【单例模式】使用 resetCanvasContext 重置画布状态
@@ -430,16 +457,22 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       let currentY = 10;
       
       // 绘制标题区 - 传递整个data对象和图标
-      currentY = drawTitleBlock(ctx, data, 0, currentY, width, icons);
+      currentY = drawTitleBlock(ctx, data, 0, currentY, width, icons, modeConfig);
       
       // 获取导出布局模式
       const exportLayoutMode = data.exportLayoutMode || 'compact';
       
-      // 绘制所有谱面模块
+      // 用户调整参数
+      const adjustParams = {
+        lineSpacingAdjust: data.lineSpacingAdjust,
+        measureHeightAdjust: data.measureHeightAdjust
+      };
+      
+      // 绘制所有谱面模块（传入modeConfig和adjustParams确保配置正确生效）
       notations.forEach((notation, idx) => {
         const measuresPerRow = resolveMeasuresPerRow(notation);
         currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
-                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode);
+                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode, modeConfig, adjustParams);
       });
       
       // 叠加绘制水印与背景后导出
@@ -470,16 +503,22 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       let currentY = 10;
       
       // 绘制标题区 - 传递整个data对象，无图标
-      currentY = drawTitleBlock(ctx, data, 0, currentY, width, null);
+      currentY = drawTitleBlock(ctx, data, 0, currentY, width, null, modeConfig);
       
       // 获取导出布局模式
       const exportLayoutMode = data.exportLayoutMode || 'compact';
       
-      // 绘制所有谱面模块
+      // 用户调整参数
+      const adjustParams = {
+        lineSpacingAdjust: data.lineSpacingAdjust,
+        measureHeightAdjust: data.measureHeightAdjust
+      };
+      
+      // 绘制所有谱面模块（传入modeConfig和adjustParams确保配置正确生效）
       notations.forEach((notation, idx) => {
         const measuresPerRow = resolveMeasuresPerRow(notation);
         currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
-                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode);
+                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode, modeConfig, adjustParams);
       });
       
       // 回退为文字水印
@@ -628,13 +667,28 @@ function drawDifficultyIcon(ctx, x, y, size, color) {
  * 绘制标题区块
  * @param {Object} data - 包含所有元信息的数据对象
  * @param {Object} icons - 包含各种图标的对象 {timingIcon, noteChangeIcon, crownIcon, starIcon}
+ * @param {Object} modeConfig - 当前模式的配置参数（可选，用于分页模式传入）
  */
-function drawTitleBlock(ctx, data, x, y, width, icons) {
+function drawTitleBlock(ctx, data, x, y, width, icons, modeConfig) {
+  // 获取配置（如果未传入则根据当前data计算）
+  const config = modeConfig || exportConfig.getExportConfig({
+    exportMode: data.isPaged ? 'paged' : 'long',
+    a4Orientation: data.a4Orientation || 'portrait',
+    exportLayoutMode: data.exportLayoutMode || 'compact'
+  });
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
+  // 获取标题区块连携比例系数（用于整体缩放标题区元素）
+  // 如果data中有用户调整的titleScaleAdjust，则叠加到基础系数上
+  const baseTitleScaleFactor = config.titleScaleFactor || 1.0;
+  const titleScaleAdjust = data.titleScaleAdjust !== undefined ? (data.titleScaleAdjust / 50) : 1.0;
+  const titleScaleFactor = baseTitleScaleFactor * titleScaleAdjust;
+  
   const mainTitle = data.mainTitle;
   const subTitle = data.subTitle;
   const globalTempo = data.globalTempo;
-  const mainTitleColor = data.mainTitleColor || '#314D63';
-  const subTitleColor = data.subTitleColor || '#8FB9AB';
+  const mainTitleColor = data.mainTitleColor || commonConfig.defaultMainTitleColor;
+  const subTitleColor = data.subTitleColor || commonConfig.defaultSubTitleColor;
   const composer = data.composer || '';
   const rootNote = data.rootNote || '';
   const scaleType = data.scaleType || '';
@@ -643,14 +697,34 @@ function drawTitleBlock(ctx, data, x, y, width, icons) {
   const notationType = data.notationType || 'digital';
   const difficulty = data.difficulty || 1;
   
+  // 应用连携比例系数的参数
+  const mainTitleFontSize = Math.round(config.mainTitleFontSize * titleScaleFactor);
+  const mainTitleOffsetY = Math.round(config.mainTitleOffsetY * titleScaleFactor);
+  const mainTitleLineHeight = Math.round(config.mainTitleLineHeight * titleScaleFactor);
+  const subTitleFontSize = Math.round(config.subTitleFontSize * titleScaleFactor);
+  const subTitleOffsetY = Math.round(config.subTitleOffsetY * titleScaleFactor);
+  const subTitleLineHeight = Math.round(config.subTitleLineHeight * titleScaleFactor);
+  const introFontSize = Math.round(config.introFontSize * titleScaleFactor);
+  const introLineHeight = Math.round(config.introLineHeight * titleScaleFactor);
+  const introTopMargin = Math.round(config.introTopMargin * titleScaleFactor);
+  const introBottomMargin = Math.round(config.introBottomMargin * titleScaleFactor);
+  const paramsTopMargin = Math.round(config.paramsTopMargin * titleScaleFactor);
+  const paramsRowHeight = Math.round(config.paramsRowHeight * titleScaleFactor);
+  const iconSize = Math.round(config.paramIconSize * titleScaleFactor);
+  const paramGap = Math.round(config.paramIconTextGap * titleScaleFactor);
+  const paramColOffset = Math.round(config.paramColOffset * titleScaleFactor);
+  const paramValueFontSize = Math.round(config.paramValueFontSize * titleScaleFactor);
+  const starSize = Math.round(config.starSize * titleScaleFactor);
+  const starGap = Math.round(config.starGap * titleScaleFactor);
+  
   let currentY = y;
   
   // 1. 主标题
   ctx.fillStyle = mainTitleColor;
-  ctx.font = 'bold 24px sans-serif';
+  ctx.font = `${config.mainTitleFontWeight} ${mainTitleFontSize}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(mainTitle || 'Handpan Note', width / 2, currentY + 25);
-  currentY += 35;
+  ctx.fillText(mainTitle || 'Handpan Note', width / 2, currentY + mainTitleOffsetY);
+  currentY += mainTitleLineHeight;
   
   // 2. 副标题行：副标题 | 制谱人 | 主音-调式 音位数音
   const subTitleParts = [];
@@ -664,37 +738,35 @@ function drawTitleBlock(ctx, data, x, y, width, icons) {
   
   if (subTitleParts.length > 0) {
     ctx.fillStyle = subTitleColor;
-    ctx.font = '14px sans-serif';
+    ctx.font = `${subTitleFontSize}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(subTitleParts.join(' | '), width / 2, currentY + 15);
-    currentY += 25;
+    ctx.fillText(subTitleParts.join(' | '), width / 2, currentY + subTitleOffsetY);
+    currentY += subTitleLineHeight;
   }
   
   // 3. 简介文本（如果存在）
   if (introduction && introduction.trim()) {
-    currentY += 5;
-    ctx.fillStyle = '#666666';
-    ctx.font = '12px sans-serif';
+    currentY += introTopMargin;
+    ctx.fillStyle = commonConfig.introductionColor;
+    ctx.font = `${introFontSize}px sans-serif`;
     ctx.textAlign = 'center';
     // 简介可能较长，需要处理换行
-    const maxWidth = width * 0.9;
+    const maxWidth = width * config.introMaxWidthRatio;
     const introLines = wrapText(ctx, introduction, maxWidth);
     introLines.forEach((line, idx) => {
-      ctx.fillText(line, width / 2, currentY + 12 + idx * 16);
+      ctx.fillText(line, width / 2, currentY + introFontSize + idx * introLineHeight);
     });
-    currentY += introLines.length * 16 + 5;
+    currentY += introLines.length * introLineHeight + introBottomMargin;
   }
   
   // 4. 参数信息行：速度 | 谱式 | 难度（三个参数同行，图标+值 垂直居中）
-  currentY += 12;
-  const paramsY = currentY + 10;
-  const iconSize = 14;
-  const paramGap = 6; // 图标与文字间距
+  currentY += paramsTopMargin;
+  const paramsY = currentY + Math.round(10 * titleScaleFactor);
   
   // 计算三列位置（均匀分布）
-  const col1X = width * 0.17;  // 速度
-  const col2X = width * 0.50;  // 谱式
-  const col3X = width * 0.83;  // 难度
+  const col1X = width * config.paramCol1XRatio;  // 速度
+  const col2X = width * config.paramCol2XRatio;  // 谱式
+  const col3X = width * config.paramCol3XRatio;  // 难度
   
   // 速度：图标 + 值
   ctx.textAlign = 'left';
@@ -702,61 +774,60 @@ function drawTitleBlock(ctx, data, x, y, width, icons) {
   
   // 绘制速度图标 - 直接使用 Image 对象
   if (icons && icons.timingIcon) {
-    ctx.drawImage(icons.timingIcon, col1X - 40, paramsY - iconSize / 2, iconSize, iconSize);
+    ctx.drawImage(icons.timingIcon, col1X - paramColOffset, paramsY - iconSize / 2, iconSize, iconSize);
   } else {
-    drawMetronomeIcon(ctx, col1X - 40, paramsY - iconSize / 2, iconSize, '#8FB9AB');
+    drawMetronomeIcon(ctx, col1X - paramColOffset, paramsY - iconSize / 2, iconSize, commonConfig.defaultSubTitleColor);
   }
   
   // 绘制速度数值
-  ctx.fillStyle = '#314D63';
-  ctx.font = 'bold 13px sans-serif';
-  ctx.fillText(`${globalTempo}`, col1X - 40 + iconSize + paramGap, paramsY);
+  ctx.fillStyle = commonConfig.defaultMainTitleColor;
+  ctx.font = `${config.paramValueFontWeight} ${paramValueFontSize}px sans-serif`;
+  ctx.fillText(`${globalTempo}`, col1X - paramColOffset + iconSize + paramGap, paramsY);
   
   // 谱式：图标 + 值
   ctx.textAlign = 'left';
   
   // 绘制谱式图标 - 直接使用 Image 对象
   if (icons && icons.noteChangeIcon) {
-    ctx.drawImage(icons.noteChangeIcon, col2X - 40, paramsY - iconSize / 2, iconSize, iconSize);
+    ctx.drawImage(icons.noteChangeIcon, col2X - paramColOffset, paramsY - iconSize / 2, iconSize, iconSize);
   } else {
-    drawNotationTypeIcon(ctx, col2X - 40, paramsY - iconSize / 2, iconSize, '#8FB9AB');
+    drawNotationTypeIcon(ctx, col2X - paramColOffset, paramsY - iconSize / 2, iconSize, commonConfig.defaultSubTitleColor);
   }
   
   // 绘制谱式数值
-  ctx.fillStyle = '#314D63';
-  ctx.font = 'bold 13px sans-serif';
+  ctx.fillStyle = commonConfig.defaultMainTitleColor;
+  ctx.font = `${config.paramValueFontWeight} ${paramValueFontSize}px sans-serif`;
   const notationTypeDisplay = notationType === 'simplified' ? '简谱' : '数字谱';
-  ctx.fillText(notationTypeDisplay, col2X - 40 + iconSize + paramGap, paramsY);
+  ctx.fillText(notationTypeDisplay, col2X - paramColOffset + iconSize + paramGap, paramsY);
   
   // 难度：图标 + 星星
   ctx.textAlign = 'left';
   
   // 绘制难度图标 - 直接使用 Image 对象
+  const diffColOffset = paramColOffset + Math.round(5 * titleScaleFactor);
   if (icons && icons.crownIcon) {
-    ctx.drawImage(icons.crownIcon, col3X - 45, paramsY - iconSize / 2, iconSize, iconSize);
+    ctx.drawImage(icons.crownIcon, col3X - diffColOffset, paramsY - iconSize / 2, iconSize, iconSize);
   } else {
-    drawDifficultyIcon(ctx, col3X - 45, paramsY - iconSize / 2, iconSize, '#8FB9AB');
+    drawDifficultyIcon(ctx, col3X - diffColOffset, paramsY - iconSize / 2, iconSize, commonConfig.defaultSubTitleColor);
   }
   
   // 绘制星星
-  const starSize = 9;
-  const starGap = 1;
-  const starStartX = col3X - 45 + iconSize + paramGap;
+  const starStartX = col3X - diffColOffset + iconSize + paramGap;
   for (let i = 0; i < 5; i++) {
     const starX = starStartX + i * (starSize + starGap);
     if (icons && icons.starIcon) {
       // 使用实际星星图标，根据难度值调整透明度 - 直接使用 Image 对象
-      ctx.globalAlpha = i < difficulty ? 1.0 : 0.3;
+      ctx.globalAlpha = i < difficulty ? 1.0 : config.starInactiveOpacity;
       ctx.drawImage(icons.starIcon, starX, paramsY - starSize / 2, starSize, starSize);
       ctx.globalAlpha = 1.0;
     } else {
-      drawStar(ctx, starX, paramsY - starSize / 2, starSize, i < difficulty ? '#FFD700' : '#E0E0E0');
+      drawStar(ctx, starX, paramsY - starSize / 2, starSize, i < difficulty ? config.starActiveColor : config.starInactiveColor);
     }
   }
   
-  currentY += 22;
+  currentY += paramsRowHeight;
   
-  return currentY + 10;
+  return currentY + Math.round(10 * titleScaleFactor);
 }
 
 
@@ -816,48 +887,65 @@ function drawStar(ctx, x, y, size, color) {
 
 /**
  * 绘制单个谱面模块（不包含白色卡片框）
+ * @param {Object} modeConfig - 当前模式的配置参数（可选）
+ * @param {Object} adjustParams - 用户调整参数（可选）{lineSpacingAdjust, measureHeightAdjust}
  */
-function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false, exportLayoutMode = 'compact') {
-  // 获取样式设置，默认值与界面保持一致
+function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false, exportLayoutMode = 'compact', modeConfig = null, adjustParams = null) {
+  // 获取配置
+  const config = modeConfig || exportConfig.getExportConfig({
+    exportMode: 'long', // 默认使用长图模式配置
+    a4Orientation: isLandscape ? 'landscape' : 'portrait',
+    exportLayoutMode: exportLayoutMode
+  });
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  const rpxToPxRatio = commonConfig.rpxToPxRatio;
+  
+  // 获取用户调整系数（默认50表示1.0倍，范围0-100）
+  const lineSpacingMultiplier = adjustParams && adjustParams.lineSpacingAdjust !== undefined 
+    ? (adjustParams.lineSpacingAdjust / 50) : 1.0;
+  const measureHeightMultiplier = adjustParams && adjustParams.measureHeightAdjust !== undefined 
+    ? (adjustParams.measureHeightAdjust / 50) : 1.0;
+  
+  // 获取样式设置，默认值从配置读取
   const style = notation.style || {};
-  // 直接使用 exportLayoutMode 判断是否为宽松模式
   const isLooseMode = exportLayoutMode === 'loose';
-  const defaultMeasureHeight = isLooseMode ? 240 : 160; // 宽松模式: 240rpx, 紧凑模式: 160rpx
-  const defaultLineSpacing = isLooseMode ? 98 : 65;     // 宽松模式: 98rpx, 紧凑模式: 65rpx
-  const defaultNoteFontSize = isLooseMode ? 36 : 28;    // 宽松模式: 36rpx, 紧凑模式: 28rpx
   
-  const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
+  // 根据模式获取默认值
+  const defaultMeasureHeight = config.defaultMeasureHeightRpx || (isLooseMode ? config.looseMeasureHeightRpx : config.compactMeasureHeightRpx) || (isLooseMode ? 240 : 160);
+  const defaultLineSpacing = config.defaultLineSpacingRpx || (isLooseMode ? config.looseLineSpacingRpx : config.compactLineSpacingRpx) || (isLooseMode ? 98 : 65);
+  const defaultNoteFontSize = config.defaultNoteFontSizeRpx || (isLooseMode ? config.looseNoteFontSizeRpx : config.compactNoteFontSizeRpx) || (isLooseMode ? 36 : 28);
+  
+  // 应用用户调整系数
+  const measureHeightRpx = (style.measureHeight || defaultMeasureHeight) * measureHeightMultiplier;
   const noteFontSize = style.noteFontSize || defaultNoteFontSize;
-  const lineSpacing = style.lineSpacing || defaultLineSpacing;
-  
-  // 将rpx转换为px（假设1rpx ≈ 0.5px）
-  const noteFontSizePx = Math.round(noteFontSize * 0.5);
-  const lineSpacingPx = Math.round(lineSpacing * 0.5);
+  const lineSpacing = (style.lineSpacing || defaultLineSpacing) * lineSpacingMultiplier;
   
   // 将rpx转换为px
-  const measureHeight = Math.round(measureHeightRpx * 0.5);
+  const noteFontSizePx = Math.round(noteFontSize * rpxToPxRatio);
+  const lineSpacingPx = Math.round(lineSpacing * rpxToPxRatio);
+  const measureHeight = Math.round(measureHeightRpx * rpxToPxRatio);
   const rowGap = lineSpacingPx; // 使用自定义行间距
   
   const measureCount = notation.measures ? notation.measures.length : 4;
   const rowCount = Math.ceil(measureCount / measuresPerRow);
   
-  // 绘制模块编号（例如 A-1）- 增大字号
-  ctx.fillStyle = '#314D63';
-  const labelFontSize = isLandscape ? 14 : 18;
+  // 绘制模块编号（例如 A-1）
+  ctx.fillStyle = commonConfig.moduleLabelColor;
+  const labelFontSize = isLandscape ? config.moduleLabelFontSizeLandscape || config.moduleLabelFontSize : config.moduleLabelFontSizePortrait || config.moduleLabelFontSize;
   ctx.font = `bold ${labelFontSize}px sans-serif`;
   ctx.textAlign = 'left';
-  ctx.fillText(notation.label || '', x, y + 20);
+  ctx.fillText(notation.label || '', x, y + config.moduleLabelOffsetY);
   
-  // 绘制备注（如果存在）- 增大字号
+  // 绘制备注（如果存在）
   if (notation.remark) {
     const labelWidth = ctx.measureText(notation.label || '').width;
-    ctx.fillStyle = '#999';
-    const remarkFontSize = isLandscape ? 12 : 16;
+    ctx.fillStyle = commonConfig.moduleRemarkColor;
+    const remarkFontSize = isLandscape ? config.moduleRemarkFontSizeLandscape || config.moduleRemarkFontSize : config.moduleRemarkFontSizePortrait || config.moduleRemarkFontSize;
     ctx.font = `${remarkFontSize}px sans-serif`;
-    ctx.fillText(notation.remark, x + labelWidth + 12, y + 20);
+    ctx.fillText(notation.remark, x + labelWidth + config.moduleLabelRemarkGap, y + config.moduleLabelOffsetY);
   }
   
-  let currentY = y + 50; // 增加间距，避免与小节计数重叠（加大留白）
+  let currentY = y + config.moduleContentOffsetY; // 模块内容开始位置
   const measureWidth = width / measuresPerRow;
   
   // 绘制谱面小节
@@ -869,10 +957,10 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
     const measureY = currentY + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor, 
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config);
   });
   
-  const sectionHeight = 50 + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + 15;
+  const sectionHeight = config.moduleContentOffsetY + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + config.sectionBottomPadding;
   return y + sectionHeight;
 }
 
@@ -881,50 +969,66 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
  * @param {number} rowStart - 从第几行开始绘制（0-based）
  * @param {number} rows - 绘制多少行
  * @param {boolean} showLabel - 是否绘制模块标签
+ * @param {Object} modeConfig - 当前模式的配置参数（可选）
+ * @param {Object} adjustParams - 用户调整参数（可选）{lineSpacingAdjust, measureHeightAdjust}
  */
-function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false, exportLayoutMode = 'compact') {
-  // 获取样式设置，默认值与界面保持一致
+function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false, exportLayoutMode = 'compact', modeConfig = null, adjustParams = null) {
+  // 获取配置
+  const config = modeConfig || exportConfig.getExportConfig({
+    exportMode: 'paged',
+    a4Orientation: isLandscape ? 'landscape' : 'portrait',
+    exportLayoutMode: exportLayoutMode
+  });
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  const rpxToPxRatio = commonConfig.rpxToPxRatio;
+  
+  // 获取用户调整系数（默认50表示1.0倍，范围0-100）
+  const lineSpacingMultiplier = adjustParams && adjustParams.lineSpacingAdjust !== undefined 
+    ? (adjustParams.lineSpacingAdjust / 50) : 1.0;
+  const measureHeightMultiplier = adjustParams && adjustParams.measureHeightAdjust !== undefined 
+    ? (adjustParams.measureHeightAdjust / 50) : 1.0;
+  
+  // 获取样式设置，默认值从配置读取
   const style = notation.style || {};
-  // 直接使用 exportLayoutMode 判断是否为宽松模式
   const isLooseMode = exportLayoutMode === 'loose';
-  const defaultMeasureHeight = isLooseMode ? 240 : 160;
-  const defaultLineSpacing = isLooseMode ? 98 : 65;
-  const defaultNoteFontSize = isLooseMode ? 36 : 28;
   
-  const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
+  const defaultMeasureHeight = config.defaultMeasureHeightRpx || (isLooseMode ? 240 : 160);
+  const defaultLineSpacing = config.defaultLineSpacingRpx || (isLooseMode ? 98 : 65);
+  const defaultNoteFontSize = config.defaultNoteFontSizeRpx || (isLooseMode ? 36 : 28);
+  
+  // 应用用户调整系数
+  const measureHeightRpx = (style.measureHeight || defaultMeasureHeight) * measureHeightMultiplier;
   const noteFontSize = style.noteFontSize || defaultNoteFontSize;
-  const lineSpacing = style.lineSpacing || defaultLineSpacing;
-  
-  // 将rpx转换为px（假设1rpx ≈ 0.5px）
-  const noteFontSizePx = Math.round(noteFontSize * 0.5);
-  const lineSpacingPx = Math.round(lineSpacing * 0.5);
+  const lineSpacing = (style.lineSpacing || defaultLineSpacing) * lineSpacingMultiplier;
   
   // 将rpx转换为px
-  const measureHeight = Math.round(measureHeightRpx * 0.5);
+  const noteFontSizePx = Math.round(noteFontSize * rpxToPxRatio);
+  const lineSpacingPx = Math.round(lineSpacing * rpxToPxRatio);
+  const measureHeight = Math.round(measureHeightRpx * rpxToPxRatio);
   const rowGap = lineSpacingPx; // 使用自定义行间距
   
   const measureCount = notation.measures ? notation.measures.length : 4;
   const totalRows = Math.ceil(measureCount / measuresPerRow);
   const drawRows = Math.min(rows, Math.max(0, totalRows - rowStart));
 
-  // 标题（可选）- 增大字号
+  // 标题（可选）
   if (showLabel) {
-    ctx.fillStyle = '#314D63';
-    const labelFontSize = isLandscape ? 14 : 18;
+    ctx.fillStyle = commonConfig.moduleLabelColor;
+    const labelFontSize = config.moduleLabelFontSize || (isLandscape ? 14 : 18);
     ctx.font = `bold ${labelFontSize}px sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText(notation.label || '', x, y + 20);
+    ctx.fillText(notation.label || '', x, y + config.moduleLabelOffsetY);
     
-    // 绘制备注（如果存在）- 增大字号
+    // 绘制备注（如果存在）
     if (notation.remark) {
       const labelWidth = ctx.measureText(notation.label || '').width;
-      ctx.fillStyle = '#999';
-      const remarkFontSize = isLandscape ? 12 : 16;
+      ctx.fillStyle = commonConfig.moduleRemarkColor;
+      const remarkFontSize = config.moduleRemarkFontSize || (isLandscape ? 12 : 16);
       ctx.font = `${remarkFontSize}px sans-serif`;
-      ctx.fillText(notation.remark, x + labelWidth + 12, y + 20);
+      ctx.fillText(notation.remark, x + labelWidth + config.moduleLabelRemarkGap, y + config.moduleLabelOffsetY);
     }
     
-    y += 50; // 增加间距，避免与小节计数重叠（加大留白）
+    y += config.moduleContentOffsetY; // 模块内容开始位置
   }
 
   const measureWidth = width / measuresPerRow;
@@ -940,10 +1044,10 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
     const measureY = y + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor,
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config);
   }
 
-  const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + 15;
+  const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + config.sectionBottomPadding;
   return y + sectionHeight;
 }
 
@@ -962,6 +1066,14 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
                              mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
                              rightHandColor, leftHandColor, resolve, reject,
                              watermarkImg, bgImg, brandingImg, icons) {
+  // 获取模式配置
+  const modeConfig = exportConfig.getExportConfig({
+    exportMode: 'paged',
+    a4Orientation: data.a4Orientation || 'portrait',
+    exportLayoutMode: data.exportLayoutMode || 'compact'
+  });
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
   // 根据A4方向确定页面尺寸
   const a4Orientation = data.a4Orientation || 'portrait';
   const isA4Landscape = (a4Orientation === 'landscape');
@@ -972,22 +1084,14 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
   const topMargin = CONTENT_PADDING / dpr;
   const bottomMargin = CONTENT_PADDING / dpr;
   const contentHeight = pageHeight - topMargin - bottomMargin;
-  // 预留底部间距（至少20rpx约10px），避免内容顶格底部
-  const bottomReserve = 10;
+  // 预留底部间距
+  const bottomReserve = modeConfig.bottomReserve || 10;
   const effectiveContentHeight = contentHeight - bottomReserve;
   const isLandscape = data.orientation === 'landscape';
-  // 第二页起需预留右上水印高度，避免排版被遮挡
-  let watermarkReserveTop = 0;
-  if (watermarkImg) {
-    const wm = computeTopRightWatermarkMetrics(watermarkImg, pageWidth, isA4Landscape);
-    watermarkReserveTop = Math.max(0, wm.bottomY + 10 - topMargin); // +10 额外留白
-  }
   
-  const titleBlockHeight = 80;
-  const measureLineHeight = 70;
-  const rowGap = 12;
-  const notationLabelHeight = 25;
-  const sectionGap = 15;
+  // 使用配置参数
+  const titleBlockHeight = modeConfig.titleBlockHeight || 80;
+  const rpxToPxRatio = commonConfig.rpxToPxRatio || 0.5;
 
   const resolveMeasuresPerRow = (notation) => {
     // 优先使用模块已计算好的 measuresPerRow（导出时已根据排版模式重新计算）
@@ -1001,20 +1105,31 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     if (typeof data.measuresPerRow === 'number' && data.measuresPerRow > 0) {
       return data.measuresPerRow;
     }
-    return Math.floor(contentWidth / 250);
+    // 使用配置参数计算回退值
+    const fallbackDivisor = modeConfig.measuresPerRowFallback || 250;
+    return Math.floor(contentWidth / fallbackDivisor);
   };
+
+  // 非首页顶部预留边距（由于水印只在第一页，非首页不需要预留水印高度）
+  const nonFirstPageTopMargin = modeConfig.nonFirstPageTopMargin || 15;
 
   // 分页算法（逐行判断并可拆分模块）
   const pages = [];
   let currentPage = { includeTitle: true, segments: [] };
   let usedHeight = titleBlockHeight; // 第一页预留标题
+  
+  // 获取用户调整系数（默认50表示1.0倍，范围0-100）
+  const lineSpacingMultiplier = data.lineSpacingAdjust !== undefined 
+    ? (data.lineSpacingAdjust / 50) : 1.0;
+  const measureHeightMultiplier = data.measureHeightAdjust !== undefined 
+    ? (data.measureHeightAdjust / 50) : 1.0;
 
   const flushPage = () => {
     if (currentPage.segments.length > 0) {
       pages.push(currentPage);
       currentPage = { includeTitle: false, segments: [] };
-      // 非首页：从水印下方开始，预占高度
-      usedHeight = watermarkReserveTop;
+      // 非首页：使用配置的非首页顶部边距，而不是水印预留高度
+      usedHeight = nonFirstPageTopMargin;
     }
   };
 
@@ -1023,30 +1138,34 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     const measureCount = notation.measures ? notation.measures.length : 4;
     const totalRows = Math.ceil(measureCount / measuresPerRow);
     
-    // 获取样式设置来计算高度
+    // 获取样式设置来计算高度，使用配置文件中的默认值
     const style = notation.style || {};
-    // 直接使用 data.exportLayoutMode 判断模式
-    const isLooseMode = data.exportLayoutMode === 'loose';
-    const defaultMeasureHeight = isLooseMode ? 240 : 160;
-    const defaultLineSpacing = isLooseMode ? 98 : 65;
+    const defaultMeasureHeight = modeConfig.defaultMeasureHeightRpx;
+    const defaultLineSpacing = modeConfig.defaultLineSpacingRpx;
     
-    const measureHeightRpx = style.measureHeight || defaultMeasureHeight;
-    const lineSpacing = style.lineSpacing || defaultLineSpacing;
-    const lineSpacingPx = Math.round(lineSpacing * 0.5);
+    // 应用用户调整系数
+    const measureHeightRpx = (style.measureHeight || defaultMeasureHeight) * measureHeightMultiplier;
+    const lineSpacing = (style.lineSpacing || defaultLineSpacing) * lineSpacingMultiplier;
+    const lineSpacingPx = Math.round(lineSpacing * rpxToPxRatio);
     
     // 将rpx转换为px
-    const measureHeight = Math.round(measureHeightRpx * 0.5);
+    const measureHeight = Math.round(measureHeightRpx * rpxToPxRatio);
     const rowGap = lineSpacingPx;
+    
+    // 模块内容偏移（用于标签区域）
+    const moduleContentOffsetY = modeConfig.moduleContentOffsetY || 50;
+    const sectionBottomPadding = modeConfig.sectionBottomPadding || 15;
     
     let rowStart = 0;
     let firstSlice = true;
 
     while (rowStart < totalRows) {
       const available = effectiveContentHeight - usedHeight;
-      const labelH = firstSlice ? notationLabelHeight : 0;
-      // 估算最多可放行数（保留 sectionGap 间距）
+      // 使用 moduleContentOffsetY 替代 notationLabelHeight，保持与实际绘制一致
+      const labelH = firstSlice ? moduleContentOffsetY : 0;
+      // 估算最多可放行数（保留 sectionBottomPadding 间距）
       const perRowApprox = measureHeight + rowGap;
-      let rowsFit = Math.floor((available - labelH - sectionGap + rowGap) / perRowApprox);
+      let rowsFit = Math.floor((available - labelH - sectionBottomPadding + rowGap) / perRowApprox);
       if (rowsFit <= 0) {
         // 换新页
         flushPage();
@@ -1061,13 +1180,15 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         showLabel: firstSlice
       });
 
+      // 使用与 drawNotationSectionPartial 一致的高度计算
       const rowsHeight = rowsFit * measureHeight + Math.max(0, rowsFit - 1) * rowGap;
-      usedHeight += labelH + rowsHeight + sectionGap;
+      usedHeight += labelH + rowsHeight + sectionBottomPadding;
 
       rowStart += rowsFit;
       firstSlice = false;
 
-      if (rowStart < totalRows && usedHeight + measureHeight > effectiveContentHeight) {
+      // 检查是否需要换页：考虑下一行的完整高度（行高 + 间距）
+      if (rowStart < totalRows && usedHeight + measureHeight + rowGap > effectiveContentHeight) {
         flushPage();
       }
     }
@@ -1101,19 +1222,20 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     
     // 第一页绘制标题
     if (page.includeTitle) {
-      currentY = drawTitleBlock(ctx, data, leftMargin, currentY, pageWidth, icons);
+      currentY = drawTitleBlock(ctx, data, leftMargin, currentY, pageWidth, icons, modeConfig);
     } else {
-      currentY += 10;
-    }
-    
-    // 若非首页，在右上角水印下方开始排版，避免遮挡
-    if (!page.includeTitle && watermarkImg) {
-      var wm = computeTopRightWatermarkMetrics(watermarkImg, pageWidth, isA4Landscape);
-      var belowWatermarkY = wm.bottomY + 10; // 额外留白 10px
-      if (currentY < belowWatermarkY) currentY = belowWatermarkY;
+      // 非首页：使用配置的非首页顶部边距
+      const nonFirstPageTopMargin = modeConfig.nonFirstPageTopMargin || 15;
+      currentY += nonFirstPageTopMargin;
     }
 
-    // 绘制该页的谱面片段（可跨页拆分模块）
+    // 用户调整参数
+    const adjustParams = {
+      lineSpacingAdjust: data.lineSpacingAdjust,
+      measureHeightAdjust: data.measureHeightAdjust
+    };
+
+    // 绘制该页的谱面片段（可跨页拆分模块，传入modeConfig和adjustParams确保配置正确生效）
     const exportLayoutMode = data.exportLayoutMode || 'compact';
     page.segments.forEach(seg => {
       const measuresPerRow = resolveMeasuresPerRow(seg.notation);
@@ -1130,12 +1252,14 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         seg.rows,
         seg.showLabel,
         isLandscape,
-        exportLayoutMode
+        exportLayoutMode,
+        modeConfig,
+        adjustParams
       );
     });
     
-    // 添加水印与右下角背景
-    if (watermarkImg) {
+    // 添加水印与右下角背景（水印只在第一页显示）
+    if (watermarkImg && page.includeTitle) {
       addTopRightWatermarkWithLabel(ctx, watermarkImg, pageWidth, pageHeight, isA4Landscape);
     }
     if (bgImg) {
@@ -1144,8 +1268,8 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
       const bgSize = data.exportBgSize !== undefined ? data.exportBgSize : 0.67;
       addCornerBackgroundImage(ctx, bgImg, pageWidth, pageHeight, bgOpacity, bgSize);
     }
-    if (!watermarkImg && !bgImg) {
-      // 图片都不可用时回退文字
+    if (!watermarkImg && !bgImg && page.includeTitle) {
+      // 首页图片都不可用时回退文字水印
       addTextWatermark(ctx, pageWidth / 2, pageHeight / 2);
     }
     // 底部居中添加 Orbit Note 品牌标识
@@ -1740,21 +1864,26 @@ function loadImage(canvas, src) {
 }
 
 /**
- * 图片水印（居中，按页面宽度20%尺寸）
+ * 图片水印（居中，按页面宽度比例缩放）
  */
 // 计算右上角水印与文字的布局参数
-function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false) {
-  var margin = 20;
-  var baseScale = 0.08; // 基础比例：相对页面宽度的12%
-  // A4横向时水印尺寸减小1/3
-  var scale = isA4Landscape ? baseScale * (2/3) : baseScale;
+function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false, modeConfig = null) {
+  // 获取配置
+  const config = modeConfig || exportConfig.LONG_IMAGE_CONFIG;
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
+  var margin = config.watermarkMargin || 20;
+  var baseScale = config.watermarkScaleBase || 0.08;
+  // A4横向时水印尺寸可能需要缩小
+  var landscapeMultiplier = config.watermarkLandscapeScaleMultiplier !== undefined ? config.watermarkLandscapeScaleMultiplier : (2/3);
+  var scale = isA4Landscape ? baseScale * landscapeMultiplier : baseScale;
   var imgWidth = pageWidth * scale;
   var aspect = image.height / image.width;
   var imgHeight = imgWidth * aspect;
   var x = pageWidth - margin - imgWidth;
   var y = margin;
-  var labelGap = 6;
-  var labelFontPx = 10;
+  var labelGap = config.watermarkLabelGap || 6;
+  var labelFontPx = config.watermarkLabelFontSize || 10;
   var labelX = x + imgWidth / 2; // 水平居中于水印
   var labelY = y + imgHeight + labelGap; // 紧贴水印下方
   var bottomY = labelY + labelFontPx; // 估算文字高度为 fontPx
@@ -1773,19 +1902,22 @@ function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false
 }
 
 // 右上角水印 + 小字说明（不透明，文字居中于水印下方）
-function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight, isA4Landscape = false) {
+function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight, isA4Landscape = false, modeConfig = null) {
   if (!image) return;
   
-  var m = computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape);
+  const config = modeConfig || exportConfig.LONG_IMAGE_CONFIG;
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
+  var m = computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape, config);
   ctx.save();
   ctx.globalAlpha = 1.0;
   // 直接使用 Image 对象绘制
   ctx.drawImage(image, m.x, m.y, m.imgWidth, m.imgHeight);
-  ctx.fillStyle = '#314D63';
+  ctx.fillStyle = commonConfig.watermarkLabelColor;
   ctx.font = 'normal ' + m.labelFontPx + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText('制谱微信小程序', m.labelX, m.labelY);
+  ctx.fillText(commonConfig.watermarkLabelText, m.labelX, m.labelY);
   ctx.restore();
 }
 
@@ -1793,22 +1925,27 @@ function addTopRightWatermarkWithLabel(ctx, image, pageWidth, pageHeight, isA4La
  * 右下角背景图
  * @param {number} alpha - 透明度 (0-1)
  * @param {number} sizeScale - 大小比例 (0-1), 默认0.67（2/3）
+ * @param {Object} modeConfig - 模式配置（可选）
  */
-function addCornerBackgroundImage(ctx, image, pageWidth, pageHeight, alpha, sizeScale) {
+function addCornerBackgroundImage(ctx, image, pageWidth, pageHeight, alpha, sizeScale, modeConfig = null) {
   if (!image) return;
   
-  if (alpha === undefined) alpha = 0.1;
-  if (sizeScale === undefined) sizeScale = 2/3;
+  const config = modeConfig || exportConfig.LONG_IMAGE_CONFIG;
+  
+  if (alpha === undefined) alpha = config.bgOpacity || 0.1;
+  if (sizeScale === undefined) sizeScale = config.bgSizeScale || 2/3;
   
   // 当页面为横向（A4 横向）时，使用更小的背景图比例，避免占用过多空间
   const isLandscape = pageWidth > pageHeight;
-  // 基于传入的 sizeScale 进行调整，横向时减半
-  const scale = isLandscape ? sizeScale * 0.5 : sizeScale;
+  // 基于传入的 sizeScale 进行调整
+  const landscapeMultiplier = config.bgLandscapeScaleMultiplier !== undefined ? config.bgLandscapeScaleMultiplier : 0.5;
+  const scale = isLandscape ? sizeScale * landscapeMultiplier : sizeScale;
   const bgWidth = pageWidth * scale;
   const aspect = image.height / image.width;
   const bgHeight = bgWidth * aspect;
-  // 若背景高度超出页面高度的1/2，则进一步缩小，避免覆盖主要内容
-  const maxHeight = pageHeight * 0.5;
+  // 若背景高度超出页面高度的一定比例，则进一步缩小，避免覆盖主要内容
+  const maxHeightRatio = config.bgMaxHeightRatio || 0.5;
+  const maxHeight = pageHeight * maxHeightRatio;
   let finalBgWidth = bgWidth;
   let finalBgHeight = bgHeight;
   if (bgHeight > maxHeight) {
@@ -1832,43 +1969,49 @@ function addCornerBackgroundImage(ctx, image, pageWidth, pageHeight, alpha, size
  * 添加文字水印（页面中央，10%透明度）
  */
 function addTextWatermark(ctx, centerX, centerY) {
+  const commonConfig = exportConfig.COMMON_CONFIG;
   ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.fillStyle = '#314D63';
-  ctx.font = 'bold 48px sans-serif';
+  ctx.globalAlpha = commonConfig.textWatermarkOpacity;
+  ctx.fillStyle = commonConfig.textWatermarkColor;
+  ctx.font = commonConfig.textWatermarkFont;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Handpan Note', centerX, centerY);
+  ctx.fillText(commonConfig.textWatermarkText, centerX, centerY);
   ctx.restore();
 }
 
 /**
  * 底部居中添加品牌 Logo 图片
  * 使用 logo3.png 替代文字
+ * @param {Object} modeConfig - 模式配置（可选）
  */
-function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight) {
+function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight, modeConfig = null) {
+  const config = modeConfig || exportConfig.LONG_IMAGE_CONFIG;
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
   if (!brandingImg) {
     // 如果图片加载失败，回退到文字方式
     ctx.save();
     ctx.globalAlpha = 1.0;
-    ctx.fillStyle = '#DBCC97';
-    ctx.font = 'italic 28px serif';
+    ctx.fillStyle = commonConfig.brandingFallbackColor;
+    ctx.font = commonConfig.brandingFallbackFont;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Orbit Note', pageWidth / 2, pageHeight - 20);
+    ctx.fillText(commonConfig.brandingFallbackText, pageWidth / 2, pageHeight - 20);
     ctx.restore();
     return;
   }
   
   // 绘制品牌 Logo 图片
   ctx.save();
-  // 图片高度固定为 24px，宽度按比例缩放
-  var imgHeight = 24;
+  // 图片高度从配置读取
+  var imgHeight = config.brandingHeight || 24;
   var aspect = brandingImg.width / brandingImg.height;
   var imgWidth = imgHeight * aspect;
-  // 水平居中，距离底部 15px
+  // 水平居中，距离底部的距离从配置读取
+  var brandingBottomMargin = config.brandingBottomMargin || 15;
   var x = (pageWidth - imgWidth) / 2;
-  var y = pageHeight - imgHeight - 15;
+  var y = pageHeight - imgHeight - brandingBottomMargin;
   // 直接使用 Image 对象绘制
   ctx.drawImage(brandingImg, x, y, imgWidth, imgHeight);
   ctx.restore();
@@ -1877,41 +2020,49 @@ function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight) {
 /**
  * 绘制单个小节
  * 音符位置轨道：
-
+ * @param {Object} config - 当前模式的配置参数（可选）
  */
-function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode) {
+function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode, config = null) {
+  // 获取配置
+  const modeConfig = config || exportConfig.getExportConfig({
+    exportMode: 'long',
+    a4Orientation: 'portrait',
+    exportLayoutMode: exportLayoutMode || 'compact'
+  });
+  const commonConfig = exportConfig.COMMON_CONFIG;
+  
   const beatCount = Array.isArray(measure.beats) ? measure.beats.length : 4;
   const beatWidth = width / (beatCount || 4);
   const lineHeight = measureHeight || 70; // 使用传入的高度或默认值
   
-  // 定义固定的音符轨道位置（百分比）
-  const trackRightHand1 = 0.12;   // 12%
-  const trackRightHand2 = 0.38;   // 38%
-  const trackLeftHand1 = 0.65;     // 65%
-  const trackLeftHand2 = 0.91;     // 91%
+  // 定义固定的音符轨道位置（从配置读取）
+  const trackRightHand1 = commonConfig.trackRightHand1;
+  const trackRightHand2 = commonConfig.trackRightHand2;
+  const trackLeftHand1 = commonConfig.trackLeftHand1;
+  const trackLeftHand2 = commonConfig.trackLeftHand2;
   
   // 绘制小节编号（统一在左侧小节线上方，水平居中对齐）
   if (typeof measureIndex === 'number') {
-    ctx.fillStyle = '#9AA0A6';
+    ctx.fillStyle = commonConfig.measureIndexColor;
     const isMultiMeasure = measuresPerRow && measuresPerRow > 1;
-    const fontSize = isMultiMeasure ? 10 : 11;
+    const fontSize = isMultiMeasure ? modeConfig.measureIndexFontSizeMulti : modeConfig.measureIndexFontSizeSingle;
     ctx.font = `${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
     // 统一在小节线正上方，水平居中
-    ctx.fillText(String(measureIndex), x, y - 5);
+    ctx.fillText(String(measureIndex), x, y - modeConfig.measureIndexOffsetY);
   }
   
   // 小节线（左侧）
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = commonConfig.measureLineColor;
+  ctx.lineWidth = modeConfig.measureLineWidth;
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(x, y + lineHeight);
   ctx.stroke();
   
   // 中央横线
-  ctx.strokeStyle = '#E0E0E0';
-  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = commonConfig.centerLineColor;
+  ctx.lineWidth = modeConfig.centerLineWidth;
   ctx.beginPath();
   ctx.moveTo(x, y + lineHeight / 2);
   ctx.lineTo(x + width, y + lineHeight / 2);
@@ -1923,8 +2074,8 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
     
     // 拍子分隔线（跳过第一拍）
     if (bIdx > 0) {
-      ctx.strokeStyle = '#CCCCCC';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = commonConfig.beatLineColor;
+      ctx.lineWidth = modeConfig.beatLineWidth;
       ctx.beginPath();
       ctx.moveTo(beatX, y);
       ctx.lineTo(beatX, y + lineHeight);
@@ -1939,54 +2090,86 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       
       // 16分音符分隔线（跳过第一个）
       if (sIdx > 0) {
-        ctx.strokeStyle = '#E8E8E8';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = commonConfig.subdivisionLineColor;
+        ctx.lineWidth = modeConfig.subdivisionLineWidth;
         ctx.beginPath();
-        ctx.moveTo(subX, y + lineHeight * 0.25);
-        ctx.lineTo(subX, y + lineHeight * 0.75);
+        ctx.moveTo(subX, y + lineHeight * modeConfig.subdivisionLineTopRatio);
+        ctx.lineTo(subX, y + lineHeight * modeConfig.subdivisionLineBottomRatio);
         ctx.stroke();
       }
       
-      // 绘制音符数字
-      const fontSize = noteFontSizePx || 14; // 使用传入的字体大小或默认值
+      // 获取音符连携比例系数（用于整体缩放音符相关参数）
+      const noteScaleFactor = modeConfig.noteScaleFactor || 1.0;
+      
+      // 绘制音符数字（应用连携比例）
+      const baseFontSize = noteFontSizePx || 14;
+      const fontSize = Math.round(baseFontSize * noteScaleFactor);
       ctx.font = 'bold ' + fontSize + 'px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
       const noteX = subX + subdivisionWidth / 2;
       
-      // 直接使用 exportLayoutMode 判断是否为紧凑模式
+      // 判断是否为紧凑模式
       const isCompactMode = exportLayoutMode !== 'loose';
       
-      // 紧凑模式下音高圆点参数调整
-      const dotSize = isCompactMode 
-        ? Math.round(fontSize * 0.20)   // 紧凑模式：缩小1/3（原0.25）
-        : Math.round(fontSize * 0.25);  // 宽松模式：原始大小
-      const dotGap = isCompactMode 
-        ? 0.5   // 紧凑模式：固定1rpx（约0.5px）
-        : Math.round(fontSize * 0.03);   // 宽松模式：原始间距-
-      const supFontSize = Math.round(fontSize * 0.55); // 上标字号
-      const supDotSize = isCompactMode 
-        ? Math.round(fontSize * 0.13)   // 紧凑模式：
-        : Math.round(fontSize * 0.12);  // 宽松模式：
-      const supDotGap = isCompactMode ? 0.5 : dotGap; // 上标圆点间距
-      const underlineThickness = Math.round(fontSize * 0.11);  // 下划线粗细
-      const underlineWidth = Math.round(fontSize * 0.8);  // 下划线宽度
+      // 音高圆点参数（从配置读取，应用连携比例）
+      const dotSizeRatio = isCompactMode 
+        ? (modeConfig.compactDotSizeRatio || modeConfig.dotSizeRatio || 0.20)
+        : (modeConfig.looseDotSizeRatio || modeConfig.dotSizeRatio || 0.25);
+      const dotSize = Math.max(1, Math.round(fontSize * dotSizeRatio));
+      
+      // 音高圆点间距（应用连携比例）
+      const baseDotGap = isCompactMode 
+        ? (modeConfig.compactDotGap !== undefined ? modeConfig.compactDotGap : (modeConfig.dotGap || 0.5))
+        : Math.round(baseFontSize * (modeConfig.looseDotGapRatio || modeConfig.dotGapRatio || 0.03));
+      const dotGap = Math.max(0.5, baseDotGap * noteScaleFactor);
+      
+      // 上标参数（应用连携比例）
+      const supFontSizeRatio = modeConfig.supFontSizeRatio || 0.55;
+      const supFontSize = Math.max(6, Math.round(fontSize * supFontSizeRatio));
+      
+      const supDotSizeRatio = isCompactMode 
+        ? (modeConfig.compactSupDotSizeRatio || modeConfig.supDotSizeRatio || 0.13)
+        : (modeConfig.looseSupDotSizeRatio || modeConfig.supDotSizeRatio || 0.12);
+      const supDotSize = Math.max(1, Math.round(fontSize * supDotSizeRatio));
+      const supDotGap = Math.max(0.5, (isCompactMode ? (modeConfig.compactDotGap || 0.5) : dotGap) * noteScaleFactor);
+      
+      // 下划线参数（应用连携比例）
+      const underlineThicknessRatio = modeConfig.underlineThicknessRatio || 0.11;
+      const underlineWidthRatio = modeConfig.underlineWidthRatio || 0.8;
+      const underlineThickness = Math.max(1, Math.round(fontSize * underlineThicknessRatio));
+      const underlineWidth = Math.round(fontSize * underlineWidthRatio);
       
       // 计算文字的顶部和底部位置
-      const textHalfHeight = fontSize * 0.45;
-      // 紧凑模式下减小音高圆点与音符的垂直距离
-      const octaveUpOffset = isCompactMode
-        ? textHalfHeight * 1.1 + dotGap + dotSize / 2   // 紧凑模式：偏移更小
-        : textHalfHeight * 1.1 + dotGap + dotSize / 2;   // 宽松模式：原始偏移
-      const octaveDownOffset = isCompactMode
-        ? textHalfHeight * 0.6 + dotGap + dotSize / 2    // 紧凑模式：偏移更小
-        : textHalfHeight * 0.6 + dotGap + dotSize / 2;   // 宽松模式：原始偏移-
-      const underlineOffset = textHalfHeight * 0.9 + 2;  // 下划线在文字下方
+      const textHalfHeightRatio = modeConfig.octaveUpTextHalfHeightRatio || 0.45;
+      const textHalfHeight = fontSize * textHalfHeightRatio;
       
-      // 上标内的音高圆点偏移（紧凑模式下偏移更大以避免重叠）
-      const supOctaveUpOffset = isCompactMode ? supFontSize * 0.65 : supFontSize * 0.65;//+
-      const supOctaveDownOffset = isCompactMode ? supFontSize * 0.45 : supFontSize * 0.4;
+      // 音高圆点偏移（确保至少有足够的偏移量显示圆点）
+      const octaveUpMultiplier = modeConfig.octaveUpOffsetMultiplier || 1.1;
+      const octaveDownMultiplier = isCompactMode 
+        ? (modeConfig.octaveDownOffsetMultiplierCompact || modeConfig.octaveDownOffsetMultiplier || 0.6)
+        : (modeConfig.octaveDownOffsetMultiplierLoose || modeConfig.octaveDownOffsetMultiplier || 0.6);
+      
+      const octaveUpOffset = textHalfHeight * octaveUpMultiplier + dotGap + dotSize / 2;
+      const octaveDownOffset = textHalfHeight * octaveDownMultiplier + dotGap + dotSize / 2;
+      
+      // 下划线偏移
+      const underlineOffsetRatio = modeConfig.underlineOffsetRatio || 0.9;
+      const underlineExtraOffset = (modeConfig.underlineExtraOffset || 2) * noteScaleFactor;
+      const underlineOffset = textHalfHeight * underlineOffsetRatio + underlineExtraOffset;
+      
+      // 上标内的音高圆点偏移
+      const supOctaveUpOffsetRatio = modeConfig.supOctaveUpOffsetRatio || 0.65;
+      const supOctaveDownOffsetRatio = isCompactMode 
+        ? (modeConfig.supOctaveDownOffsetRatioCompact || modeConfig.supOctaveDownOffsetRatio || 0.45)
+        : (modeConfig.supOctaveDownOffsetRatioLoose || modeConfig.supOctaveDownOffsetRatio || 0.4);
+      const supOctaveUpOffset = supFontSize * supOctaveUpOffsetRatio;
+      const supOctaveDownOffset = supFontSize * supOctaveDownOffsetRatio;
+      
+      // 上标位置偏移
+      const supOffsetXRatio = modeConfig.supOffsetXRatio || 0.5;
+      const supOffsetYRatio = modeConfig.supOffsetYRatio || 0.4;
       
       // 绘制单个音符的辅助函数
       const drawNoteWithFeatures = (note, noteX, noteY, color) => {
@@ -1996,8 +2179,8 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
         // 绘制左上标
         if (parsed.leftSup) {
           const supParsed = parseSupContent(parsed.leftSup);
-          const supX = noteX - fontSize * 0.5;
-          const supY = noteY - fontSize * 0.4;
+          const supX = noteX - fontSize * supOffsetXRatio;
+          const supY = noteY - fontSize * supOffsetYRatio;
           ctx.font = 'bold ' + supFontSize + 'px sans-serif';
           ctx.fillText(supParsed.baseNote, supX, supY);
           // 上标的八度点
@@ -2029,11 +2212,11 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
         // 绘制右上标
         if (parsed.rightSup) {
           const supParsed = parseSupContent(parsed.rightSup);
-          const supX = noteX + fontSize * 0.5;
-          const supY = noteY - fontSize * 0.4;
+          const supX = noteX + fontSize * supOffsetXRatio;
+          const supY = noteY - fontSize * supOffsetYRatio;
           ctx.font = 'bold ' + supFontSize + 'px sans-serif';
           ctx.fillText(supParsed.baseNote, supX, supY);
-          // 上标的八度点（使用紧凑模式参数）
+          // 上标的八度点
           if (supParsed.octaveUp > 0) {
             drawOctaveDots(ctx, supX, supY - supOctaveUpOffset, true, supParsed.octaveUp, supDotSize, supDotGap, color);
           }
@@ -2046,40 +2229,41 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       // 右手（上方）- 使用指定的颜色
       if (subdivision.rightHand && subdivision.rightHand[0]) {
         const noteY0 = y + lineHeight * trackRightHand1;
-        drawNoteWithFeatures(subdivision.rightHand[0], noteX, noteY0, rightHandColor || '#F4D096');
+        drawNoteWithFeatures(subdivision.rightHand[0], noteX, noteY0, rightHandColor || commonConfig.defaultRightHandColor);
       }
       if (subdivision.rightHand && subdivision.rightHand[1]) {
         const noteY1 = y + lineHeight * trackRightHand2;
-        drawNoteWithFeatures(subdivision.rightHand[1], noteX, noteY1, rightHandColor || '#F4D096');
+        drawNoteWithFeatures(subdivision.rightHand[1], noteX, noteY1, rightHandColor || commonConfig.defaultRightHandColor);
       }
       
       // 左手（下方）- 使用指定的颜色
       if (subdivision.leftHand && subdivision.leftHand[0]) {
         const noteY0 = y + lineHeight * trackLeftHand1;
-        drawNoteWithFeatures(subdivision.leftHand[0], noteX, noteY0, leftHandColor || '#314D63');
+        drawNoteWithFeatures(subdivision.leftHand[0], noteX, noteY0, leftHandColor || commonConfig.defaultLeftHandColor);
       }
       if (subdivision.leftHand && subdivision.leftHand[1]) {
         const noteY1 = y + lineHeight * trackLeftHand2;
-        drawNoteWithFeatures(subdivision.leftHand[1], noteX, noteY1, leftHandColor || '#314D63');
+        drawNoteWithFeatures(subdivision.leftHand[1], noteX, noteY1, leftHandColor || commonConfig.defaultLeftHandColor);
       }
       
       // 绘制注记（在小节上方显示）
       if (subdivision.annotation) {
-        const annotationFontSize = Math.round(fontSize * 0.65); // 注记字体稍小
+        const annotationFontSizeRatio = modeConfig.annotationFontSizeRatio || 0.65;
+        const annotationFontSize = Math.round(fontSize * annotationFontSizeRatio);
         ctx.font = `${annotationFontSize}px sans-serif`;
-        ctx.fillStyle = '#666666'; // 灰色文字
+        ctx.fillStyle = commonConfig.annotationColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         // 注记显示在小节编号下方、小节内容上方
-        const annotationY = y - 8; // 在小节上方留出空间
+        const annotationY = y - (modeConfig.annotationOffsetY || 8);
         ctx.fillText(subdivision.annotation, noteX, annotationY);
       }
     });
   });
   
   // 小节线（右侧）
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = commonConfig.measureLineColor;
+  ctx.lineWidth = modeConfig.measureLineWidth;
   ctx.beginPath();
   ctx.moveTo(x + width, y);
   ctx.lineTo(x + width, y + lineHeight);

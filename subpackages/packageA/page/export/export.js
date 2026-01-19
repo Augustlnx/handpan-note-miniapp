@@ -64,6 +64,23 @@ Page({
     exportRightHandColor: '#F4D096',
     exportLeftHandColor: '#314D63',
     
+    // 用户调整参数（0-100，默认50表示1.0倍）
+    lineSpacingAdjust: 50,      // 行间距调整
+    measureHeightAdjust: 50,    // 单行高度调整
+    titleScaleAdjust: 50,       // 标题区大小调整
+    fontSizeAdjust: 50,         // 新增：字号调整
+
+    // 展开更多设置
+    showMoreSpecs: false,
+
+    // 更多参数（0-100，默认50表示1.0倍）
+    dotSizeAdjust: 50,          // 音高圆点大小
+    dotUpOffsetAdjust: 50,      // 音高圆点上偏移
+    dotDownOffsetAdjust: 50,    // 音高圆点下偏移
+    underlineThicknessAdjust: 50, // 下划线厚度
+    underlineOffsetAdjust: 50,    // 下划线偏移
+    supFontSizeAdjust: 50,        // 上标大小
+    
     // 预览相关
     exportPreviewImages: [],
     currentPreviewPage: 0,
@@ -87,6 +104,40 @@ Page({
     
     // PDF库加载状态
     pdfLibReady: pdfLibLoaded
+  },
+
+  // 展开/收起更多规格设置
+  toggleMoreSpecs() {
+    this.setData({ showMoreSpecs: !this.data.showMoreSpecs });
+  },
+
+  // 字号调整
+  onFontSizeAdjustChange(e) {
+    this.setData({ fontSizeAdjust: e.detail.value });
+  },
+
+  // 音高圆点相关
+  onDotSizeAdjustChange(e) {
+    this.setData({ dotSizeAdjust: e.detail.value });
+  },
+  onDotUpOffsetAdjustChange(e) {
+    this.setData({ dotUpOffsetAdjust: e.detail.value });
+  },
+  onDotDownOffsetAdjustChange(e) {
+    this.setData({ dotDownOffsetAdjust: e.detail.value });
+  },
+
+  // 下划线相关
+  onUnderlineThicknessAdjustChange(e) {
+    this.setData({ underlineThicknessAdjust: e.detail.value });
+  },
+  onUnderlineOffsetAdjustChange(e) {
+    this.setData({ underlineOffsetAdjust: e.detail.value });
+  },
+
+  // 上标相关
+  onSupFontSizeAdjustChange(e) {
+    this.setData({ supFontSizeAdjust: e.detail.value });
   },
 
   onLoad(options) {
@@ -190,12 +241,9 @@ Page({
     if (exportMode === 'code') {
       // 导出为代码
       this.exportAsCode();
-    } else if (exportMode === 'paged') {
-      // 分页模式，进入规格设置
-      this.setData({ currentStep: 'specs' });
     } else {
-      // 长图模式，直接导出
-      this.exportLongImage();
+      // 长图模式和分页模式都进入规格设置
+      this.setData({ currentStep: 'specs' });
     }
   },
 
@@ -205,15 +253,16 @@ Page({
     if (step === 'specs') {
       this.setData({ currentStep: 'mode' });
     } else if (step === 'preview') {
-      // 根据导出模式返回
-      if (this.data.exportMode === 'paged') {
-        this.setData({ currentStep: 'specs' });
-      } else {
-        this.setData({ currentStep: 'mode' });
-      }
+      // 预览界面返回到规格设置（无论长图还是分页模式）
+      this.setData({ currentStep: 'specs' });
     } else if (step === 'code') {
       this.setData({ currentStep: 'mode' });
     }
+  },
+
+  // 关闭导出预览（返回到规格设置）
+  closeExportPreview() {
+    this.setData({ currentStep: 'specs' });
   },
 
   // 返回模式选择
@@ -256,6 +305,21 @@ Page({
   // 背景图片透明度变化
   onExportBgOpacityChange(e) {
     this.setData({ exportBgOpacity: e.detail.value / 100 });
+  },
+
+  // 行间距调整
+  onLineSpacingAdjustChange(e) {
+    this.setData({ lineSpacingAdjust: e.detail.value });
+  },
+
+  // 单行高度调整
+  onMeasureHeightAdjustChange(e) {
+    this.setData({ measureHeightAdjust: e.detail.value });
+  },
+
+  // 标题区大小调整
+  onTitleScaleAdjustChange(e) {
+    this.setData({ titleScaleAdjust: e.detail.value });
   },
 
   // 选择颜色模式
@@ -323,7 +387,9 @@ Page({
 
   // 确认导出规格并开始导出
   confirmExportSpecs() {
-    this.exportWithTimeout('paged');
+    // 根据导出模式调用不同的导出方法
+    const { exportMode } = this.data;
+    this.exportWithTimeout(exportMode === 'long' ? 'long' : 'paged');
   },
 
   // 导出长图
@@ -432,7 +498,11 @@ Page({
         exportColorMode: this.data.exportColorMode,
         exportSingleColor: this.data.exportSingleColor,
         exportRightHandColor: this.data.exportRightHandColor,
-        exportLeftHandColor: this.data.exportLeftHandColor
+        exportLeftHandColor: this.data.exportLeftHandColor,
+        // 用户调整参数
+        lineSpacingAdjust: this.data.lineSpacingAdjust,
+        measureHeightAdjust: this.data.measureHeightAdjust,
+        titleScaleAdjust: this.data.titleScaleAdjust
       };
     } else {
       // long 模式
@@ -445,9 +515,27 @@ Page({
         subTitleColor: this.data.subTitleColor,
         rightHandColor: this.data.rightHandColor,
         leftHandColor: this.data.leftHandColor,
+        composer: this.data.composer,
+        rootNote: this.data.rootNote,
+        scaleType: this.data.scaleType,
+        noteCount: this.data.noteCount,
+        introduction: this.data.introduction,
+        notationType: this.data.notationType,
+        difficulty: this.data.difficulty,
         orientation: this.data.orientation,
         measuresPerRow: this.data.measuresPerRow,
-        exportMode: 'long'
+        exportMode: 'long',
+        exportLayoutMode: this.data.exportLayoutMode || 'compact',
+        exportBgOpacity: this.data.exportBgOpacity,
+        exportBgSize: this.data.exportBgSize,
+        exportColorMode: this.data.exportColorMode,
+        exportSingleColor: this.data.exportSingleColor,
+        exportRightHandColor: this.data.exportRightHandColor,
+        exportLeftHandColor: this.data.exportLeftHandColor,
+        // 用户调整参数
+        lineSpacingAdjust: this.data.lineSpacingAdjust,
+        measureHeightAdjust: this.data.measureHeightAdjust,
+        titleScaleAdjust: this.data.titleScaleAdjust
       };
     }
     
@@ -477,8 +565,12 @@ Page({
             wx.showToast({ title: '导出失败：未能生成分页图片', icon: 'none' });
           }
         } else {
-          // long 模式
-          this.promptSaveImage(result);
+          // long 模式 - 也进入预览界面
+          this.setData({
+            currentStep: 'preview',
+            exportPreviewImages: [result],  // 长图模式只有一张图片
+            currentPreviewPage: 0
+          });
         }
       }).catch(err => {
         if (exportCompleted) return; // 已经超时处理过了
@@ -567,23 +659,61 @@ Page({
     });
   },
 
+  // 检查相册权限
+  checkAlbumPermission() {
+    return new Promise((resolve, reject) => {
+      wx.getSetting({
+        success: (res) => {
+          if (res.authSetting['scope.writePhotosAlbum'] === false) {
+            wx.showModal({
+              title: '权限提示',
+              content: '保存图片需要您的授权，是否去设置页面开启权限？',
+              confirmText: '去设置',
+              success: (modalRes) => {
+                if (modalRes.confirm) {
+                  wx.openSetting({
+                    success: (settingRes) => {
+                      if (settingRes.authSetting['scope.writePhotosAlbum']) {
+                        resolve();
+                      } else {
+                        reject(new Error('AUTH_DENIED'));
+                      }
+                    },
+                    fail: () => reject(new Error('OPEN_SETTING_FAILED'))
+                  });
+                } else {
+                  reject(new Error('USER_CANCELLED'));
+                }
+              }
+            });
+          } else {
+            resolve();
+          }
+        },
+        fail: (err) => reject(err)
+      });
+    });
+  },
+
   // 保存图片到相册
   saveImageToAlbum(filePath) {
-    wx.saveImageToPhotosAlbum({
-      filePath: filePath,
-      success: () => {
-        wx.showToast({ title: '已保存到相册', icon: 'success' });
-      },
-      fail: (err) => {
-        if (err.errMsg.includes('auth')) {
-          wx.showModal({
-            title: '提示',
-            content: '需要授权保存相册权限',
-            showCancel: false
-          });
-        } else {
-          wx.showToast({ title: '保存失败', icon: 'none' });
+    this.checkAlbumPermission().then(() => {
+      wx.saveImageToPhotosAlbum({
+        filePath: filePath,
+        success: () => {
+          wx.showToast({ title: '已保存到相册', icon: 'success' });
+        },
+        fail: (err) => {
+          if (err.errMsg.includes('auth') || err.errMsg.includes('authorize')) {
+            wx.showToast({ title: '保存失败，请授权', icon: 'none' });
+          } else {
+            wx.showToast({ title: '保存失败', icon: 'none' });
+          }
         }
+      });
+    }).catch(err => {
+      if (err.message === 'AUTH_DENIED') {
+        wx.showToast({ title: '未获得授权', icon: 'none' });
       }
     });
   },
@@ -869,7 +999,7 @@ Page({
   // 关闭预览
   closeExportPreview() {
     this.setData({
-      currentStep: 'mode',
+      currentStep: 'specs',
       exportPreviewImages: [],
       currentPreviewPage: 0
     });
@@ -880,46 +1010,54 @@ Page({
     const images = this.data.exportPreviewImages;
     let savedCount = 0;
     
-    wx.showLoading({ title: `保存中 0/${images.length}` });
-    
-    const saveNext = (index) => {
-      if (index >= images.length) {
-        wx.hideLoading();
-        wx.showToast({ 
-          title: `已保存${savedCount}张图片`, 
-          icon: 'success',
-          duration: 2000
-        });
-        return;
-      }
+    this.checkAlbumPermission().then(() => {
+      wx.showLoading({ title: `保存中 0/${images.length}` });
       
-      wx.saveImageToPhotosAlbum({
-        filePath: images[index],
-        success: () => {
-          savedCount++;
-          wx.showLoading({ title: `保存中 ${savedCount}/${images.length}` });
-          saveNext(index + 1);
-        },
-        fail: (err) => {
+      const saveNext = (index) => {
+        if (index >= images.length) {
           wx.hideLoading();
-          if (err.errMsg.includes('auth')) {
-            wx.showModal({
-              title: '提示',
-              content: '需要授权保存相册权限',
-              showCancel: false
-            });
-          } else {
-            wx.showModal({
-              title: '保存失败',
-              content: `已保存${savedCount}/${images.length}张图片`,
-              showCancel: false
-            });
-          }
+          wx.showToast({ 
+            title: `已保存${savedCount}张图片`, 
+            icon: 'success',
+            duration: 2000
+          });
+          return;
         }
-      });
-    };
-    
-    saveNext(0);
+        
+        wx.saveImageToPhotosAlbum({
+          filePath: images[index],
+          success: () => {
+            savedCount++;
+            wx.showLoading({ title: `保存中 ${savedCount}/${images.length}` });
+            saveNext(index + 1);
+          },
+          fail: (err) => {
+            wx.hideLoading();
+            if (err.errMsg.includes('auth') || err.errMsg.includes('authorize')) {
+              wx.showModal({
+                title: '保存失败',
+                content: '需要保存相册权限才能导出图片',
+                showCancel: false
+              });
+            } else {
+              wx.showModal({
+                title: '保存失败',
+                content: `已保存${savedCount}/${images.length}张图片`,
+                showCancel: false
+              });
+            }
+          }
+        });
+      };
+      
+      saveNext(0);
+    }).catch((err) => {
+      if (err.message !== 'USER_CANCELLED' && err.message !== 'AUTH_DENIED') {
+        wx.showToast({ title: '保存遇到错误', icon: 'none' });
+      } else if (err.message === 'AUTH_DENIED') {
+        wx.showToast({ title: '未获得授权，无法保存', icon: 'none' });
+      }
+    });
   },
 
   // 保存为PDF

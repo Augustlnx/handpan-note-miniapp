@@ -203,6 +203,23 @@
   color: #314D63;
 }
 
+.spec-expand-row {
+  margin-top: 16rpx;
+}
+
+.expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  cursor: pointer;
+}
+
+.expand-icon {
+  width: 34rpx;
+  height: 34rpx;
+}
+
 .bottom-placeholder {
   height: 32rpx;
 }
@@ -293,11 +310,18 @@
 }
 
 .slider-label {
-  flex: 0 0 90rpx;
-  min-width: 90rpx;
+  flex: 0 0 130rpx;
+  min-width: 130rpx;
   font-size: 26rpx;
   color: #666;
   font-weight: 500;
+  /* 新增居中样式 */
+  text-align: center; /* 水平居中 */
+  line-height: 100%; /* 或与父容器高度一致，垂直居中（如果父容器有固定高度） */
+  /* 若父容器是 flex 且需要垂直居中，也可补充： */
+  display: flex;
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中（与 text-align: center 效果一致，选一个即可） */
 }
 
 .export-slider {

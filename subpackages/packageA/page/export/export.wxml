@@ -35,12 +35,12 @@
     </view>
   </view>
 
-  <!-- 导出规格设置（分页模式） -->
+  <!-- 导出规格设置（分页模式和长图模式共用） -->
   <scroll-view class="page-content scroll-content" scroll-y wx:if="{{currentStep === 'specs'}}">
     <text class="page-title">导出规格设置</text>
 
-    <!-- A4 方向选择 -->
-    <view class="spec-group">
+    <!-- A4 方向选择（仅分页模式显示） -->
+    <view class="spec-group" wx:if="{{exportMode === 'paged'}}">
       <text class="spec-group-label">A4 方向</text>
       <view class="spec-options-row">
         <view class="spec-option {{exportA4Orientation === 'portrait' ? 'selected' : ''}}" data-orientation="portrait" bindtap="selectA4Orientation">
@@ -72,11 +72,43 @@
       </view>
     </view>
 
-    <!-- 背景图片设置 -->
+    <!-- 排版参数微调（主区块） -->
     <view class="spec-group">
-      <text class="spec-group-label">背景图片</text>
+      <text class="spec-group-label">排版参数微调</text>
       <view class="slider-row">
-        <text class="slider-label">大小</text>
+        <text class="slider-label">行间距</text>
+        <slider class="export-slider" min="0" max="100" value="{{lineSpacingAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onLineSpacingAdjustChange" />
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">单行高度</text>
+        <slider class="export-slider" min="0" max="100" value="{{measureHeightAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onMeasureHeightAdjustChange" />
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">标题区大小</text>
+        <slider class="export-slider" min="0" max="100" value="{{titleScaleAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onTitleScaleAdjustChange" />
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">音符字号</text>
+        <slider class="export-slider" min="0" max="100" value="{{fontSizeAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onFontSizeAdjustChange" />
+      </view>
+      <view class="spec-hint">
+        滑动条默认值为50（对应1.0倍），向左减小，向右增大。所有参数均以“用户选择值 / 50”作为系数。
+      </view>
+      <view class="spec-expand-row">
+        <view class="expand-btn" bindtap="toggleMoreSpecs">
+          <text class="spec-group-label">更多设置</text>
+          <image class="expand-icon" src="{{showMoreSpecs ? '/assets/icons/keyboard/上_up.svg' : '/assets/icons/keyboard/下_down.svg'}}"></image>
+        </view>
+      </view>
+    </view>
+
+    <!-- 展开更多设置区块 -->
+    <view class="spec-group more-specs-group" wx:if="{{showMoreSpecs}}">
+      <view class="spec-divider"></view>
+      <text class="spec-group-label">背景图片</text>
+      <!-- 背景图片设置迁移到此处 -->
+      <view class="slider-row">
+        <text class="slider-label">图片大小</text>
         <slider class="export-slider" min="10" max="100" value="{{exportBgSize * 100}}" show-value block-size="20" activeColor="#314D63" bindchange="onExportBgSizeChange" />
         <text class="slider-unit">%</text>
       </view>
@@ -85,7 +117,39 @@
         <slider class="export-slider" min="0" max="100" value="{{exportBgOpacity * 100}}" show-value block-size="20" activeColor="#314D63" bindchange="onExportBgOpacityChange" />
         <text class="slider-unit">%</text>
       </view>
+      <view class="spec-divider"></view>
+      <text class="spec-group-label">音高圆点</text>
+      <view class="slider-row">
+        <text class="slider-label">大小</text>
+        <slider class="export-slider" min="0" max="100" value="{{dotSizeAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onDotSizeAdjustChange" />
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">上偏移</text>
+        <slider class="export-slider" min="0" max="100" value="{{dotUpOffsetAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onDotUpOffsetAdjustChange" />
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">下偏移</text>
+        <slider class="export-slider" min="0" max="100" value="{{dotDownOffsetAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onDotDownOffsetAdjustChange" />
+      </view>
+      <view class="spec-divider"></view>
+      <text class="spec-group-label">下划线</text>
+      <view class="slider-row">
+        <text class="slider-label">厚度</text>
+        <slider class="export-slider" min="0" max="100" value="{{underlineThicknessAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onUnderlineThicknessAdjustChange" />
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">偏移</text>
+        <slider class="export-slider" min="0" max="100" value="{{underlineOffsetAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onUnderlineOffsetAdjustChange" />
+      </view>
+      <view class="spec-divider"></view>
+      <text class="spec-group-label">上标</text>
+      <view class="slider-row">
+        <text class="slider-label">大小</text>
+        <slider class="export-slider" min="0" max="100" value="{{supFontSizeAdjust}}" show-value block-size="20" activeColor="#314D63" bindchange="onSupFontSizeAdjustChange" />
+      </view>
     </view>
+
+
 
     <!-- 音符颜色设置 -->
     <view class="spec-group">
