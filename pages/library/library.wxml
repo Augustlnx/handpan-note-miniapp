@@ -215,24 +215,27 @@
         <view class="form-row">
           <view class="form-col">
             <text class="form-label">主音</text>
-            <picker mode="selector" range="{{rootNoteOptions}}" value="{{rootNoteOptions.indexOf(newFileData.rootNote)}}" bindchange="onNewFileRootNoteChange">
-              <view class="picker-value">{{newFileData.rootNote}} ▼</view>
-            </picker>
+            <view class="picker-value" bindtap="showRootNotePicker">
+              <text>{{newFileData.rootNote}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
           </view>
           <view class="form-col">
             <text class="form-label">调式</text>
-            <picker mode="selector" range="{{scaleTypeDisplayOptions}}" value="{{scaleTypeOptions.indexOf(newFileData.scaleType)}}" bindchange="onNewFileScaleTypeChange">
-              <view class="picker-value">{{newFileData.scaleType ? (newFileData.scaleType.indexOf(' / ') > -1 ? newFileData.scaleType.split(' / ')[0] : newFileData.scaleType) : 'Kurd'}} ▼</view>
-            </picker>
+            <view class="picker-value" bindtap="showScaleTypePicker">
+              <text>{{newFileData.scaleType ? (newFileData.scaleType.indexOf(' / ') > -1 ? newFileData.scaleType.split(' / ')[0] : newFileData.scaleType) : 'Kurd'}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
           </view>
         </view>
         
         <view class="form-row">
           <view class="form-col">
             <text class="form-label">音位数</text>
-            <picker mode="selector" range="{{noteCountOptions}}" value="{{noteCountOptions.indexOf(newFileData.noteCount)}}" bindchange="onNewFileNoteCountChange">
-              <view class="picker-value">{{newFileData.noteCount}}音 ▼</view>
-            </picker>
+            <view class="picker-value" bindtap="showNoteCountPicker">
+              <text>{{newFileData.noteCount}}音</text>
+              <text class="picker-arrow">▼</text>
+            </view>
           </view>
           <view class="form-col">
             <text class="form-label">速度</text>
@@ -349,6 +352,54 @@
         <button class="btn-secondary" bindtap="closeImportModal">取消</button>
         <button class="btn-primary" bindtap="confirmImportFromNotation">导入到当前目录</button>
       </view>
+    </view>
+  </view>
+
+  <!-- iOS风格主音选择器 -->
+  <view wx:if="{{showRootNotePicker}}" class="ios-picker-overlay" catchtap="closeRootNotePicker">
+    <view class="ios-picker-container" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeRootNotePicker">取消</text>
+        <text class="ios-picker-title">选择主音</text>
+        <text class="ios-picker-confirm" bindtap="confirmRootNotePicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{rootNotePickerValue}}" bindchange="onRootNotePickerChange">
+        <picker-view-column>
+          <view wx:for="{{rootNoteOptions}}" wx:key="*this" class="ios-picker-item">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+
+  <!-- iOS风格调式选择器 -->
+  <view wx:if="{{showScaleTypePicker}}" class="ios-picker-overlay" catchtap="closeScaleTypePicker">
+    <view class="ios-picker-container" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeScaleTypePicker">取消</text>
+        <text class="ios-picker-title">选择调式</text>
+        <text class="ios-picker-confirm" bindtap="confirmScaleTypePicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{scaleTypePickerValue}}" bindchange="onScaleTypePickerChange">
+        <picker-view-column>
+          <view wx:for="{{scaleTypeDisplayOptions}}" wx:key="*this" class="ios-picker-item">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+
+  <!-- iOS风格音位数选择器 -->
+  <view wx:if="{{showNoteCountPicker}}" class="ios-picker-overlay" catchtap="closeNoteCountPicker">
+    <view class="ios-picker-container" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeNoteCountPicker">取消</text>
+        <text class="ios-picker-title">选择音位数</text>
+        <text class="ios-picker-confirm" bindtap="confirmNoteCountPicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{noteCountPickerValue}}" bindchange="onNoteCountPickerChange">
+        <picker-view-column>
+          <view wx:for="{{noteCountOptions}}" wx:key="*this" class="ios-picker-item">{{item}}音</view>
+        </picker-view-column>
+      </picker-view>
     </view>
   </view>
 </view>

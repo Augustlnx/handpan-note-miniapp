@@ -12,7 +12,7 @@ page {
   right: 0;
   height: 120rpx; /* 导航栏高度 */
   background-color: #304859; /* 与 app.json 中的背景色一致 */
-  z-index: 1000;
+  z-index: 10000; /* 确保在Canvas同层渲染之上 */
   display: flex;
   justify-content: center; /* 水平居中 */
   padding-top: 20rpx;

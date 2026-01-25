@@ -143,6 +143,9 @@
   background: linear-gradient(135deg, #314D63 0%, #3d5a70 100%);
   color: #ffffff;
   box-shadow: 0 6rpx 16rpx rgba(49, 77, 99, 0.25);
+  display: flex;
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
 }
 
 .btn-primary:active {
@@ -154,6 +157,9 @@
   background-color: #fff;
   color: #314D63;
   border: 2rpx solid #E0E0E0 !important;
+  display: flex;
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
 }
 
 .btn-secondary:active {

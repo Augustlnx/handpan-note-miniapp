@@ -1,4 +1,4 @@
-﻿<wxs module="utils">
+<wxs module="utils">
 // 横屏缩放比例：18/28
 var LANDSCAPE_SCALE = 18 / 28;
 // 定义常用字符常量，避免WXS中引号嵌套问题
@@ -270,22 +270,22 @@ module.exports = {
   </view>
 </view>
 
-<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}} {{showVirtualKeyboard ? 'keyboard-active' : ''}}" catchtap="clearEditing">
+<view class="notation-container {{rotationEnabled ? 'rotation-mode' : ''}} {{orientation === 'landscape' ? 'landscape-mode' : ''}} {{showVirtualKeyboard ? 'keyboard-active' : ''}} {{isPlaybackMode ? 'playback-mode' : ''}} {{pageReady ? 'page-ready' : ''}}" catchtap="clearEditing">
   <!-- 背景图片装饰（固定右下角，半透明，层级低于菜单栏） -->
   <image class="background-image" src="/assets/img/bg2.png" mode="widthFix" style="opacity: {{backgroundOpacity}}"></image>
   
   <!-- 分页容器：处理触摸事件 -->
-  <view id="notation-pages" class="notation-pages-wrapper {{pageTransitioning ? 'page-transition-out' : 'page-transition-in'}}" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd">
+  <view id="notation-pages" class="notation-pages-wrapper {{pageTransitioning ? 'page-transition-out' : 'page-transition-in'}}" bindtouchstart="{{!isPlaybackMode ? 'onTouchStart' : ''}}" bindtouchmove="{{!isPlaybackMode ? 'onTouchMove' : ''}}" bindtouchend="{{!isPlaybackMode ? 'onTouchEnd' : ''}}">
     <!-- 标题区（仅在第一页显示） -->
     <view class="header-section" wx:if="{{currentPage === 0}}">
       <!-- 右上角简介图标 -->
-      <image class="intro-icon" src="/assets/icons/信息_info.svg" bindtap="openIntroModal" mode="aspectFit"></image>
+      <image class="intro-icon" src="/assets/icons/信息_info.svg" bindtap="{{!isPlaybackMode ? 'openIntroModal' : ''}}" mode="aspectFit"></image>
       
       <!-- 主标题 -->
-      <text class="main-title" bindtap="editTitle" style="color: {{mainTitleColor}}">{{mainTitle}}</text>
+      <text class="main-title" bindtap="{{!isPlaybackMode ? 'editTitle' : ''}}" style="color: {{mainTitleColor}}">{{mainTitle}}</text>
       
       <!-- 副标题行 -->
-      <view class="sub-title-row" bindtap="editSubTitle">
+      <view class="sub-title-row" bindtap="{{!isPlaybackMode ? 'editSubTitle' : ''}}">
         <text class="sub-title" style="color: {{subTitleColor}}">{{subTitle}}</text>
         <text class="sub-title-divider" style="color: {{subTitleColor}}">|</text>
         <text class="sub-title" style="color: {{subTitleColor}}">{{composer}}</text>
@@ -353,8 +353,8 @@ module.exports = {
             <!-- 删除图标（右上角） -->
             <image class="delete-icon" src="/assets/icons/delete.png" data-id="{{notation.id}}" bindtap="deleteNotation" wx:if="{{!notations[pageModule.index].collapsed}}"></image>
             
-            <!-- 收起状态时显示more.png -->
-            <image class="more-icon-top-right" src="/assets/icons/more.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse" wx:if="{{notations[pageModule.index].collapsed}}"></image>
+            <!-- 收起状态时显示more.png（Canvas模式展开按钮），播放模式下禁用防止误触 -->
+            <image class="more-icon-top-right" src="/assets/icons/more.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse" wx:if="{{notations[pageModule.index].collapsed && !isPlaybackMode}}"></image>
             
             <!-- 谱面信息 -->
             <view class="sheet-info">
@@ -364,8 +364,63 @@ module.exports = {
               <text wx:if="{{notation.remark}}" class="sheet-remark">{{notation.remark}}</text>
             </view>
 
-            <!-- 谱面内容 -->
-            <view class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}" style="row-gap: {{utils.getLineSpacing(orientation, notation.style)}}rpx;">
+            <!-- ========== Canvas/图片渲染模式（collapsed状态）========== -->
+            <view wx:if="{{notations[pageModule.index].collapsed}}" 
+                  id="notation-container-{{notation.id}}"
+                  class="canvas-notation-container" 
+                  style="height: {{notations[pageModule.index].canvasHeight || 300}}px;">
+              
+              <!-- 模式1: 静态图片显示（非编辑状态，解决层级和延迟问题） -->
+              <image 
+                wx:if="{{notations[pageModule.index].tempImagePath && !notations[pageModule.index].isCanvasEditing}}"
+                class="notation-static-image"
+                src="{{notations[pageModule.index].tempImagePath}}"
+                mode="widthFix"
+                style="width: 100%;"
+                data-id="{{notation.id}}"
+                data-index="{{pageModule.index}}"
+                bindtap="onCollapsedNotationTap"
+              />
+              
+              <!-- 模式2: Canvas 2D 谱面渲染（编辑状态） -->
+              <canvas 
+                wx:else
+                type="2d" 
+                id="notation-canvas-{{notation.id}}" 
+                class="notation-canvas {{notations[pageModule.index].isCanvasEditing ? 'editing-mode' : ''}}"
+                style="width: 100%; height: 100%; position: absolute; z-index: 1;"
+                data-id="{{notation.id}}"
+                data-index="{{pageModule.index}}"
+                bindtap="onCanvasTap"
+              ></canvas>
+              
+              <!-- 播放光标覆盖层（View层，pointer-events: none） -->
+              <view 
+                wx:if="{{isPlaybackMode && notations[pageModule.index].collapsed}}"
+                class="playback-cursor-overlay"
+                id="playback-cursor-{{notation.id}}"
+              >
+                <!-- 播放光标（使用CSS transform + transition实现流畅移动）
+                     cursorVisible: true=显示, false=隐藏（未播放到/已播放完）
+                     修复：分离可见性和播放动画，确保暂停/定位时也能显示光标 -->
+                <view 
+                  class="playback-cursor {{notations[pageModule.index].cursorVisible ? 'visible' : 'hidden'}} {{isPlaying && notations[pageModule.index].cursorVisible ? 'playing' : ''}}"
+                  id="cursor-{{notation.id}}"
+                  style="width: {{notations[pageModule.index].cursorWidth || 0}}px; height: {{notations[pageModule.index].cursorHeight || 0}}px; transform: translate({{notations[pageModule.index].cursorX || 0}}px, {{notations[pageModule.index].cursorY || 0}}px);"
+                ></view>
+              </view>
+              
+              <!-- 透明输入层已移除，使用虚拟键盘输入 -->
+              <!-- Canvas编辑状态下的选中框高亮（由虚拟键盘处理输入） -->
+              <view 
+                wx:if="{{canvasEditing && canvasEditing.notationId === notation.id}}"
+                class="canvas-editing-highlight"
+                style="left: {{canvasEditing.inputX}}px; top: {{canvasEditing.inputY}}px; width: {{canvasEditing.inputWidth}}px; height: {{canvasEditing.inputHeight}}px; border: 4rpx solid {{canvasEditing.hand === 'right' ? rightHandColor : leftHandColor}}; background: {{canvasEditing.hand === 'right' ? rightHandColor : leftHandColor}}20; pointer-events: none;"
+              ></view>
+            </view>
+
+            <!-- ========== View渲染模式（展开状态）========== -->
+            <view wx:else class="staff-container {{(notation.measuresPerRow || measuresPerRow) > 1 ? 'multi-measure' : 'single-measure'}}" style="row-gap: {{utils.getLineSpacing(orientation, notation.style)}}rpx;">
               <view wx:for="{{notation.measures}}" wx:key="index" wx:for-item="measure" wx:for-index="measureIndex" class="measure" style="width: {{100 / (notation.measuresPerRow || measuresPerRow)}}%; height: {{utils.getMeasureHeight(orientation, notation.style, (notation.measuresPerRow || measuresPerRow) > 1)}}rpx;">
                 <!-- 小节编号（上方居中） -->
                 <view class="measure-index">{{(notation.measureOffset || 0) + measureIndex + 1}}</view>
@@ -378,13 +433,13 @@ module.exports = {
                   <view wx:if="{{beatIndex > 0}}" class="beat-line beat-line-left"></view>
 
                   <!-- 16分音符（4个细分） -->
-                  <view wx:for="{{beat.subdivisions}}" wx:key="index" wx:for-item="subdivision" wx:for-index="subdivisionIndex" class="subdivision">
+                  <view wx:for="{{beat.subdivisions}}" wx:key="index" wx:for-item="subdivision" wx:for-index="subdivisionIndex" class="subdivision {{playbackHighlightColumn === pageModule.index + '-' + measureIndex + '-' + beatIndex + '-' + subdivisionIndex ? 'playback-highlight' : ''}} {{playbackPrevColumns[pageModule.index + '-' + measureIndex + '-' + beatIndex + '-' + subdivisionIndex] ? 'playback-fadeout' : ''}}">
                     <!-- 16分音符分隔线（左侧） -->
                     <view wx:if="{{subdivisionIndex > 0}}" class="subdivision-line subdivision-line-left"></view>
 
                     <!-- 备注显示（在音符列上方） -->
                     <view wx:if="{{subdivision.annotation}}" class="note-annotation" 
-                          bindtap="editAnnotation" 
+                          bindtap="{{!isPlaybackMode ? 'editAnnotation' : ''}}" 
                           data-sheet="{{notation.id}}" 
                           data-measure="{{measureIndex}}" 
                           data-beat="{{beatIndex}}" 
@@ -672,9 +727,13 @@ module.exports = {
     </view>
   </view>
 
-  <!-- 操作按钮 -->
-  <view wx:if="{{!actionCollapsed}}" class="action-buttons">
-    
+  <!-- 操作按钮（普通模式） -->
+  <view wx:if="{{!actionCollapsed && !isPlaybackMode}}" class="action-buttons">
+    <!-- 播放按钮（最左侧） -->
+    <view class="action-btn" bindtap="togglePlayback">
+      <image class="action-btn-icon" src="/assets/icons/play.svg"></image>
+      <text class="action-btn-text">播放</text>
+    </view>
     <view class="action-btn" bindtap="toggleFloatingMetronome">
       <image class="action-btn-icon" src="/assets/icons/metronome.png"></image>
       <text class="action-btn-text">节拍器</text>
@@ -723,10 +782,241 @@ module.exports = {
       <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
       
   </view>
+
+  <!-- ========== 播放模式悬浮控制图标 ========== -->
+  <view wx:if="{{isPlaybackMode}}" class="player-floating-controls">
+    <!-- 从头开始播放 -->
+    <view class="player-floating-btn" bindtap="replayFromStart">
+      <image class="player-floating-icon" 
+             src="/subpackages/audio/icon/replay.svg"
+             mode="aspectFit"></image>
+    </view>
+    <!-- 左移一格 -->
+    <view class="player-floating-btn" bindtap="moveColumnLeft">
+      <image class="player-floating-icon" 
+             src="/subpackages/audio/icon/left.svg"
+             mode="aspectFit"></image>
+    </view>
+    <!-- 右移一格 -->
+    <view class="player-floating-btn" bindtap="moveColumnRight">
+      <image class="player-floating-icon" 
+             src="/subpackages/audio/icon/right.svg"
+             mode="aspectFit"></image>
+    </view>
+  </view>
+  
+  <!-- ========== 播放模式菜单栏（三层结构设计） ========== -->
+  <view wx:if="{{isPlaybackMode}}" class="player-control-bar">
+    
+    <!-- 第一层：次级功能行 -->
+    <view class="player-secondary-row">
+      <!-- 节拍器 -->
+      <view class="player-secondary-btn {{metronomeActive ? 'active' : ''}}" bindtap="togglePlaybackMetronome">
+        <image class="player-icon-sm" 
+               src="{{metronomeActive ? '/subpackages/audio/icon/metronome-active.png' : '/subpackages/audio/icon/metronome.png'}}"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- 速度显示（带内联竖向滑动杠） -->
+      <view class="player-tempo-display" bindtap="toggleInlineTempoSlider">
+        <image class="player-icon-sm" 
+               src="/subpackages/audio/icon/speed.svg"
+               mode="aspectFit"></image>
+        <text class="player-tempo-value">{{playbackTempo || 80}}</text>
+        
+        <!-- 内联竖向速度调节杠（自定义触摸实现），范围30~150 -->
+        <view wx:if="{{showInlineTempoSlider}}" class="inline-tempo-slider-wrapper" catchtap="stopPropagation">
+          <!-- 主容器 -->
+          <view class="inline-tempo-slider">
+            <text class="inline-tempo-max">150</text>
+            <view class="inline-tempo-track"
+                  bindtouchstart="onTempoTrackTouchStart"
+                  bindtouchmove="onTempoTrackTouchMove"
+                  bindtouchend="onTempoTrackTouchEnd">
+              <view class="inline-tempo-fill" style="height: {{((playbackTempo - 30) / 120) * 100}}%"></view>
+              <view class="inline-tempo-thumb" style="bottom: {{((playbackTempo - 30) / 120) * 100}}%"></view>
+            </view>
+            <text class="inline-tempo-min">30</text>
+            <!-- 底部可输入数字 -->
+            <view class="inline-tempo-input-wrapper">
+              <input class="inline-tempo-input" 
+                     type="number" 
+                     value="{{playbackTempo}}" 
+                     bindinput="onTempoInputChange"
+                     bindblur="onTempoInputBlur"
+                     maxlength="3" />
+            </view>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 视角跟随 -->
+      <view class="player-secondary-btn {{playbackFollowCursor ? 'active' : ''}}" bindtap="toggleFollowCursorBtn">
+        <image class="player-icon-sm" 
+               src="{{playbackFollowCursor ? '/subpackages/audio/icon/perspective_follow-active.svg' : '/subpackages/audio/icon/perspective_follow.svg'}}"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- 倒计时 -->
+      <view class="player-secondary-btn {{countdownEnabled ? 'active' : ''}}" bindtap="toggleCountdown">
+        <image class="player-icon-sm" 
+               src="{{countdownEnabled ? '/subpackages/audio/icon/countdown-active.svg' : '/subpackages/audio/icon/countdown.svg'}}"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- 更多设置 -->
+      <view class="player-secondary-btn" bindtap="togglePlaybackSettings">
+        <image class="player-icon-sm" 
+               src="/subpackages/audio/icon/sliders.svg"
+               mode="aspectFit"></image>
+      </view>
+    </view>
+    
+    <!-- 第二层：进度控制区 -->
+    <view class="player-progress-area">
+      <view class="player-progress-track" bindtap="seekPlayback" catchtouchmove="onProgressDrag">
+        <view class="player-progress-fill" style="width: {{playbackProgress || 0}}%"></view>
+        <view class="player-progress-thumb" style="left: {{playbackProgress || 0}}%"></view>
+      </view>
+      <view class="player-time-labels">
+        <text class="player-time-current">{{playbackCurrentTimeStr || '0:00'}}</text>
+        <text class="player-time-total">{{playbackDurationStr || '0:00'}}</text>
+      </view>
+    </view>
+    
+    <!-- 第三层：主控按钮行 -->
+    <view class="player-primary-row">
+      <!-- Level 3: 循环模式（最小） -->
+      <view class="player-mode-btn" bindtap="togglePlaybackMode">
+        <image class="player-icon-xs" 
+               src="{{playbackMode === 'loop' ? '/subpackages/audio/icon/repeat.svg' : '/subpackages/audio/icon/repeat-once.svg'}}"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- Level 2: 上一段（中等） -->
+      <view class="player-nav-btn" bindtap="playbackPrevModule">
+        <image class="player-icon-md" 
+               src="/subpackages/audio/icon/skip-back.svg"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- Level 1: 播放/暂停（最大，核心） -->
+      <view class="player-play-btn {{isPlaying ? 'playing' : ''}}" bindtap="togglePlayPause">
+        <image class="player-play-icon" 
+               src="{{isPlaying ? '/subpackages/audio/icon/pause.svg' : '/subpackages/audio/icon/play.svg'}}"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- Level 2: 下一段（中等） -->
+      <view class="player-nav-btn" bindtap="playbackNextModule">
+        <image class="player-icon-md" 
+               src="/subpackages/audio/icon/skip-forward.svg"
+               mode="aspectFit"></image>
+      </view>
+      
+      <!-- Level 3: 终止/退出（最小） -->
+      <view class="player-stop-btn" bindtap="stopAndExitPlayback">
+        <image class="player-stop-icon" 
+               src="/subpackages/audio/icon/logout.png"
+               mode="aspectFit"></image>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 速度调节弹窗 -->
+  <view wx:if="{{showTempoSlider}}" class="player-tempo-overlay" catchtap="hideTempoSlider">
+    <view class="player-tempo-panel" catchtap="preventBubble">
+      <text class="player-tempo-title">播放速度</text>
+      <view class="player-tempo-slider-row">
+        <text class="player-tempo-label">30</text>
+        <slider class="player-tempo-slider" 
+                min="30" max="200" step="1" 
+                value="{{playbackTempo}}" 
+                activeColor="#8FB9AB"
+                backgroundColor="rgba(49, 77, 99, 0.15)"
+                block-size="28"
+                block-color="#314D63"
+                bindchange="onTempoChange"/>
+        <text class="player-tempo-label">200</text>
+      </view>
+      <text class="player-tempo-bpm">♩ = {{playbackTempo}} BPM</text>
+    </view>
+  </view>
+  
+  <!-- 更多设置弹窗 -->
+  <view wx:if="{{showPlaybackSettings}}" class="player-settings-overlay" catchtap="hidePlaybackSettings">
+    <view class="player-settings-panel" catchtap="preventBubble">
+      <view class="player-settings-header">
+        <text class="player-settings-title">播放设置</text>
+        <view class="player-settings-close-btn" bindtap="hidePlaybackSettings">
+          <text>✕</text>
+        </view>
+      </view>
+      
+      <!-- 节拍器音量 -->
+      <view class="player-setting-row">
+        <text class="player-setting-label">节拍器音量</text>
+        <view class="player-setting-control">
+          <slider class="player-setting-slider" 
+                  min="0" max="100" step="5" 
+                  value="{{metronomeVolume || 50}}" 
+                  activeColor="#8FB9AB"
+                  backgroundColor="rgba(49, 77, 99, 0.15)"
+                  block-size="22"
+                  block-color="#314D63"
+                  bindchange="onMetronomeVolumeChange"/>
+          <text class="player-setting-value">{{metronomeVolume || 50}}%</text>
+        </view>
+      </view>
+      
+      <!-- 视角跟随 -->
+      <view class="player-setting-row">
+        <text class="player-setting-label">视角跟随光标</text>
+        <switch class="player-setting-switch" 
+                checked="{{playbackFollowCursor}}" 
+                color="#8FB9AB"
+                bindchange="toggleFollowCursor"/>
+      </view>
+      
+      <!-- 播放模式 -->
+      <view class="player-setting-row">
+        <text class="player-setting-label">播放模式</text>
+        <view class="player-mode-selector">
+          <view class="player-mode-opt {{playbackMode === 'single' ? 'selected' : ''}}" 
+                bindtap="setPlaybackModeSingle">
+            <text>单曲</text>
+          </view>
+          <view class="player-mode-opt {{playbackMode === 'loop' ? 'selected' : ''}}" 
+                bindtap="setPlaybackModeLoop">
+            <text>循环</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <image class="action-toggle" 
     src="/assets/icons/toolkit.svg" 
     bindtap="toggleActionBar"
-    wx:if="{{actionCollapsed}}"></image>
+    wx:if="{{actionCollapsed && !isPlaybackMode}}"></image>
+
+  <!-- 播放倒计时遮罩 -->
+  <view wx:if="{{showPlaybackCountdown}}" class="playback-countdown-overlay">
+    <view class="countdown-content">
+      <view class="countdown-circle {{countdownNumber <= 0 ? 'countdown-go' : ''}}">
+        <text class="countdown-number">{{countdownNumber > 0 ? countdownNumber : '♪'}}</text>
+      </view>
+      <view class="countdown-pulse"></view>
+    </view>
+  </view>
+
+  <!-- 播放资源加载提示 -->
+  <view wx:if="{{showPlaybackLoading}}" class="playback-loading-overlay">
+    <view class="playback-loading-content">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">{{playbackLoadingText}}</text>
+    </view>
+  </view>
 
   <!-- 悬浮节拍器 -->
   <view wx:if="{{showFloatingMetronome}}" class="floating-metronome">
@@ -856,30 +1146,100 @@ module.exports = {
       
       <view class="custom-signature-help">
         <view class="help-section">
-          <text class="help-label">符号说明：</text>
-          <text class="help-text">[ ] = 小节线 | | = 拍号线 - = 音符位</text>
-        </view>
-        <view class="help-section">
-          <text class="help-label">示例：</text>
-          <text class="help-text">4/4 拍号：[----|----|----|----]</text>
+          <text class="help-label">使用说明：</text>
+          <text class="help-text">1. 设置总音符数，圆点将自动显示</text>
+          <text class="help-text">2. 点击圆点之间的间隙插入分隔线</text>
+          <text class="help-text">3. 单击循环：无 → 拍线 | → 小节线 ][ → 无</text>
         </view>
         <view class="help-section">
           <text class="help-label">限制：</text>
-          <text class="help-text">• 音符位"-"不超过35个</text>
-          <text class="help-text">• 仅包含 [ ] | - 四种符号</text>
-          <text class="help-text">• 必须以"["开始，"]"结束</text>
+          <text class="help-text">• 音符数 1~35 个，单拍音符 1~10 个</text>
         </view>
       </view>
 
       <view class="modal-body">
-        <textarea 
-          class="template-input"
-          value="{{customTimeSignatureTemplate}}" 
-          focus="true" 
-          placeholder="输入单行模板，例如：[----|----|----|----]" 
-          bindinput="onCustomTimeSignatureInput"
-          maxlength="100"
-        />
+        <!-- 音符数输入 -->
+        <view class="note-count-row">
+          <text class="note-count-label">总音符数：</text>
+          <input 
+            class="note-count-input"
+            type="number"
+            value="{{visualNoteCount}}" 
+            bindinput="onVisualNoteCountInput"
+            bindblur="onVisualNoteCountBlur"
+          />
+          <text class="note-count-hint">（1~35）</text>
+        </view>
+
+        <!-- 可视化圆点区域 -->
+        <scroll-view scroll-x class="visual-dots-scroll">
+          <view class="visual-dots-container">
+            <text class="bracket-text">[</text>
+            <block wx:for="{{visualDots}}" wx:key="index">
+              <!-- 圆点 -->
+              <view class="visual-dot"></view>
+              <!-- 间隙（除最后一个外） -->
+              <view 
+                wx:if="{{index < visualDots.length - 1}}"
+                class="dot-gap {{visualSeparators[index].type !== 'none' ? 'has-separator' : ''}}"
+                data-index="{{index}}"
+                bindtap="onDotGapTap"
+              >
+                <text 
+                  wx:if="{{visualSeparators[index].type === 'beat'}}" 
+                  class="separator-beat"
+                >|</text>
+                <text 
+                  wx:elif="{{visualSeparators[index].type === 'measure'}}" 
+                  class="separator-measure"
+                >][</text>
+              </view>
+            </block>
+            <text class="bracket-text">]</text>
+          </view>
+        </scroll-view>
+
+        <!-- 生成的模板预览 -->
+        <view class="template-preview">
+          <text class="preview-label">模板预览：</text>
+          <text class="preview-text">{{customTimeSignatureTemplate || '[----|----|----|----]'}}</text>
+        </view>
+
+        <!-- 小节信息列表 -->
+        <view wx:if="{{measureInfoList.length > 0}}" class="measure-info-list">
+          <view class="measure-info-header">结构详情</view>
+          <view class="measure-info-grid">
+            <view 
+              wx:for="{{measureInfoList}}" 
+              wx:key="measureIndex" 
+              class="measure-info-card"
+            >
+              <view class="measure-card-title">第{{item.measureIndex + 1}}小节</view>
+              <view class="beat-info-list">
+                <view 
+                  wx:for="{{item.beats}}" 
+                  wx:for-item="beat"
+                  wx:for-index="beatIdx"
+                  wx:key="beatIdx"
+                  class="beat-info-row"
+                >
+                  <text class="beat-label">第{{beatIdx + 1}}拍：</text>
+                  <input 
+                    class="beat-note-input"
+                    type="number"
+                    value="{{beat.noteCount}}"
+                    data-measure-index="{{item.measureIndex}}"
+                    data-beat-index="{{beatIdx}}"
+                    bindinput="onBeatNoteCountInput"
+                    bindblur="onBeatNoteCountBlur"
+                  />
+                  <text class="beat-unit">音符</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
         <view wx:if="{{customTimeSignatureError}}" class="error-message">{{customTimeSignatureError}}</view>
       </view>
 
@@ -1347,61 +1707,542 @@ module.exports = {
   <!-- 谱式转换弹窗 -->
   <view wx:if="{{showNotationTypeModal}}" class="modal-overlay" bindtap="closeNotationTypeModal">
     <view class="modal-content notation-type-modal" catchtap="stopPropagation">
-      <view class="modal-header">
-        <text class="modal-title">谱式转换</text>
-        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeNotationTypeModal"></image>
+      <!-- 标题行：居中标题 + 右侧转换表库按钮 -->
+      <view class="conversion-modal-header">
+        <text class="conversion-modal-title">谱式转换</text>
+        <view class="conversion-header-right" bindtap="openConversionLibrary">
+          <image class="conversion-header-icon" src="/assets/icons/folder-rename.png" mode="aspectFit"></image>
+          <text class="conversion-header-text">转换表库</text>
+        </view>
       </view>
       
-      <!-- 当前谱式提示 -->
-      <view class="notation-type-hint">
-        <text>当前谱式：</text>
-        <text class="notation-type-current">{{notationType === 'simplified' ? '简谱' : '数字谱'}}</text>
-        <text> → 转换为：</text>
-        <text class="notation-type-target">{{notationType === 'simplified' ? '数字谱' : '简谱'}}</text>
+      <!-- 转换模式切换按钮 -->
+      <view class="conversion-mode-switch">
+        <view class="conversion-mode-btn {{conversionMode === 'mapping' ? 'active' : ''}}" bindtap="setConversionMode" data-mode="mapping">
+          <text>映射转换</text>
+        </view>
+        <view class="conversion-mode-btn {{conversionMode === 'noMapping' ? 'active' : ''}}" bindtap="setConversionMode" data-mode="noMapping">
+          <text>无映射转换</text>
+        </view>
+      </view>
+      
+      <!-- 当前谱式提示 + SPN计法（同一行左右顶格） -->
+      <view class="conversion-info-row">
+        <view class="conversion-type-hint">
+          <text>当前谱式：</text>
+          <text class="notation-type-current">{{notationType === 'simplified' ? '简谱' : '数字谱'}}</text>
+          <text> → </text>
+          <text class="notation-type-target">{{notationType === 'simplified' ? '数字谱' : '简谱'}}</text>
+        </view>
+        <view class="conversion-root-note-bar" bindtap="showConversionRootPicker">
+          <text class="conversion-root-label">首调</text>
+          <view class="conversion-root-box">
+            <text class="conversion-root-text">{{conversionRootNote}}=1</text>
+          </view>
+        </view>
       </view>
 
-      <!-- 转换表 -->
-      <view class="conversion-table-container">
+      <!-- 转换表（三列） - 仅在映射转换模式下显示 -->
+      <view class="conversion-table-container" wx:if="{{conversionMode === 'mapping'}}">
         <scroll-view class="conversion-table-scroll" scroll-y>
-          <view class="conversion-table-header">
+          <view class="conversion-table-header conversion-header-3col">
             <text class="conversion-col-header">数字谱</text>
-            <text class="conversion-col-sep">-</text>
             <text class="conversion-col-header">简谱</text>
+            <text class="conversion-col-header">SPN</text>
           </view>
-          <view wx:for="{{conversionMappings}}" wx:key="key" class="conversion-row">
-            <!-- 数字谱转简谱：左列固定，右列输入 -->
-            <block wx:if="{{notationType === 'digital'}}">
-              <view class="conversion-col-fixed">{{item.key}}</view>
-              <text class="conversion-col-sep">-</text>
-              <input class="conversion-col-input" 
-                     value="{{item.value}}" 
-                     placeholder="输入对应简谱"
-                     data-key="{{item.key}}"
-                     bindinput="onConversionMappingInput"/>
-            </block>
-            <!-- 简谱转数字谱：左列输入，右列固定 -->
-            <block wx:else>
-              <input class="conversion-col-input" 
-                     value="{{item.value}}" 
-                     placeholder="输入对应数字"
-                     data-key="{{item.key}}"
-                     bindinput="onConversionMappingInput"/>
-              <text class="conversion-col-sep">-</text>
-              <view class="conversion-col-fixed">{{item.key}}</view>
-            </block>
+          <view wx:for="{{conversionMappings}}" wx:key="key" class="conversion-row conversion-row-3col">
+            <!-- 数字谱列 -->
+            <view class="conversion-col-fixed conversion-col-3">{{item.key}}</view>
+            <!-- 简谱列（可编辑） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{conversionEditingKey === item.key && conversionEditingField === 'simplified' ? 'conversion-cell-active' : ''}}" 
+                  bindtap="onConversionCellTap" 
+                  data-key="{{item.key}}" 
+                  data-field="simplified">
+              <block wx:if="{{conversionUseNativeInput && conversionEditingKey === item.key && conversionEditingField === 'simplified'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.simplified}}" 
+                       focus="{{true}}"
+                       bindinput="onConversionNativeInput"
+                       bindblur="onConversionNativeBlur"
+                       data-key="{{item.key}}"
+                       data-field="simplified" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.simplified ? '' : 'placeholder'}}">{{item.simplified || '点击输入'}}</text>
+              </block>
+            </view>
+            <!-- SPN列（自动计算，可编辑） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{conversionEditingKey === item.key && conversionEditingField === 'spn' ? 'conversion-cell-active' : ''}}"
+                  bindtap="onConversionCellTap" 
+                  data-key="{{item.key}}" 
+                  data-field="spn">
+              <block wx:if="{{conversionUseNativeInput && conversionEditingKey === item.key && conversionEditingField === 'spn'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.spn}}" 
+                       focus="{{true}}"
+                       bindinput="onConversionNativeInput"
+                       bindblur="onConversionNativeBlur"
+                       data-key="{{item.key}}"
+                       data-field="spn" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.spn ? '' : 'placeholder'}}">{{item.spn || '-'}}</text>
+              </block>
+            </view>
           </view>
         </scroll-view>
       </view>
 
       <!-- 转换表提示 -->
       <view class="conversion-hint">
-        <text wx:if="{{conversionMappingError}}" class="conversion-error">{{conversionMappingError}}</text>
-        <text wx:else class="conversion-tip">请填写所有转换映射，确保没有遗漏</text>
+        <text wx:if="{{conversionMappingError && conversionMode === 'mapping'}}" class="conversion-error">{{conversionMappingError}}</text>
+        <text wx:elif="{{conversionMode === 'noMapping'}}" class="conversion-tip">无映射转换：仅切换谱式，不转换音符内容</text>
+        <text wx:else class="conversion-tip">点击单元格使用虚拟键盘编辑</text>
       </view>
 
       <view class="modal-buttons">
         <button class="btn-secondary" bindtap="closeNotationTypeModal">取消</button>
-        <button class="btn-primary" bindtap="confirmNotationTypeChange" disabled="{{!!conversionMappingError || hasEmptyConversionMapping}}">确认转换</button>
+        <button class="btn-primary" bindtap="confirmConversion" disabled="{{conversionMode === 'mapping' && (!!conversionMappingError || hasEmptyConversionMapping)}}">确认转换</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 转换表库弹窗 -->
+  <view wx:if="{{showConversionLibraryModal}}" class="modal-overlay" catchtap="closeConversionLibrary">
+    <view class="modal-content conversion-library-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">转换表库</text>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeConversionLibrary"></image>
+      </view>
+      
+      <scroll-view class="conversion-library-list" scroll-y>
+        <!-- 默认转换表（不可删除） -->
+        <view class="conversion-library-item {{currentConversionTableId === null ? 'active' : ''}}" bindtap="selectConversionTable" data-id="{{null}}">
+          <view class="library-item-info">
+            <text class="library-item-name">默认转换表</text>
+            <text class="library-item-desc">系统内置，不可删除</text>
+          </view>
+        </view>
+        
+        <!-- 用户保存的转换表 -->
+        <view wx:for="{{conversionTableLibrary}}" wx:key="id" class="conversion-library-item {{currentConversionTableId === item.id ? 'active' : ''}}">
+          <view class="library-item-info" bindtap="selectConversionTable" data-id="{{item.id}}">
+            <text class="library-item-name">{{item.name}}</text>
+            <text class="library-item-desc">{{item.createTime}}</text>
+          </view>
+          <image class="library-item-delete" src="/assets/icons/keyboard/删除5_delete-five.svg" mode="aspectFit" catchtap="deleteConversionTable" data-id="{{item.id}}"></image>
+        </view>
+        
+        <!-- 新建按钮 -->
+        <view class="conversion-library-add" bindtap="openNewConversionTableModal">
+          <image class="library-add-icon" src="/assets/icons/add.svg" mode="aspectFit"></image>
+          <text class="library-add-text">新建转换表</text>
+        </view>
+      </scroll-view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeConversionLibrary">关闭</button>
+        <button class="btn-primary" bindtap="applySelectedConversionTable">应用</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 新建转换表弹窗 -->
+  <view wx:if="{{showNewConversionTableModal}}" class="modal-overlay" catchtap="closeNewConversionTableModal">
+    <view class="modal-content new-conversion-table-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <input class="new-table-name-input" 
+               value="{{newConversionTableName}}" 
+               placeholder="输入转换表名称"
+               bindinput="onNewTableNameInput" />
+      </view>
+      
+      <!-- 首调设置 -->
+      <view class="conversion-root-note-bar">
+        <text class="conversion-root-label">SPN计法</text>
+        <view class="conversion-root-box" bindtap="showNewTableRootPicker">
+          <text class="conversion-root-text">{{newTableRootNote || 'F3'}}=1</text>
+        </view>
+      </view>
+      
+      <!-- 转换表编辑区 -->
+      <view class="conversion-table-container">
+        <scroll-view class="conversion-table-scroll" scroll-y>
+          <view class="conversion-table-header conversion-header-3col">
+            <text class="conversion-col-header">数字谱</text>
+            <text class="conversion-col-header">简谱</text>
+            <text class="conversion-col-header">SPN</text>
+          </view>
+          <view wx:for="{{newConversionTableData}}" wx:key="key" class="conversion-row conversion-row-3col">
+            <!-- 数字谱列（可编辑） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{newTableEditingIndex === index && newTableEditingField === 'key' ? 'conversion-cell-active' : ''}}" 
+                  bindtap="onNewTableCellTap" 
+                  data-index="{{index}}" 
+                  data-field="key">
+              <block wx:if="{{newTableUseNativeInput && newTableEditingIndex === index && newTableEditingField === 'key'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.key}}" 
+                       focus="{{true}}"
+                       bindinput="onNewTableNativeInput"
+                       bindblur="onNewTableNativeBlur"
+                       data-index="{{index}}"
+                       data-field="key" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.key ? '' : 'placeholder'}}">{{item.key || '点击输入'}}</text>
+              </block>
+            </view>
+            <!-- 简谱列（可编辑） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{newTableEditingIndex === index && newTableEditingField === 'simplified' ? 'conversion-cell-active' : ''}}" 
+                  bindtap="onNewTableCellTap" 
+                  data-index="{{index}}" 
+                  data-field="simplified">
+              <block wx:if="{{newTableUseNativeInput && newTableEditingIndex === index && newTableEditingField === 'simplified'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.simplified}}" 
+                       focus="{{true}}"
+                       bindinput="onNewTableNativeInput"
+                       bindblur="onNewTableNativeBlur"
+                       data-index="{{index}}"
+                       data-field="simplified" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.simplified ? '' : 'placeholder'}}">{{item.simplified || '点击输入'}}</text>
+              </block>
+            </view>
+            <!-- SPN列（可编辑） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{newTableEditingIndex === index && newTableEditingField === 'spn' ? 'conversion-cell-active' : ''}}"
+                  bindtap="onNewTableCellTap" 
+                  data-index="{{index}}" 
+                  data-field="spn">
+              <block wx:if="{{newTableUseNativeInput && newTableEditingIndex === index && newTableEditingField === 'spn'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.spn}}" 
+                       focus="{{true}}"
+                       bindinput="onNewTableNativeInput"
+                       bindblur="onNewTableNativeBlur"
+                       data-index="{{index}}"
+                       data-field="spn" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.spn ? '' : 'placeholder'}}">{{item.spn || '-'}}</text>
+              </block>
+            </view>
+          </view>
+          
+          <!-- 添加新行 -->
+          <view class="conversion-add-row" bindtap="addNewConversionRow">
+            <image class="conversion-add-icon" src="/assets/icons/add.svg" mode="aspectFit"></image>
+            <text class="conversion-add-text">添加行</text>
+          </view>
+        </scroll-view>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeNewConversionTableModal">取消</button>
+        <button class="btn-primary" bindtap="saveAndApplyNewTable">保存并应用</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 首调选择器弹窗 -->
+  <view wx:if="{{showConversionRootPicker}}" class="modal-overlay conversion-root-picker-overlay" catchtap="closeConversionRootPicker">
+    <view class="ios-picker-modal" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeConversionRootPicker">取消</text>
+        <text class="ios-picker-title">选择首调 (=1)</text>
+        <text class="ios-picker-confirm" bindtap="confirmConversionRootPicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{conversionRootPickerValue}}" bindchange="onConversionRootPickerChange">
+        <picker-view-column>
+          <view wx:for="{{spnNoteOptions}}" wx:key="*this" class="ios-picker-item">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view wx:for="{{spnOctaveOptions}}" wx:key="*this" class="ios-picker-item">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+
+  <!-- 音频映射弹窗 -->
+  <view wx:if="{{showAudioMappingModal}}" class="modal-overlay audio-mapping-modal-overlay" bindtap="closeAudioMappingModal">
+    <view class="modal-content audio-mapping-modal" catchtap="stopPropagation">
+      <!-- 标题行：居中标题 + 右侧转换表库按钮 -->
+      <view class="conversion-modal-header">
+        <text class="conversion-modal-title">音频映射</text>
+        <view class="conversion-header-right" bindtap="openAudioMappingLibrary">
+          <image class="conversion-header-icon" src="/assets/icons/folder-rename.png" mode="aspectFit"></image>
+          <text class="conversion-header-text">转换表库</text>
+        </view>
+      </view>
+      
+      <!-- 当前谱式提示 -->
+      <view class="conversion-info-row">
+        <view class="conversion-type-hint">
+          <text>当前谱式：</text>
+          <text class="notation-type-current">{{notationType === 'simplified' ? '简谱' : '数字谱'}}</text>
+        </view>
+        <view class="conversion-root-note-bar" bindtap="showConversionRootPicker">
+          <text class="conversion-root-label">首调</text>
+          <view class="conversion-root-box">
+            <text class="conversion-root-text">{{conversionRootNote}}=1</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 音频映射表 -->
+      <view class="conversion-table-container audio-mapping-table-container">
+        <scroll-view class="conversion-table-scroll" scroll-y>
+          <!-- 表头：根据谱式显示不同列数 -->
+          <view class="conversion-table-header {{notationType === 'simplified' ? 'conversion-header-2col' : 'conversion-header-3col'}}">
+            <text wx:if="{{notationType === 'digital'}}" class="conversion-col-header">数字谱</text>
+            <text class="conversion-col-header">简谱</text>
+            <text class="conversion-col-header">SPN</text>
+            <text class="conversion-col-header audio-col-header">音频</text>
+          </view>
+          
+          <!-- 映射行 -->
+          <view wx:for="{{audioMappings}}" wx:key="index" class="conversion-row {{notationType === 'simplified' ? 'conversion-row-2col' : 'conversion-row-3col'}} {{!item.hasAudio ? 'audio-row-no-audio' : ''}} {{item.isUsed ? 'audio-row-used' : ''}}">
+            <!-- 数字谱列（仅数字谱模式显示，可编辑） -->
+            <view wx:if="{{notationType === 'digital'}}" 
+                  class="conversion-col-input-wrap conversion-col-3 {{audioMappingEditingIndex === index && audioMappingEditingField === 'key' ? 'conversion-cell-active' : ''}}"
+                  bindtap="onAudioMappingCellTap" 
+                  data-index="{{index}}" 
+                  data-field="key">
+              <block wx:if="{{audioMappingUseNativeInput && audioMappingEditingIndex === index && audioMappingEditingField === 'key'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.key}}" 
+                       focus="{{true}}"
+                       bindinput="onAudioMappingNativeInput"
+                       bindblur="onAudioMappingNativeBlur"
+                       data-index="{{index}}"
+                       data-field="key" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.key ? '' : 'placeholder'}}">{{item.key || '-'}}</text>
+              </block>
+            </view>
+            
+            <!-- 简谱列（可编辑，唤起虚拟键盘） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{audioMappingEditingIndex === index && audioMappingEditingField === 'simplified' ? 'conversion-cell-active' : ''}}" 
+                  bindtap="onAudioMappingCellTap" 
+                  data-index="{{index}}" 
+                  data-field="simplified">
+              <block wx:if="{{audioMappingUseNativeInput && audioMappingEditingIndex === index && audioMappingEditingField === 'simplified'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.simplified}}" 
+                       focus="{{true}}"
+                       bindinput="onAudioMappingNativeInput"
+                       bindblur="onAudioMappingNativeBlur"
+                       data-index="{{index}}"
+                       data-field="simplified" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.simplified ? '' : 'placeholder'}}">{{item.simplified || '点击输入'}}</text>
+              </block>
+            </view>
+            
+            <!-- SPN列（可编辑） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{audioMappingEditingIndex === index && audioMappingEditingField === 'spn' ? 'conversion-cell-active' : ''}} {{!item.hasAudio ? 'spn-no-audio' : ''}}"
+                  bindtap="onAudioMappingCellTap" 
+                  data-index="{{index}}" 
+                  data-field="spn">
+              <block wx:if="{{audioMappingUseNativeInput && audioMappingEditingIndex === index && audioMappingEditingField === 'spn'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.spn}}" 
+                       focus="{{true}}"
+                       bindinput="onAudioMappingNativeInput"
+                       bindblur="onAudioMappingNativeBlur"
+                       data-index="{{index}}"
+                       data-field="spn" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.spn ? '' : 'placeholder'}}">{{item.spn || '-'}}</text>
+              </block>
+            </view>
+            
+            <!-- 音频状态/试听列 -->
+            <view class="audio-preview-col" bindtap="previewAudio" data-index="{{index}}">
+              <block wx:if="{{item.hasAudio}}">
+                <view class="audio-preview-btn {{audioMappingPreviewPlaying === index ? 'playing' : ''}}">
+                  <image class="audio-preview-icon" src="/subpackages/audio/icon/{{audioMappingPreviewPlaying === index ? 'pause' : 'play'}}.svg" mode="aspectFit"></image>
+                </view>
+              </block>
+              <block wx:else>
+                <text class="audio-no-file">无音频</text>
+              </block>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 提示文字 -->
+      <view class="conversion-hint">
+        <text class="conversion-tip">点击单元格编辑映射，点击右侧按钮试听音频</text>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeAudioMappingModal">取消</button>
+        <button class="btn-primary" bindtap="confirmAudioMappingAndPlay">开始播放</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 音频映射表库弹窗（复用转换表库样式） -->
+  <view wx:if="{{showAudioMappingLibrary}}" class="modal-overlay audio-mapping-library-overlay" catchtap="closeAudioMappingLibrary">
+    <view class="modal-content conversion-library-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">转换表库</text>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeAudioMappingLibrary"></image>
+      </view>
+      
+      <scroll-view class="conversion-library-list" scroll-y>
+        <!-- 默认转换表 -->
+        <view class="conversion-library-item {{currentAudioMappingTableId === null ? 'active' : ''}}" bindtap="selectAudioMappingTable" data-id="{{null}}">
+          <view class="library-item-info">
+            <text class="library-item-name">默认转换表</text>
+            <text class="library-item-desc">系统内置，不可删除</text>
+          </view>
+        </view>
+        
+        <!-- 用户保存的转换表 -->
+        <view wx:for="{{conversionTableLibrary}}" wx:key="id" class="conversion-library-item {{currentAudioMappingTableId === item.id ? 'active' : ''}}">
+          <view class="library-item-info" bindtap="selectAudioMappingTable" data-id="{{item.id}}">
+            <text class="library-item-name">{{item.name}}</text>
+            <text class="library-item-desc">{{item.createTime}}</text>
+          </view>
+        </view>
+        
+        <!-- 新建转换表按钮 -->
+        <view class="conversion-library-add" bindtap="openNewAudioMappingTable">
+          <image class="library-add-icon" src="/assets/icons/add.svg" mode="aspectFit"></image>
+          <text class="library-add-text">新建转换表</text>
+        </view>
+      </scroll-view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeAudioMappingLibrary">取消</button>
+        <button class="btn-primary" bindtap="openSelectedAudioMappingTable">打开</button>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 新建/编辑音频映射转换表弹窗 -->
+  <view wx:if="{{showNewAudioMappingTableModal}}" class="modal-overlay new-audio-mapping-table-overlay" catchtap="closeNewAudioMappingTable">
+    <view class="modal-content new-conversion-table-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">{{editingAudioMappingTableId ? '编辑转换表' : '新建转换表'}}</text>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeNewAudioMappingTable"></image>
+      </view>
+      
+      <!-- 转换表名称输入 -->
+      <input class="new-table-name-input" 
+             value="{{newAudioMappingTableName}}" 
+             placeholder="输入转换表名称"
+             bindinput="onNewAudioMappingTableNameInput" />
+      
+      <!-- 首调设置 -->
+      <view class="conversion-info-row">
+        <view class="conversion-root-note-bar" bindtap="showNewAudioTableRootPicker">
+          <text class="conversion-root-label">首调</text>
+          <view class="conversion-root-box">
+            <text class="conversion-root-text">{{newAudioTableRootNote || 'F3'}}=1</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 转换表编辑区（四列：数字谱-简谱-SPN-音频） -->
+      <view class="conversion-table-container">
+        <scroll-view class="conversion-table-scroll" scroll-y>
+          <!-- 表头 -->
+          <view class="conversion-table-header new-audio-table-header">
+            <text class="conversion-col-header">数字谱</text>
+            <text class="conversion-col-header">简谱</text>
+            <text class="conversion-col-header">SPN</text>
+            <text class="conversion-col-header audio-col-header">音频</text>
+          </view>
+          
+          <!-- 映射行 -->
+          <view wx:for="{{newAudioMappingTableData}}" wx:key="index" class="conversion-row new-audio-table-row">
+            <!-- 数字谱列（可编辑，原生键盘） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{newAudioTableEditingIndex === index && newAudioTableEditingField === 'key' ? 'conversion-cell-active' : ''}}"
+                  bindtap="onNewAudioTableCellTap" 
+                  data-index="{{index}}" 
+                  data-field="key">
+              <block wx:if="{{newAudioTableUseNativeInput && newAudioTableEditingIndex === index && newAudioTableEditingField === 'key'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.key}}" 
+                       focus="{{true}}"
+                       bindinput="onNewAudioTableNativeInput"
+                       bindblur="onNewAudioTableNativeBlur"
+                       data-index="{{index}}"
+                       data-field="key" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.key ? '' : 'placeholder'}}">{{item.key || '-'}}</text>
+              </block>
+            </view>
+            
+            <!-- 简谱列（可编辑，虚拟键盘） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{newAudioTableEditingIndex === index && newAudioTableEditingField === 'simplified' ? 'conversion-cell-active' : ''}}"
+                  bindtap="onNewAudioTableCellTap" 
+                  data-index="{{index}}" 
+                  data-field="simplified">
+              <block wx:if="{{newAudioTableUseNativeInput && newAudioTableEditingIndex === index && newAudioTableEditingField === 'simplified'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.simplified}}" 
+                       focus="{{true}}"
+                       bindinput="onNewAudioTableNativeInput"
+                       bindblur="onNewAudioTableNativeBlur"
+                       data-index="{{index}}"
+                       data-field="simplified" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.simplified ? '' : 'placeholder'}}">{{item.simplified || '-'}}</text>
+              </block>
+            </view>
+            
+            <!-- SPN列（可编辑，原生键盘） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{newAudioTableEditingIndex === index && newAudioTableEditingField === 'spn' ? 'conversion-cell-active' : ''}} {{!item.hasAudio ? 'spn-no-audio' : ''}}"
+                  bindtap="onNewAudioTableCellTap" 
+                  data-index="{{index}}" 
+                  data-field="spn">
+              <block wx:if="{{newAudioTableUseNativeInput && newAudioTableEditingIndex === index && newAudioTableEditingField === 'spn'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.spn}}" 
+                       focus="{{true}}"
+                       bindinput="onNewAudioTableNativeInput"
+                       bindblur="onNewAudioTableNativeBlur"
+                       data-index="{{index}}"
+                       data-field="spn" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.spn ? '' : 'placeholder'}}">{{item.spn || '-'}}</text>
+              </block>
+            </view>
+            
+            <!-- 音频状态列 -->
+            <view class="audio-preview-col">
+              <block wx:if="{{item.hasAudio}}">
+                <view class="audio-status-ok">✓</view>
+              </block>
+              <block wx:else>
+                <text class="audio-no-file">无</text>
+              </block>
+            </view>
+          </view>
+          
+          <!-- 添加行按钮 -->
+          <view class="conversion-add-row" bindtap="addNewAudioTableRow">
+            <image class="conversion-add-icon" src="/assets/icons/add.svg" mode="aspectFit"></image>
+            <text class="conversion-add-text">添加行</text>
+          </view>
+        </scroll-view>
+      </view>
+      
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeNewAudioMappingTable">取消</button>
+        <button class="btn-primary" bindtap="applyNewAudioMappingTable">应用</button>
       </view>
     </view>
   </view>
@@ -1445,7 +2286,7 @@ module.exports = {
       </view>
 
       <!-- Logo 图片 -->
-      <image class="splash-logo" src="/subpackages/packageB/img/logo5.png"></image>
+      <image class="splash-logo" src="/subpackages/resources/img/logo5.png"></image>
       <!-- 弹窗描述 -->
       <view class="splash-description">
         <text class="splash-text">Orbit Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
@@ -1536,43 +2377,44 @@ module.exports = {
         <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">{{virtualKeyboardMode === 'number' ? '切换符号' : '切换数字'}}</text>
       </view>
       
-      <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="addGrid">
+      <!-- 转换弹窗模式下禁用以下功能 -->
+      <view class="vk-icon-btn-group {{conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-btn-disabled' : ''}}">
+        <view class="vk-icon-btn" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'addGrid'}}">
           <image class="vk-icon" src="/assets/icons/keyboard/leftadd_cell.png" mode="aspectFit"></image>
         </view>
-        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">左加格</text>
+        <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">右加格</text>
       </view>
 
-      <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="deleteGrid">
+      <view class="vk-icon-btn-group {{conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-btn-disabled' : ''}}">
+        <view class="vk-icon-btn" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'deleteGrid'}}">
           <image class="vk-icon" src="/assets/icons/keyboard/delete_cell.png" mode="aspectFit"></image>
         </view>
         <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">删除格</text>
       </view>
 
-      <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="addUnderline">
+      <view class="vk-icon-btn-group {{conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-btn-disabled' : ''}}">
+        <view class="vk-icon-btn" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'addUnderline'}}">
           <image class="vk-icon" src="/assets/icons/keyboard/underline.png" mode="aspectFit"></image>
         </view>
         <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">下划线</text>
       </view>
 
-      <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="insertRow">
+      <view class="vk-icon-btn-group {{conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-btn-disabled' : ''}}">
+        <view class="vk-icon-btn" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'insertRow'}}">
           <image class="vk-icon" src="/assets/icons/keyboard/add_row_below.png" mode="aspectFit"></image>
         </view>
         <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">插入行</text>
       </view>
 
-      <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="deleteRow">
+      <view class="vk-icon-btn-group {{conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-btn-disabled' : ''}}">
+        <view class="vk-icon-btn" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'deleteRow'}}">
           <image class="vk-icon" src="/assets/icons/keyboard/delete_row.png" mode="aspectFit"></image>
         </view>
         <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">删除行</text>
       </view>
 
-      <view class="vk-icon-btn-group">
-        <view class="vk-icon-btn" bindtap="insertNoteAnnotation">
+      <view class="vk-icon-btn-group {{conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-btn-disabled' : ''}}">
+        <view class="vk-icon-btn" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'insertNoteAnnotation'}}">
           <image class="vk-icon" src="/assets/icons/keyboard/insert_note.png" mode="aspectFit"></image>
         </view>
         <text class="vk-icon-desc" wx:if="{{showKeyboardHelp}}">插入注记</text>
@@ -1650,7 +2492,7 @@ module.exports = {
             <view class="vk-key" bindtap="onVirtualKey" data-key="9"><text>9</text></view>
           </view>
           <view class="vk-row">
-            <view class="vk-key-sup-group {{superscriptMode === 'right' ? 'vk-key-disabled' : ''}}" bindtap="toggleLeftSuperscript">
+            <view class="vk-key-sup-group {{superscriptMode === 'right' || conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-key-disabled' : ''}}" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'toggleLeftSuperscript'}}">
               <view class="vk-key vk-key-sup {{superscriptMode === 'left' ? 'vk-key-sup-active' : ''}}">
                 <image class="vk-sup-btn-icon" src="{{superscriptMode === 'left' ? '/assets/icons/keyboard/left_up_note_active.png' : '/assets/icons/keyboard/left_up_note.png'}}" mode="aspectFit"></image>
                 <text class="vk-icon-desc" wx:if="{{showKeyboardHelp && superscriptMode !== 'left'}}" style="color: #314D63; margin-top: 2rpx; font-size: 14rpx; font-weight: bold;">左上标</text>
@@ -1660,7 +2502,7 @@ module.exports = {
             <view class="vk-key-sup-group">
                <view class="vk-key" bindtap="onVirtualKey" data-key="0"><text>0</text></view>
             </view>
-            <view class="vk-key-sup-group {{superscriptMode === 'left' ? 'vk-key-disabled' : ''}}" bindtap="toggleRightSuperscript">
+            <view class="vk-key-sup-group {{superscriptMode === 'left' || conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-key-disabled' : ''}}" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'toggleRightSuperscript'}}">
               <view class="vk-key vk-key-sup {{superscriptMode === 'right' ? 'vk-key-sup-active' : ''}}">
                 <image class="vk-sup-btn-icon" src="{{superscriptMode === 'right' ? '/assets/icons/keyboard/right_up_note_active.png' : '/assets/icons/keyboard/right_up_note.png'}}" mode="aspectFit"></image>
                 <text class="vk-icon-desc" wx:if="{{showKeyboardHelp && superscriptMode !== 'right'}}" style="color: #314D63; margin-top: 2rpx; font-size: 14rpx; font-weight: bold;">右上标</text>
@@ -1687,7 +2529,7 @@ module.exports = {
             <view class="vk-key" bindtap="onVirtualKey" data-key="O"><text>O</text></view>
           </view>
           <view class="vk-row">
-            <view class="vk-key-sup-group {{superscriptMode === 'right' ? 'vk-key-disabled' : ''}}" bindtap="toggleLeftSuperscript">
+            <view class="vk-key-sup-group {{superscriptMode === 'right' || conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-key-disabled' : ''}}" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'toggleLeftSuperscript'}}">
               <view class="vk-key vk-key-sup {{superscriptMode === 'left' ? 'vk-key-sup-active' : ''}}">
                 <image class="vk-sup-btn-icon" src="{{superscriptMode === 'left' ? '/assets/icons/keyboard/left_up_note_active.png' : '/assets/icons/keyboard/left_up_note.png'}}" mode="aspectFit"></image>
                 <text class="vk-icon-desc" wx:if="{{showKeyboardHelp && superscriptMode !== 'left'}}" style="color: #314D63; margin-top: 2rpx; font-size: 14rpx; font-weight: bold;">左上标</text>
@@ -1697,7 +2539,7 @@ module.exports = {
             <view class="vk-key-sup-group">
               <view class="vk-key" bindtap="onVirtualKey" data-key="H"><text>H</text></view>
             </view>
-            <view class="vk-key-sup-group {{superscriptMode === 'left' ? 'vk-key-disabled' : ''}}" bindtap="toggleRightSuperscript">
+            <view class="vk-key-sup-group {{superscriptMode === 'left' || conversionEditingKey !== null || newTableEditingIndex !== null ? 'vk-key-disabled' : ''}}" bindtap="{{conversionEditingKey !== null || newTableEditingIndex !== null ? '' : 'toggleRightSuperscript'}}">
               <view class="vk-key vk-key-sup {{superscriptMode === 'right' ? 'vk-key-sup-active' : ''}}">
                 <image class="vk-sup-btn-icon" src="{{superscriptMode === 'right' ? '/assets/icons/keyboard/right_up_note_active.png' : '/assets/icons/keyboard/right_up_note.png'}}" mode="aspectFit"></image>
                 <text class="vk-icon-desc" wx:if="{{showKeyboardHelp && superscriptMode !== 'right'}}" style="color: #314D63; margin-top: 2rpx; font-size: 14rpx; font-weight: bold;">右上标</text>
@@ -1780,29 +2622,80 @@ module.exports = {
       <view class="form-group form-row">
         <view class="form-col">
           <text class="form-label">主音</text>
-          <picker mode="selector" range="{{rootNoteDisplayOptions}}" value="{{tempRootNote ? rootNoteOptions.indexOf(tempRootNote) : 2}}" bindchange="onRootNoteChange">
-            <view class="picker-value">{{tempRootNote || 'D'}}</view>
-          </picker>
+          <view class="picker-value" bindtap="showSubtitleRootNotePicker">
+            <text>{{tempRootNote || 'D'}}</text>
+            <text class="picker-arrow">▼</text>
+          </view>
         </view>
         <view class="form-col">
           <text class="form-label">调式</text>
-          <picker mode="selector" range="{{scaleTypeOptions}}" value="{{tempScaleType ? scaleTypeOptions.indexOf(tempScaleType) : 9}}" bindchange="onScaleTypeChange">
-            <view class="picker-value">{{tempScaleType && tempScaleType.indexOf(' / ') > -1 ? tempScaleType.split(' / ')[0] : (tempScaleType || 'Kurd')}}</view>
-          </picker>
+          <view class="picker-value" bindtap="showSubtitleScaleTypePicker">
+            <text>{{tempScaleType && tempScaleType.indexOf(' / ') > -1 ? tempScaleType.split(' / ')[0] : (tempScaleType || 'Kurd')}}</text>
+            <text class="picker-arrow">▼</text>
+          </view>
         </view>
       </view>
       
       <view class="form-group">
         <text class="form-label">音位数</text>
-        <picker mode="selector" range="{{noteCountOptions}}" value="{{tempNoteCount ? noteCountOptions.indexOf(tempNoteCount) : 3}}" bindchange="onNoteCountChange">
-          <view class="picker-value">{{tempNoteCount || 10}} 音</view>
-        </picker>
+        <view class="picker-value" bindtap="showSubtitleNoteCountPicker">
+          <text>{{tempNoteCount || 10}} 音</text>
+          <text class="picker-arrow">▼</text>
+        </view>
       </view>
       
       <view class="modal-buttons">
         <button class="btn-secondary" bindtap="closeSubtitleEditModal">取消</button>
         <button class="btn-primary" bindtap="confirmSubtitleEdit">保存</button>
       </view>
+    </view>
+  </view>
+
+  <!-- 副标题编辑-iOS风格主音选择器 -->
+  <view wx:if="{{showSubtitleRootNotePicker}}" class="modal-overlay" catchtap="closeSubtitleRootNotePicker">
+    <view class="ios-picker-modal" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeSubtitleRootNotePicker">取消</text>
+        <text class="ios-picker-title">选择主音</text>
+        <text class="ios-picker-confirm" bindtap="confirmSubtitleRootNotePicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{subtitleRootNotePickerValue}}" bindchange="onSubtitleRootNotePickerChange">
+        <picker-view-column>
+          <view wx:for="{{rootNoteDisplayOptions}}" wx:key="*this" class="ios-picker-item">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+
+  <!-- 副标题编辑-iOS风格调式选择器 -->
+  <view wx:if="{{showSubtitleScaleTypePicker}}" class="modal-overlay" catchtap="closeSubtitleScaleTypePicker">
+    <view class="ios-picker-modal" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeSubtitleScaleTypePicker">取消</text>
+        <text class="ios-picker-title">选择调式</text>
+        <text class="ios-picker-confirm" bindtap="confirmSubtitleScaleTypePicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{subtitleScaleTypePickerValue}}" bindchange="onSubtitleScaleTypePickerChange">
+        <picker-view-column>
+          <view wx:for="{{scaleTypeOptions}}" wx:key="*this" class="ios-picker-item">{{item.indexOf(' / ') > -1 ? item.split(' / ')[0] : item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+
+  <!-- 副标题编辑-iOS风格音位数选择器 -->
+  <view wx:if="{{showSubtitleNoteCountPicker}}" class="modal-overlay" catchtap="closeSubtitleNoteCountPicker">
+    <view class="ios-picker-modal" catchtap="stopPropagation">
+      <view class="ios-picker-header">
+        <text class="ios-picker-cancel" bindtap="closeSubtitleNoteCountPicker">取消</text>
+        <text class="ios-picker-title">选择音位数</text>
+        <text class="ios-picker-confirm" bindtap="confirmSubtitleNoteCountPicker">确定</text>
+      </view>
+      <picker-view class="ios-picker-view" value="{{subtitleNoteCountPickerValue}}" bindchange="onSubtitleNoteCountPickerChange">
+        <picker-view-column>
+          <view wx:for="{{noteCountOptions}}" wx:key="*this" class="ios-picker-item">{{item}} 音</view>
+        </picker-view-column>
+      </picker-view>
     </view>
   </view>
 
@@ -1820,13 +2713,28 @@ module.exports = {
   </view>
 
   <!-- 删除行确认弹窗 -->
-  <view wx:if="{{showDeleteRowModal}}" class="modal-overlay" bindtap="closeDeleteRowModal">
+  <view wx:if="{{showDeleteRowModal}}" class="modal-overlay delete-row-overlay" bindtap="closeDeleteRowModal">
     <view class="modal-content delete-row-modal" catchtap="stopPropagation">
-      <view class="modal-title">确认删除</view>
-      <view class="modal-description">确定要删除当前行吗？此操作不可撤销。</view>
-      <view class="modal-buttons">
-        <button class="btn-secondary" bindtap="closeDeleteRowModal">取消</button>
-        <button class="btn-danger" bindtap="confirmDeleteRow">删除</button>
+      <!-- 警告图标 -->
+      <view class="delete-row-icon-wrapper">
+        <view class="delete-row-icon">
+          <text class="delete-row-icon-text">!</text>
+        </view>
+      </view>
+      
+      <!-- 标题 -->
+      <view class="delete-row-title">确认删除此行？</view>
+      
+      <!-- 描述 -->
+      <view class="delete-row-desc">
+        <text>删除后该行所有音符数据将被清除</text>
+        <text class="delete-row-hint">（可通过撤销恢复）</text>
+      </view>
+      
+      <!-- 按钮组 -->
+      <view class="delete-row-buttons">
+        <button class="delete-row-btn delete-row-btn-cancel" bindtap="closeDeleteRowModal">取消</button>
+        <button class="delete-row-btn delete-row-btn-confirm" bindtap="confirmDeleteRow">确认删除</button>
       </view>
     </view>
   </view>

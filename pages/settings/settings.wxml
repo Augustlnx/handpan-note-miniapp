@@ -155,7 +155,7 @@
     
     <image wx:if="{{logoLoaded && !logoError}}" 
            class="about-logo-new" 
-           src="/subpackages/packageB/img/logo5.png"
+           src="/subpackages/resources/img/logo5.png"
            bindload="onLogoLoad"
            binderror="onLogoError"></image>
     <view wx:if="{{!logoLoaded || logoError}}" 

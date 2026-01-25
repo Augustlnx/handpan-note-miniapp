@@ -6,7 +6,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #FFFFFF;
+  background-color: #FFFFFF; /* 与 notation 页面背景色保持一致 */
   overflow: hidden;
 }
 

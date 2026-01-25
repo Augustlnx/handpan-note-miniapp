@@ -34,6 +34,13 @@
         "page/splash/splash"
       ],
       "independent": true
+    },
+    {
+      "root": "subpackages/audio",
+      "name": "audio",
+      "pages": [
+        "placeholder/index"
+      ]
     }
   ],
   "preloadRule": {
@@ -51,11 +58,11 @@
     },
     "pages/notation/notation": {
       "network": "all",
-      "packages": ["packageB"]
+      "packages": ["audio"]
     },
     "subpackages/openpage/page/splash/splash": {
       "network": "all",
-      "packages": ["__APP__", "resources", "packageB"]
+      "packages": ["resources"]
     }
   },
   "entryPagePath": "subpackages/openpage/page/splash/splash",

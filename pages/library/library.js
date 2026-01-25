@@ -1,4 +1,4 @@
-﻿// pages/library/library.js
+// pages/library/library.js
 const libraryManager = require('../../utils/libraryManager.js');
 
 Page({
@@ -82,6 +82,17 @@ Page({
     noteCountOptions: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
     timingOptions: ['3/4', '4/4', '6/8', '自由设定'],
     notationTypeOptions: ['digital', 'simplified'],
+    
+    // iOS风格选择器状态
+    showRootNotePicker: false,
+    showScaleTypePicker: false,
+    showNoteCountPicker: false,
+    rootNotePickerValue: [2], // 默认D
+    scaleTypePickerValue: [9], // 默认Kurd
+    noteCountPickerValue: [3], // 默认10音
+    tempRootNote: 'D',
+    tempScaleType: 'Kurd',
+    tempNoteCount: 10,
     
     // 分包图片动态路径（延迟加载）
     subpkgImgs: {
@@ -653,6 +664,98 @@ Page({
   closeNewFileModal() {
     this.setData({ showNewFileModal: false });
   },
+
+  // ========== iOS风格选择器方法 ==========
+  
+  // 主音选择器
+  showRootNotePicker() {
+    const currentIndex = this.data.rootNoteOptions.indexOf(this.data.newFileData.rootNote);
+    this.setData({
+      showRootNotePicker: true,
+      rootNotePickerValue: [currentIndex >= 0 ? currentIndex : 2],
+      tempRootNote: this.data.newFileData.rootNote
+    });
+  },
+  
+  closeRootNotePicker() {
+    this.setData({ showRootNotePicker: false });
+  },
+  
+  onRootNotePickerChange(e) {
+    const index = e.detail.value[0];
+    this.setData({
+      tempRootNote: this.data.rootNoteOptions[index],
+      rootNotePickerValue: [index]
+    });
+  },
+  
+  confirmRootNotePicker() {
+    this.setData({
+      'newFileData.rootNote': this.data.tempRootNote,
+      showRootNotePicker: false
+    });
+  },
+  
+  // 调式选择器
+  showScaleTypePicker() {
+    const currentIndex = this.data.scaleTypeOptions.indexOf(this.data.newFileData.scaleType);
+    this.setData({
+      showScaleTypePicker: true,
+      scaleTypePickerValue: [currentIndex >= 0 ? currentIndex : 9],
+      tempScaleType: this.data.newFileData.scaleType
+    });
+  },
+  
+  closeScaleTypePicker() {
+    this.setData({ showScaleTypePicker: false });
+  },
+  
+  onScaleTypePickerChange(e) {
+    const index = e.detail.value[0];
+    this.setData({
+      tempScaleType: this.data.scaleTypeOptions[index],
+      scaleTypePickerValue: [index]
+    });
+  },
+  
+  confirmScaleTypePicker() {
+    this.setData({
+      'newFileData.scaleType': this.data.tempScaleType,
+      showScaleTypePicker: false
+    });
+  },
+  
+  // 音位数选择器
+  showNoteCountPicker() {
+    const currentIndex = this.data.noteCountOptions.indexOf(this.data.newFileData.noteCount);
+    this.setData({
+      showNoteCountPicker: true,
+      noteCountPickerValue: [currentIndex >= 0 ? currentIndex : 3],
+      tempNoteCount: this.data.newFileData.noteCount
+    });
+  },
+  
+  closeNoteCountPicker() {
+    this.setData({ showNoteCountPicker: false });
+  },
+  
+  onNoteCountPickerChange(e) {
+    const index = e.detail.value[0];
+    this.setData({
+      tempNoteCount: this.data.noteCountOptions[index],
+      noteCountPickerValue: [index]
+    });
+  },
+  
+  confirmNoteCountPicker() {
+    this.setData({
+      'newFileData.noteCount': this.data.tempNoteCount,
+      showNoteCountPicker: false
+    });
+  },
+  
+  // 阻止事件冒泡
+  stopPropagation() {},
 
   addNewFolder() {
     this.closeFabMenu();

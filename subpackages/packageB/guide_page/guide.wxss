@@ -19,7 +19,7 @@ page {
   justify-content: space-between;
   padding: 20rpx 30rpx;
   padding-top: calc(env(safe-area-inset-top) + 100rpx);
-  background-color: #FFFFFF;
+  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
   box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
   z-index: 100;
 }
@@ -38,7 +38,7 @@ page {
 
 .skip-text {
   font-size: 28rpx;
-  color: #999999;
+  color: #CCCCCC;
 }
 
 .header-center {
@@ -54,7 +54,7 @@ page {
 
 .step-counter {
   font-size: 26rpx;
-  color: #314D63;
+  color: #ffffff;
   font-weight: 500;
 }
 
@@ -68,19 +68,19 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 30rpx 40rpx;
+  padding: 30rpx 15rpx;
   box-sizing: border-box;
 }
 
 .guide-card {
   width: 100%;
-  max-width: 650rpx;
+  max-width: 680rpx;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #FFFFFF;
+  background-color: transparent;
   border-radius: 24rpx;
-  box-shadow: 0 8rpx 30rpx rgba(49, 77, 99, 0.1);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12), 0 2rpx 8rpx rgba(0, 0, 0, 0.08), 0 1rpx 4rpx rgba(0, 0, 0, 0.04);
   overflow: hidden;
   margin: 0 auto;
 }
@@ -89,8 +89,8 @@ page {
 .step-header {
   display: flex;
   align-items: center;
-  padding: 30rpx;
-  background: linear-gradient(135deg, #314D63 0%, #4a6b80 100%);
+  justify-content: center;
+  padding: 20rpx;
 }
 
 .step-badge {
@@ -106,27 +106,13 @@ page {
 }
 
 .step-description {
-  margin-left: 20rpx;
-  font-size: 30rpx;
+  text-align: center;
+  font-size: 36rpx;
   color: #FFFFFF;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* 图片展示区域 */
-.image-wrapper {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20rpx;
-  background-color: #FAFBFC;
-}
-
-.guide-image {
-  width: 100%;
-  height: 100%;
-  border-radius: 12rpx;
-}
+/* 图片展示区域 - 已移除，使用背景图片 */
 
 /* 底部区域 */
 .guide-footer {

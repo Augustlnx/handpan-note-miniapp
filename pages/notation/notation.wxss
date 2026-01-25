@@ -1,12 +1,19 @@
 .notation-container {
   min-height: 100vh;
-  background-color: #fffffff1;
+  background-color: #FFFFFF; /* 与 splash 页面背景色保持一致 */
   padding: 40rpx 30rpx 200rpx;
   position: relative;
   overflow: hidden;
   /* 使用全局自定义导航栏样式 */
   padding-top: 128rpx; /* 为自定义导航栏留出空间 (88rpx + 40rpx) */
-  transition: padding-bottom 0.3s ease;
+  transition: padding-bottom 0.3s ease, opacity 0.25s ease-in;
+  /* 初始状态：微透明，实现从 splash 过来的无缝衔接 */
+  opacity: 0.92;
+}
+
+/* 页面准备就绪后完全显示 */
+.notation-container.page-ready {
+  opacity: 1;
 }
 
 /* 虚拟键盘激活时增加底部边距，确保音符格可见 */
@@ -33,7 +40,7 @@
   align-items: center;
   text-align: center;
   margin-bottom: 20rpx;
-  margin-top: 0rpx; 
+  margin-top: 20rpx; 
   background-color: white;
   padding: 0rpx 0rpx 5rpx 0rpx;
   border-radius: 6rpx;
@@ -332,7 +339,7 @@
 
 /* 拍子分隔线（细灰色，全高） */
 .beat-line {
-  width: 3rpx;
+  width: 2rpx;
   background-color: #CCCCCC;
   height: 100%;
   z-index: 2;
@@ -548,7 +555,7 @@
   display: flex;
   gap: 12rpx;
   align-items: center;
-  z-index: 105;
+  z-index: 10000; /* 确保在Canvas同层渲染之上 */
   padding: 24rpx 40rpx;
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 60rpx;
@@ -713,7 +720,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 104;
+  z-index: 9999; /* 在菜单栏的下方，但在Canvas之上 */
 }
 
 /* 底部折叠图标（右侧，收缩后显示） */
@@ -723,7 +730,7 @@
   bottom: 10rpx;
   width: 60rpx;
   height: 60rpx;
-  z-index: 110;
+  z-index: 10000; /* 与菜单栏同级别 */
   opacity: 0.9;
   transition: all 0.3s;
   border-radius: 0%;
@@ -926,7 +933,7 @@
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 50rpx;
   box-shadow: 0 4rpx 20rpx rgba(49, 77, 99, 0.2);
-  z-index: 200;
+  z-index: 10100; /* 确保在Canvas之上 */
 }
 
 .metronome-dots {
@@ -978,7 +985,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10500; /* 确保在Canvas和菜单栏之上 */
   backdrop-filter: blur(4rpx);
 }
 
@@ -1186,6 +1193,27 @@
 
 .btn-secondary:active {
   background: #e0e0e0 !important;
+}
+
+/* 第三级按钮（无映射转换等） */
+.btn-tertiary {
+  flex: 1;
+  height: 92rpx;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  border: 2rpx solid #8FB9AB;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #8FB9AB;
+  padding: 0;
+}
+
+.btn-tertiary:active {
+  background: #f0f8f5 !important;
+  border-color: #7aa89a;
 }
 
 /* 确认/主要按钮 - 高级样式 */
@@ -1581,7 +1609,224 @@
   line-height: 1.4;
 }
 
-/* 文本域输入框 - 高级样式 */
+/* ===== 自由拍号可视化输入样式 ===== */
+
+/* 音符数输入行 */
+.note-count-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.note-count-label {
+  font-size: 28rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+.note-count-input {
+  width: 100rpx;
+  height: 60rpx;
+  border: 2rpx solid #e8e8e8;
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #314D63;
+  background: #fff;
+}
+
+.note-count-input:focus {
+  border-color: #8FB9AB;
+  box-shadow: 0 0 0 3rpx rgba(143, 185, 171, 0.15);
+}
+
+.note-count-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 可视化圆点滚动区域 */
+.visual-dots-scroll {
+  width: 100%;
+  white-space: nowrap;
+  margin-bottom: 20rpx;
+  padding: 16rpx 0;
+  background: linear-gradient(135deg, #f9fafb 0%, #f5f7f9 100%);
+  border-radius: 12rpx;
+}
+
+.visual-dots-container {
+  display: inline-flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  min-width: 100%;
+  justify-content: center;
+}
+
+/* 方括号文本 */
+.bracket-text {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+  margin: 0 4rpx;
+}
+
+/* 圆点样式 */
+.visual-dot {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 50%;
+  background-color: #314D63;
+  flex-shrink: 0;
+}
+
+/* 间隙区域（可点击） */
+.dot-gap {
+  width: 32rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.dot-gap:active {
+  background: rgba(143, 185, 171, 0.2);
+  border-radius: 8rpx;
+}
+
+.dot-gap.has-separator {
+  width: 40rpx;
+}
+
+/* 拍线分隔符 */
+.separator-beat {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+}
+
+/* 小节线分隔符 */
+.separator-measure {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+  letter-spacing: -4rpx;
+}
+
+/* 模板预览 */
+.template-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 16rpx;
+  background: #f0f4f3;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.preview-label {
+  font-size: 24rpx;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.preview-text {
+  font-size: 24rpx;
+  color: #314D63;
+  font-family: 'SF Mono', Monaco, monospace;
+  word-break: break-all;
+  flex: 1;
+}
+
+/* 小节信息列表 */
+.measure-info-list {
+  margin-top: 16rpx;
+  border-top: 1rpx solid #e8e8e8;
+  padding-top: 16rpx;
+}
+
+.measure-info-header {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #314D63;
+  margin-bottom: 16rpx;
+}
+
+.measure-info-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.measure-info-card {
+  flex: 1 1 calc(50% - 8rpx);
+  min-width: 200rpx;
+  max-width: 100%;
+  background: #fff;
+  border: 1rpx solid #e8e8e8;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
+}
+
+.measure-card-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #314D63;
+  margin-bottom: 12rpx;
+  padding-bottom: 8rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.beat-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.beat-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.beat-label {
+  font-size: 22rpx;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.beat-note-input {
+  width: 60rpx;
+  height: 44rpx;
+  border: 1rpx solid #d9d9d9;
+  border-radius: 8rpx;
+  text-align: center;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #314D63;
+  background: #fafafa;
+}
+
+.beat-note-input:focus {
+  border-color: #8FB9AB;
+  background: #fff;
+}
+
+.beat-unit {
+  font-size: 22rpx;
+  color: #999;
+}
+
+/* ===== 文本域输入框 - 高级样式 ===== */
 .template-input {
   width: 100%;
   min-height: 100rpx;
@@ -3179,7 +3424,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 10500; /* 确保在Canvas之上 */
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease-out, background 0.3s ease-out;
@@ -3328,7 +3573,111 @@
   font-weight: 600;
 }
 
+/* 删除行确认弹窗样式 */
+.delete-row-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
 
+.delete-row-modal {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 40rpx;
+  width: 85%;
+  max-width: 560rpx;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.delete-row-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28rpx;
+}
+
+.delete-row-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(238, 90, 82, 0.35);
+}
+
+.delete-row-icon-text {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.delete-row-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 16rpx;
+}
+
+.delete-row-desc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 36rpx;
+}
+
+.delete-row-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.delete-row-buttons {
+  display: flex;
+  gap: 24rpx;
+}
+
+.delete-row-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.delete-row-btn::after {
+  display: none;
+}
+
+.delete-row-btn-cancel {
+  background: #f0f2f5;
+  color: #666;
+}
+
+.delete-row-btn-cancel:active {
+  background: #e4e6e9 !important;
+  transform: scale(0.98);
+}
+
+.delete-row-btn-confirm {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: #ffffff;
+  box-shadow: 0 6rpx 20rpx rgba(238, 90, 82, 0.35);
+}
+
+.delete-row-btn-confirm:active {
+  background: linear-gradient(135deg, #ff5252 0%, #e04a42 100%) !important;
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(238, 90, 82, 0.4);
+}
 
 /* 备注显示样式优化 */
 .note-annotation {
@@ -3566,26 +3915,140 @@
 
 /* ========== 谱式转换弹窗样式 ========== */
 .notation-type-modal {
-  width: 90%;
-  max-width: 600rpx;
-  max-height: 85vh;
+  width: 88%;
+  max-width: 640rpx;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
 }
 
+/* 谱式转换弹窗头部 */
+.conversion-modal-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin-bottom: 20rpx;
+  padding: 0 10rpx;
+}
+
+.conversion-modal-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #314D63;
+  text-align: center;
+}
+
+.conversion-header-right {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 12rpx;
+  background: #f5f7fa;
+  border-radius: 16rpx;
+}
+
+.conversion-header-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.conversion-header-text {
+  font-size: 22rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+/* 转换模式切换按钮 */
+.conversion-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  margin-bottom: 16rpx;
+  background: #f0f0f0;
+  border-radius: 16rpx;
+  padding: 4rpx;
+}
+
+.conversion-mode-btn {
+  flex: 1;
+  padding: 12rpx 16rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #666;
+  border-radius: 12rpx;
+  transition: all 0.2s;
+}
+
+.conversion-mode-btn.active {
+  background: #fff;
+  color: #314D63;
+  font-weight: 600;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 谱式信息行（当前谱式 + SPN计法同行） */
+.conversion-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12rpx 8rpx;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.conversion-type-hint {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: #666;
+}
+
+/* 弹窗头部右侧按钮 */
+.modal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 16rpx;
+  background: #f5f7fa;
+  border-radius: 20rpx;
+  transition: background 0.2s;
+}
+
+.modal-header-right:active {
+  background: #e8eaed;
+}
+
+.modal-header-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.modal-header-text {
+  font-size: 24rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+/* 旧的谱式提示样式（保留兼容） */
 .notation-type-hint {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8rpx;
-  padding: 20rpx;
+  padding: 16rpx;
   background: #f5f7fa;
   border-radius: 12rpx;
-  margin-bottom: 20rpx;
-  font-size: 26rpx;
+  margin-bottom: 16rpx;
+  font-size: 24rpx;
   color: #666;
 }
+
+/* 转换弹窗按钮组 */
 
 .notation-type-current {
   font-weight: bold;
@@ -3597,10 +4060,36 @@
   color: #8FB9AB;
 }
 
+/* 首调设置栏 */
+.conversion-root-note-bar {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.conversion-root-label {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.conversion-root-box {
+  display: flex;
+  align-items: center;
+  padding: 2rpx 12rpx;
+  border-radius: 10rpx;
+  border: 2px solid #314D63;
+}
+
+.conversion-root-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #314D63;
+}
+
 .conversion-table-container {
   flex: 1;
-  min-height: 200rpx;
-  max-height: 400rpx;
+  min-height: 300rpx;
+  max-height: 520rpx;
   background: #fff;
   border: 2rpx solid #e0e0e0;
   border-radius: 12rpx;
@@ -3609,7 +4098,7 @@
 
 .conversion-table-scroll {
   height: 100%;
-  max-height: 400rpx;
+  max-height: 520rpx;
 }
 
 .conversion-table-header {
@@ -3625,6 +4114,17 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+/* 三列布局的表头（转换弹窗使用，非音频映射） */
+.conversion-modal-content:not(.audio-mapping-modal) .conversion-header-3col {
+  display: flex;
+  gap: 0;
+}
+
+.conversion-modal-content:not(.audio-mapping-modal) .conversion-header-3col .conversion-col-header {
+  flex: 1;
+  padding: 0 8rpx;
 }
 
 .conversion-col-header {
@@ -3648,6 +4148,13 @@
   border-bottom: 1rpx solid #f0f0f0;
 }
 
+/* 三列布局的行（转换弹窗使用，非音频映射） */
+.conversion-modal-content:not(.audio-mapping-modal) .conversion-row-3col {
+  display: flex;
+  gap: 8rpx;
+  padding: 8rpx 12rpx;
+}
+
 .conversion-row:last-child {
   border-bottom: none;
 }
@@ -3655,10 +4162,16 @@
 .conversion-col-fixed {
   flex: 1;
   text-align: center;
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: 500;
   color: #314D63;
   padding: 8rpx 0;
+}
+
+/* 三列的列宽 */
+.conversion-col-3 {
+  flex: 1;
+  min-width: 0;
 }
 
 .conversion-col-input {
@@ -3676,11 +4189,62 @@
   background: #fff;
 }
 
-.conversion-hint {
-  padding: 16rpx 0;
+/* 可点击的输入区域（替代input） */
+.conversion-col-input-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 8rpx;
+  background: #fafafa;
+  border: 2rpx solid #e8e8e8;
+  border-radius: 8rpx;
+  min-height: 48rpx;
+  transition: all 0.2s;
+}
+
+.conversion-col-input-wrap:active {
+  background: #f0f0f0;
+  border-color: #314D63;
+}
+
+.conversion-col-value {
+  font-size: 32rpx;
+  color: #314D63;
+  font-weight: 500;
   text-align: center;
-  font-size: 24rpx;
-  min-height: 40rpx;
+  word-break: break-all;
+}
+
+.conversion-col-value.placeholder {
+  color: #bbb;
+  font-weight: normal;
+}
+
+/* 转换弹窗选中单元格 */
+.conversion-cell-active {
+  border-color: #314D63 !important;
+  background: #e8f4f0 !important;
+  box-shadow: 0 0 0 2rpx rgba(49, 77, 99, 0.2);
+}
+
+/* 转换弹窗原生输入框 */
+.conversion-native-input {
+  width: 100%;
+  height: 100%;
+  font-size: 32rpx;
+  color: #314D63;
+  font-weight: 500;
+  text-align: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.conversion-hint {
+  padding: 12rpx 0;
+  text-align: center;
+  font-size: 22rpx;
+  min-height: 36rpx;
 }
 
 .conversion-tip {
@@ -3689,6 +4253,377 @@
 
 .conversion-error {
   color: #f44336;
+}
+
+/* ========== 转换表库弹窗样式 ========== */
+.conversion-library-modal {
+  width: 88%;
+  max-width: 600rpx;
+  max-height: 70vh;
+}
+
+.conversion-library-list {
+  max-height: 400rpx;
+  margin-bottom: 20rpx;
+}
+
+.conversion-library-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background: #f8f9fa;
+  border-radius: 12rpx;
+  margin-bottom: 12rpx;
+  transition: all 0.2s;
+}
+
+.conversion-library-item.active {
+  background: rgba(49, 77, 99, 0.12);
+  border: 2rpx solid #314D63;
+}
+
+.library-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.library-item-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #314D63;
+  margin-bottom: 4rpx;
+}
+
+.library-item-desc {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+}
+
+.library-item-delete {
+  width: 40rpx;
+  height: 40rpx;
+  padding: 8rpx;
+  opacity: 0.6;
+}
+
+.library-item-delete:active {
+  opacity: 1;
+}
+
+.conversion-library-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 24rpx;
+  background: #fff;
+  border: 2rpx dashed #ccc;
+  border-radius: 12rpx;
+  transition: all 0.2s;
+}
+
+.conversion-library-add:active {
+  background: #f5f5f5;
+  border-color: #314D63;
+}
+
+.library-add-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.library-add-text {
+  font-size: 26rpx;
+  color: #666;
+}
+
+/* ========== 新建转换表弹窗样式 ========== */
+.new-conversion-table-modal {
+  width: 92%;
+  max-width: 680rpx;
+  max-height: 85vh;
+}
+
+.new-table-name-input {
+  width: 100%;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #314D63;
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid #e8e8e8;
+  margin-bottom: 16rpx;
+  text-align: center;
+}
+
+.new-table-name-input::placeholder {
+  color: #bbb;
+}
+
+.conversion-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 16rpx;
+  margin: 8rpx 12rpx;
+  background: #fff;
+  border: 2rpx dashed #ccc;
+  border-radius: 8rpx;
+}
+
+.conversion-add-row:active {
+  background: #f5f5f5;
+}
+
+.conversion-add-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.conversion-add-text {
+  font-size: 24rpx;
+  color: #666;
+}
+
+/* ========== 音频映射弹窗样式 ========== */
+.audio-mapping-modal {
+  width: 92%;
+  max-width: 720rpx;
+  max-height: 85vh;
+}
+
+.audio-mapping-table-container {
+  margin-top: 16rpx;
+  background: #fff; /* 纯白色背景，无渐变 */
+}
+
+.audio-mapping-table-container .conversion-table-scroll {
+  background: #fff; /* 纯白色背景 */
+}
+
+/* 两列布局（简谱模式）- 使用grid统一对齐 */
+.conversion-header-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 90rpx;
+  gap: 8rpx;
+  padding: 16rpx 12rpx !important;
+}
+
+.conversion-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 90rpx;
+  gap: 8rpx;
+  padding: 8rpx 12rpx;
+}
+
+/* 三列布局（数字谱模式）- 使用grid统一对齐 */
+.conversion-header-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 90rpx;
+  gap: 8rpx;
+  padding: 16rpx 12rpx !important;
+}
+
+.conversion-row-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 90rpx;
+  gap: 8rpx;
+  padding: 8rpx 12rpx;
+}
+
+/* 音频映射表头列样式 */
+.audio-mapping-table-container .conversion-col-header {
+  text-align: center;
+  font-size: 24rpx;
+  padding: 0 4rpx;
+}
+
+/* 音频预览列 */
+.audio-col-header {
+  text-align: center;
+  font-size: 22rpx;
+}
+
+.audio-preview-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90rpx;
+  height: 100%;
+}
+
+.audio-preview-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46rpx;
+  height: 46rpx;
+  border-radius: 50%;
+  background: #314D63;
+  transition: all 0.2s ease;
+}
+
+.audio-preview-btn:active {
+  transform: scale(0.9);
+  background: #1a3040;
+}
+
+.audio-preview-btn.playing {
+  background: #F4D096;
+  animation: audio-pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes audio-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.audio-preview-icon {
+  width: 23rpx;
+  height: 23rpx;
+  filter: brightness(0) invert(1);
+}
+
+.audio-preview-btn.playing .audio-preview-icon {
+  filter: none;
+}
+
+.audio-no-file {
+  font-size: 20rpx;
+  color: #bbb;
+  text-align: center;
+}
+
+/* 无音频行样式 */
+.audio-row-no-audio {
+  background: #f8f8f8;
+}
+
+.audio-row-no-audio .conversion-col-value,
+.audio-row-no-audio .conversion-col-fixed {
+  color: #aaa;
+}
+
+.spn-no-audio {
+  background: #f0f0f0;
+}
+
+.spn-no-audio .conversion-col-value {
+  color: #bbb;
+}
+
+/* 使用中的音符行高亮 - 淡色#314D63 */
+.audio-row-used {
+  background: rgba(49, 77, 99, 0.08);
+  border-left: 3rpx solid #314D63;
+}
+
+.audio-row-used .conversion-col-fixed,
+.audio-row-used .conversion-col-value {
+  font-weight: 500;
+}
+
+/* 音频映射弹窗层级 - 基础层级 */
+.audio-mapping-modal-overlay {
+  z-index: 10000 !important;
+}
+
+/* 音频映射表库弹窗层级 - 高于音频映射弹窗 */
+.audio-mapping-library-overlay {
+  z-index: 10100 !important;
+}
+
+/* 新建音频映射转换表弹窗层级 - 高于转换表库弹窗 */
+.new-audio-mapping-table-overlay {
+  z-index: 10200 !important;
+}
+
+/* 新建音频转换表四列布局 */
+.new-audio-table-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 80rpx;
+  gap: 8rpx;
+  padding: 16rpx 12rpx !important;
+}
+
+.new-audio-table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 80rpx;
+  gap: 8rpx;
+  padding: 8rpx 12rpx;
+}
+
+/* 音频状态标记 */
+.audio-status-ok {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36rpx;
+  height: 36rpx;
+  background: rgba(76, 175, 80, 0.15);
+  border-radius: 50%;
+  color: #4CAF50;
+  font-size: 20rpx;
+  font-weight: bold;
+}
+
+/* ========== iOS风格选择器样式 ========== */
+/* 首调选择器弹窗层级 - 确保在音频映射弹窗之上 */
+.conversion-root-picker-overlay {
+  z-index: 10600 !important;
+}
+
+.ios-picker-modal {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+.ios-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid #e8e8e8;
+  background: #f8f9fa;
+}
+
+.ios-picker-cancel {
+  font-size: 30rpx;
+  color: #999;
+}
+
+.ios-picker-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #314D63;
+}
+
+.ios-picker-confirm {
+  font-size: 30rpx;
+  color: #314D63;
+  font-weight: 600;
+}
+
+.ios-picker-view {
+  width: 100%;
+  height: 400rpx;
+}
+
+.ios-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 36rpx;
+  color: #314D63;
 }
 
 /* 简谱音符八度点容器 */
@@ -3797,7 +4732,7 @@
   background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
   border-top: none;
   box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.15);
-  z-index: 9999; /* 最高层级，遮住菜单栏 */
+  z-index: 11000; /* 最高层级，确保在Canvas和弹窗之上 */
   transform: translateY(100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -3926,6 +4861,12 @@
   align-items: center;
   flex: 1;
   min-width: 0;
+}
+
+/* 虚拟键盘禁用按钮状态 */
+.vk-btn-disabled {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .vk-icon-desc {
@@ -4113,6 +5054,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative; /* 关键：开启相对定位（不脱离文档流） */
+  bottom: -8rpx; 
 }
 
 /* 上标内的八度点 */
@@ -4124,7 +5067,7 @@
 }
 
 .vk-sup-octave-up {
-  margin-bottom: 1rpx;
+  margin-bottom: -1rpx;
 }
 
 .vk-sup-octave-down {
@@ -4132,8 +5075,8 @@
 }
 
 .vk-sup-octave-dot {
-  width: 4rpx;
-  height: 4rpx;
+  width: 6rpx;
+  height: 6rpx;
   border-radius: 50%;
 }
 
@@ -4882,15 +5825,10 @@
   align-items: center;
 }
 
-.picker-value::after {
-  content: '';
-  display: inline-block;
-  width: 0;
-  height: 0;
-  border-left: 10rpx solid transparent;
-  border-right: 10rpx solid transparent;
-  border-top: 12rpx solid #314D63;
-  margin-left: 12rpx;
+.picker-arrow {
+  font-size: 20rpx;
+  color: #314D63;
+  margin-left: 8rpx;
   transition: transform 0.2s ease;
 }
 
@@ -4901,7 +5839,7 @@
   transform: scale(0.98);
 }
 
-.picker-value:active::after {
+.picker-value:active .picker-arrow {
   transform: rotate(180deg);
 }
 
@@ -4927,4 +5865,1201 @@
   font-size: 24rpx;
   color: #999;
   margin-bottom: 20rpx;
+}
+/* ========== 曲谱播放模式样式 - 三层结构设计 ========== */
+
+/* 播放模式悬浮控制图标 - 位于菜单栏上方右侧 */
+.player-floating-controls {
+  position: fixed;
+  right: 18rpx;
+  bottom: calc(350rpx + env(safe-area-inset-bottom)); /* 菜单栏上方 */
+  display: flex;
+  flex-direction: row;
+  gap: 10rpx;
+  z-index: 1001; /* 高于播放控制栏 z-index: 1000 */
+  animation: floatingControlsFadeIn 0.3s ease-out;
+}
+
+@keyframes floatingControlsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.player-floating-btn {
+  width: 52rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.player-floating-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.9);
+  opacity: 1;
+}
+
+.player-floating-icon {
+  width: 46rpx;
+  height: 46rpx;
+  opacity: 0.55;
+}
+
+.player-floating-btn:active .player-floating-icon {
+  opacity: 1;
+}
+
+/* 播放器主容器 - 垂直线性渐变背景 */
+.player-control-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* 从白色到浅蓝色的自然渐变 */
+background: radial-gradient(
+    150% 120% at 50% 100%, 
+    
+    /* 核心色：加深了！现在是明显的青蓝色，不再是若有若无的白 */
+    rgba(49, 77, 99, 0.15) 0%,  
+    
+    /* 过渡色：稍微带一点灰调的蓝，连接核心和顶部 */
+    rgba(225, 238, 245, 0.3) 25%,  
+    
+    /* 外部：保持纯白，但位置推到了 80% 以后 */
+    rgba(255, 255, 255, 0.98) 80%,
+    rgba(255, 255, 255, 1) 100%
+  );
+
+  backdrop-filter: blur(25px);
+  /* 建议：因为背景变深了，顶部的高光线可以稍微明显一点，增加层次 */
+  -webkit-backdrop-filter: blur(20px);
+  padding: 4rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  z-index: 1000;
+  box-shadow: 0 -2rpx 20rpx rgba(49, 77, 99, 0.08);
+  animation: playerSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes playerSlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ===== 第一层：次级功能行 ===== */
+.player-secondary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10rpx;
+  margin-bottom: 40rpx;
+}
+
+.player-secondary-btn {
+  width: 84rpx;
+  height: 84rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  transition: all 0.2s ease;
+}
+
+.player-secondary-btn:active {
+  transform: scale(0.94);
+  background: rgba(49, 77, 99, 0.12);
+}
+
+.player-secondary-btn.active {
+}
+
+.player-icon-sm {
+  width: 43rpx;
+  height: 43rpx;
+  opacity: 0.75;
+}
+
+.player-secondary-btn.active .player-icon-sm {
+  opacity: 1;
+}
+
+.player-icon-text {
+  font-size: 28rpx;
+  opacity: 0.6;
+}
+
+.player-secondary-btn.active .player-icon-text {
+  opacity: 1;
+}
+
+/* 速度显示 */
+.player-tempo-display {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 10rpx 20rpx;
+  border-radius: 20rpx;
+  transition: all 0.2s ease;
+}
+
+.player-tempo-display:active {
+  background: rgba(49, 77, 99, 0.12);
+}
+
+.player-tempo-note {
+  font-size: 42rpx;
+  color: #314D63;
+  font-weight: 500;
+  vertical-align: middle; 
+}
+
+.player-tempo-value {
+  font-size: 38rpx;
+  color: #314D63;
+  vertical-align: middle; 
+  font-weight: 800;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+}
+
+/* ===== 第二层：进度控制区 ===== */
+.player-progress-area {
+  padding: 0 8rpx;
+  margin-bottom: 15rpx;
+}
+
+.player-progress-track {
+  height: 6rpx;
+  background: rgba(49, 77, 99, 0.12);
+  border-radius: 3rpx;
+  position: relative;
+  margin-bottom: 8rpx;
+}
+
+.player-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3D5C6B 0%, #334E5A 100%);
+  border-radius: 3rpx;
+  transition: width 0.15s ease-out;
+}
+
+.player-progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 18rpx;
+  height: 18rpx;
+  background: #314D63;
+  border: 3rpx solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2rpx 8rpx rgba(49, 77, 99, 0.25);
+  transition: left 0.15s ease-out;
+}
+
+.player-time-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 4rpx 4rpx;
+}
+
+.player-time-current,
+.player-time-total {
+  font-size: 20rpx;
+  color: rgba(49, 77, 99, 0.5);
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  letter-spacing: 0.5rpx;
+}
+
+/* ===== 第三层：主控按钮行 ===== */
+.player-primary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; 
+  gap: 0;
+  padding: 0 2rpx; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Level 3: 循环/终止按钮（最小） */
+.player-mode-btn,
+.player-stop-btn {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.player-mode-btn:active,
+.player-stop-btn:active {
+  transform: scale(0.9);
+  background: rgba(49, 77, 99, 0.08);
+}
+
+.player-icon-xs {
+  width: 55rpx;
+  height: 55rpx;
+  opacity: 1;
+}
+
+.player-stop-icon {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+/* Level 2: 导航按钮（中等） */
+.player-nav-btn {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+  margin: 0 8rpx;
+}
+
+.player-nav-btn:active {
+  transform: scale(0.92);
+  background: rgba(49, 77, 99, 0.12);
+}
+
+.player-icon-md {
+  width: 55rpx;
+  height: 55rpx;
+  opacity: 1;
+}
+
+/* Level 1: 播放/暂停按钮（最大，核心） */
+.player-play-btn {
+  width: 140rpx;
+  height: 140rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #314D63 0%, #496A81 100%);
+  border-radius: 50%;
+  box-shadow: 0 12rpx 40rpx rgba(49, 77, 99, 0.35);
+  transition: all 0.2s ease;
+  margin: 0 0rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.player-play-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 6rpx 20rpx rgba(49, 77, 99, 0.3);
+}
+
+.player-play-btn.playing {
+  background: linear-gradient(135deg, #314D63 0%, #496A81 100%);
+  animation: playBtnPulse 2s ease-in-out infinite;
+}
+
+@keyframes playBtnPulse {
+  0%, 100% {
+    box-shadow: 0 12rpx 40rpx rgba(49, 77, 99, 0.35);
+  }
+  50% {
+    box-shadow: 0 12rpx 48rpx rgba(49, 77, 99, 0.5),
+                0 0 60rpx rgba(49, 77, 99, 0.2);
+  }
+}
+
+.player-play-icon {
+  width: 62rpx;
+  height: 62rpx;
+  filter: brightness(0) invert(1);
+}
+
+/* ===== 内联竖向速度调节杠 ===== */
+.player-tempo-display {
+  position: relative;
+}
+
+/* 整体容器包装器 */
+.inline-tempo-slider-wrapper {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12rpx;
+  z-index: 1200;
+  animation: slideUpFade 0.2s ease;
+}
+
+/* 主滑杆容器 */
+.inline-tempo-slider {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 24rpx;
+  padding: 20rpx 16rpx;
+  box-shadow: 0 10rpx 40rpx rgba(49, 77, 99, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 80rpx;
+}
+
+@keyframes slideUpFade {
+  from { 
+    opacity: 0; 
+    transform: translateX(-50%) translateY(10rpx);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.inline-tempo-max,
+.inline-tempo-min {
+  font-size: 20rpx;
+  color: rgba(49, 77, 99, 0.6);
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-weight: 500;
+}
+
+/* 自定义竖向滑动条轨道 - 加大 */
+.inline-tempo-track {
+  width: 32rpx;
+  height: 280rpx;
+  background: rgba(143, 185, 171, 0.2);
+  border-radius: 16rpx;
+  position: relative;
+  overflow: visible;
+}
+
+/* 已填充部分（从底部向上） - 纯#8FB9AB主题渐变 */
+.inline-tempo-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(0deg, #a8cfc3 0%, #8FB9AB 50%, #b8d9ce 100%);
+  border-radius: 16rpx;
+  transition: height 0.05s ease-out;
+}
+
+/* 滑块 - 加大 */
+.inline-tempo-thumb {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateY(50%);
+  width: 40rpx;
+  height: 40rpx;
+  background: #8FB9AB;
+  border-radius: 50%;
+  box-shadow: 0 4rpx 12rpx rgba(143, 185, 171, 0.5);
+  transition: bottom 0.05s ease-out;
+  border: 4rpx solid #fff;
+}
+
+.inline-tempo-thumb:active {
+  transform: translateX(-50%) translateY(50%) scale(1.15);
+  box-shadow: 0 6rpx 20rpx rgba(143, 185, 171, 0.6);
+}
+
+/* 底部可输入数字 */
+.inline-tempo-input-wrapper {
+  background: #314D63;
+  border-radius: 12rpx;
+  padding: 6rpx 8rpx;
+  margin-top: 4rpx;
+}
+
+.inline-tempo-input {
+  width: 64rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  background: transparent;
+}
+
+/* 常用档位按键组 - 悬浮在容器外侧 */
+.inline-tempo-presets-float {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.tempo-preset-btn {
+  padding: 10rpx 18rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(49, 77, 99, 0.85);
+  border-radius: 12rpx;
+  text-align: center;
+  min-width: 68rpx;
+  transition: all 0.15s ease;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  box-shadow: 0 4rpx 12rpx rgba(49, 77, 99, 0.3);
+}
+
+.tempo-preset-btn:active {
+  transform: scale(0.95);
+  background: rgba(49, 77, 99, 0.95);
+}
+
+.tempo-preset-btn.active {
+  background: #8FB9AB;
+  color: #fff;
+  box-shadow: 0 4rpx 16rpx rgba(143, 185, 171, 0.5);
+}
+
+.tempo-preset-btn.active {
+  color: #fff;
+  background: #8FB9AB;
+  font-weight: 600;
+}
+
+.inline-tempo-current {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #314D63;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  background: rgba(49, 77, 99, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-top: 4rpx;
+}
+
+/* ===== 速度调节弹窗（保留备用） ===== */
+.player-tempo-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(49, 77, 99, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayFadeIn 0.2s ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.player-tempo-panel {
+  width: 600rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx;
+  box-shadow: 0 16rpx 64rpx rgba(49, 77, 99, 0.2);
+}
+
+.player-tempo-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #314D63;
+  text-align: center;
+  margin-bottom: 40rpx;
+}
+
+.player-tempo-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.player-tempo-label {
+  font-size: 22rpx;
+  color: rgba(49, 77, 99, 0.4);
+  min-width: 48rpx;
+  text-align: center;
+  font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+.player-tempo-slider {
+  flex: 1;
+}
+
+.player-tempo-bpm {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #314D63;
+  text-align: center;
+  margin-top: 32rpx;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  letter-spacing: -1rpx;
+}
+
+/* ===== 更多设置弹窗 ===== */
+.player-settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(49, 77, 99, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: overlayFadeIn 0.2s ease;
+}
+
+.player-settings-panel {
+  width: 100%;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 0 32rpx 32rpx;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  animation: panelSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes panelSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.player-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid rgba(49, 77, 99, 0.08);
+  margin-bottom: 16rpx;
+}
+
+.player-settings-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #314D63;
+}
+
+.player-settings-close-btn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(49, 77, 99, 0.06);
+  border-radius: 50%;
+}
+
+.player-settings-close-btn text {
+  font-size: 24rpx;
+  color: rgba(49, 77, 99, 0.5);
+}
+
+.player-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid rgba(49, 77, 99, 0.06);
+}
+
+.player-setting-label {
+  font-size: 28rpx;
+  color: #314D63;
+  flex-shrink: 0;
+}
+
+.player-setting-control {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  margin-left: 24rpx;
+}
+
+.player-setting-slider {
+  flex: 1;
+}
+
+.player-setting-value {
+  font-size: 24rpx;
+  color: #8FB9AB;
+  min-width: 80rpx;
+  text-align: right;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  margin-left: 16rpx;
+}
+
+.player-setting-switch {
+  transform: scale(0.85);
+}
+
+.player-mode-selector {
+  display: flex;
+  gap: 12rpx;
+}
+
+.player-mode-opt {
+  padding: 14rpx 28rpx;
+  background: rgba(49, 77, 99, 0.06);
+  border-radius: 20rpx;
+  transition: all 0.2s ease;
+}
+
+.player-mode-opt.selected {
+  background: rgba(143, 185, 171, 0.2);
+}
+
+.player-mode-opt text {
+  font-size: 24rpx;
+  color: rgba(49, 77, 99, 0.6);
+}
+
+.player-mode-opt.selected text {
+  color: #314D63;
+  font-weight: 600;
+}
+
+/* 旧版样式兼容保留 */
+.playback-mode-bar {
+  display: none;
+}
+
+/* 旧版播放模式菜单栏 - 已弃用但保留兼容 */
+.playback-mode-bar {
+  display: none;
+}
+
+/* 播放高亮列效果 */
+.subdivision.playback-highlight {
+  position: relative;
+  z-index: 10;
+}
+
+.subdivision.playback-highlight::before {
+  content: '';
+  position: absolute;
+  top: -8rpx;
+  left: -4rpx;
+  right: -4rpx;
+  bottom: -8rpx;
+  background: linear-gradient(180deg, 
+    rgba(178, 232, 232, 0.6) 0%, 
+    rgba(143, 185, 171, 0.4) 50%,
+    rgba(178, 232, 232, 0.6) 100%);
+  border-radius: 8rpx;
+  z-index: -1;
+  animation: highlightPulse 0.3s ease-out;
+  box-shadow: 0 0 20rpx rgba(143, 185, 171, 0.5),
+              0 0 40rpx rgba(178, 232, 232, 0.3);
+}
+
+@keyframes highlightPulse {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+/* 高亮淡出残影效果（模拟手碟延音） */
+.subdivision.playback-fadeout::before {
+  content: '';
+  position: absolute;
+  top: -8rpx;
+  left: -4rpx;
+  right: -4rpx;
+  bottom: -8rpx;
+  background: linear-gradient(180deg, 
+    rgba(178, 232, 232, 0.3) 0%, 
+    rgba(143, 185, 171, 0.2) 100%);
+  border-radius: 8rpx;
+  z-index: -1;
+  animation: highlightFadeout 0.6s ease-out forwards;
+}
+
+@keyframes highlightFadeout {
+  0% {
+    opacity: 0.6;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+}
+
+/* 倒计时遮罩 */
+.playback-countdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10600; /* 确保在所有UI之上 */
+  backdrop-filter: blur(8rpx);
+  animation: countdownOverlayFadeIn 0.3s ease-out;
+}
+
+@keyframes countdownOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.countdown-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-circle {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #314D63 0%, #456275 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 40rpx rgba(49, 77, 99, 0.5),
+              inset 0 -4rpx 12rpx rgba(0, 0, 0, 0.2);
+  animation: countdownBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.countdown-circle.countdown-go {
+  background: linear-gradient(135deg, #8FB9AB 0%, #B2E8E8 100%);
+  animation: countdownGo 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes countdownBounce {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes countdownGo {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.countdown-number {
+  font-size: 100rpx;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.3);
+}
+
+.countdown-pulse {
+  position: absolute;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(178, 232, 232, 0.6);
+  animation: countdownPulseRing 1s ease-out infinite;
+}
+
+@keyframes countdownPulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* 播放资源加载提示 */
+.playback-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10550; /* 确保在Canvas和菜单栏之上 */
+  animation: loadingFadeIn 0.2s ease-out;
+}
+
+@keyframes loadingFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.playback-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.loading-spinner {
+  width: 80rpx;
+  height: 80rpx;
+  border: 6rpx solid #E0E0E0;
+  border-top-color: #314D63;
+  border-radius: 50%;
+  animation: loadingSpin 0.8s linear infinite;
+}
+
+@keyframes loadingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+/* 播放模式下禁用编辑交互 */
+.notation-container.playback-mode .note-slot,
+.notation-container.playback-mode .slot-click-overlay {
+  pointer-events: none;
+}
+
+.notation-container.playback-mode .add-notation-row,
+.notation-container.playback-mode .delete-icon,
+.notation-container.playback-mode .refresh-icon,
+.notation-container.playback-mode .tool-icon,
+.notation-container.playback-mode .less-icon {
+  display: none !important;
+}
+
+/* 播放模式下隐藏底部导航栏的样式（通过JS控制tabBar） */
+
+/* ========== Canvas 渲染模式样式 ========== */
+/* 
+ * 渲染模式说明：
+ * 1. 静态图片模式（非编辑时）：Canvas转图片后销毁，解决层级和延迟问题
+ * 2. Canvas编辑模式（编辑时）：使用 type="2d" Canvas 进行交互编辑
+ * 3. 播放光标层：使用 View 覆盖层 + animate API，不影响性能
+ */
+
+/* Canvas 谱面容器 */
+.canvas-notation-container {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  background-color: #FFFFFF;
+  border-radius: 8rpx;
+  overflow: hidden;
+  /* 确保容器在文档流中 */
+  display: block;
+  box-sizing: border-box;
+  /* 建立层叠上下文 */
+  isolation: isolate;
+}
+
+/* 静态图片显示（非编辑状态） */
+.notation-static-image {
+  display: block;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  /* 防止图片拖动 */
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Canvas 元素 - 编辑模式 */
+.notation-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* 强制底层定位 */
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* Canvas编辑模式激活 */
+.notation-canvas.editing-mode {
+  z-index: 10;
+}
+
+/* ========== 播放光标覆盖层 ========== */
+/* 
+ * 播放光标使用 View 层覆盖在图片/Canvas 上方
+ * 使用 CSS transform + transition 实现流畅移动
+ * pointer-events: none 防止干扰点击事件
+ * 主题色: #8FB9AB (薄荷绿)
+ */
+.playback-cursor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500; /* 提高层级确保在所有内容之上 */
+  pointer-events: none;
+  overflow: visible; /* 改为visible确保光标不被裁剪 */
+}
+
+/* 播放光标 - 高级设计感的圆角矩形光标（低透明度避免遮挡音符） */
+.playback-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* 主色调渐变 #8FB9AB - 降低透明度 */
+  background: linear-gradient(
+    180deg,
+    rgba(143, 185, 171, 0.08) 0%,
+    rgba(143, 185, 171, 0.15) 30%,
+    rgba(143, 185, 171, 0.18) 70%,
+    rgba(143, 185, 171, 0.08) 100%
+  );
+  /* 圆角设计 */
+  border-radius: 12rpx;
+  /* 左右两侧高亮边框 */
+  border-left: 3rpx solid rgba(143, 185, 171, 0.7);
+  border-right: 3rpx solid rgba(143, 185, 171, 0.7);
+  border-top: none;
+  border-bottom: none;
+  /* 初始隐藏 */
+  opacity: 0;
+  /* 使用 transform 实现移动，性能更好 */
+  will-change: transform, opacity;
+  /* 过渡动画 - 位置变化平滑 */
+  transition: transform 60ms cubic-bezier(0.25, 0.1, 0.25, 1), 
+              opacity 150ms ease-out,
+              box-shadow 300ms ease-out;
+  /* 高级发光效果 - 边框发光为主 */
+  box-shadow: 
+    0 0 8rpx rgba(143, 185, 171, 0.4),
+    0 0 16rpx rgba(143, 185, 171, 0.2);
+}
+
+/* 光标内部扫光装饰线 */
+.playback-cursor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4rpx;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 100%
+  );
+  border-radius: 12rpx 12rpx 0 0;
+}
+
+/* 光标底部装饰线 */
+.playback-cursor::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4rpx;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(143, 185, 171, 0.8) 50%,
+    transparent 100%
+  );
+  border-radius: 0 0 12rpx 12rpx;
+}
+
+/* 光标可见状态（cursorVisible为true，用于暂停/定位时显示） */
+.playback-cursor.visible {
+  opacity: 1;
+}
+
+/* 播放时光标有呼吸动画 */
+.playback-cursor.playing {
+  animation: cursor-breathe 1.5s ease-in-out infinite;
+}
+
+/* 播放模式激活时光标可见 - 带呼吸动画（兼容旧类名） */
+.playback-mode .playback-cursor.active {
+  opacity: 1;
+  animation: cursor-breathe 1.5s ease-in-out infinite;
+}
+
+/* 光标呼吸发光动画 - 仅控制 box-shadow，不影响 transform（位置）
+ * 修复：移除 transform 属性，避免覆盖 style 中设置的光标位置
+ * 这是短曲谱播放时光标消失的根本原因 */
+@keyframes cursor-breathe {
+  0%, 100% {
+    box-shadow: 
+      0 0 8rpx rgba(143, 185, 171, 0.4),
+      0 0 16rpx rgba(143, 185, 171, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 12rpx rgba(143, 185, 171, 0.6),
+      0 0 24rpx rgba(143, 185, 171, 0.3),
+      0 0 36rpx rgba(143, 185, 171, 0.15);
+  }
+}
+
+/* 播放光标激活状态（兼容旧类名） */
+.playback-cursor.active {
+  opacity: 1;
+}
+
+/* 播放光标隐藏状态 */
+.playback-cursor.hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* 播放光标淡出效果（用于残影） */
+.playback-cursor.fadeout {
+  opacity: 0.15;
+  transition: opacity 300ms ease-out;
+  animation: none;
+  box-shadow: 
+    0 0 8rpx rgba(143, 185, 171, 0.3),
+    inset 0 0 4rpx rgba(255, 255, 255, 0.1);
+}
+
+/* 光标进入动画 */
+@keyframes cursor-enter {
+  from {
+    opacity: 0;
+    transform: var(--cursor-transform, translate(0, 0)) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: var(--cursor-transform, translate(0, 0)) scale(1);
+  }
+}
+
+/* 光标离开动画 */
+@keyframes cursor-leave {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Canvas模式下的编辑高亮框（使用虚拟键盘输入） */
+.canvas-editing-highlight {
+  position: absolute;
+  border-radius: 4rpx;
+  z-index: 100;
+  box-sizing: border-box;
+  pointer-events: none;
+  animation: canvasHighlightPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes canvasHighlightPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Canvas模式下的收起状态额外样式 */
+.notation-sheet.collapsed .canvas-notation-container {
+  margin-top: 10rpx;
+}
+
+/* Canvas模式下的编辑光标容器 */
+.canvas-edit-cursor {
+  position: absolute;
+  pointer-events: none;
+  border: 2rpx dashed #314D63;
+  border-radius: 4rpx;
+  animation: canvasCursorBlink 1s infinite;
+  z-index: 99;
+}
+
+@keyframes canvasCursorBlink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
+/* Canvas模式下的虚拟键盘适配 */
+.notation-container.keyboard-active .canvas-notation-container {
+  margin-bottom: 20rpx;
+}
+
+/* Canvas渲染加载占位 */
+.canvas-loading-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FAFAFA;
+}
+
+.canvas-loading-text {
+  font-size: 24rpx;
+  color: #999;
 }

@@ -8,31 +8,31 @@ Page({
         id: 1, 
         image: '/subpackages/packageB/img/guide1.jpg',
         title: '第 1 步',
-        description: '认识界面'
+        description: '谱面编辑'
       },
       { 
         id: 2, 
         image: '/subpackages/packageB/img/guide2.jpg',
         title: '第 2 步',
-        description: '基础操作'
+        description: '导航栏介绍'
       },
       { 
         id: 3, 
         image: '/subpackages/packageB/img/guide3.jpg',
         title: '第 3 步',
-        description: '编辑记谱'
+        description: '导航栏介绍'
       },
       { 
         id: 4, 
         image: '/subpackages/packageB/img/guide4.jpg',
         title: '第 4 步',
-        description: '高级功能'
+        description: '导航栏介绍'
       },
       { 
         id: 5, 
         image: '/subpackages/packageB/img/guide5.jpg',
         title: '第 5 步',
-        description: '导出分享'
+        description: '导航栏介绍'
       }
     ],
     indicatorDots: false,
