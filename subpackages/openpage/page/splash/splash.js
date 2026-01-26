@@ -1,5 +1,25 @@
 // 开屏等待页面
-const app = getApp();
+// 注意：此页面是独立分包，运行在隔离环境中
+// 
+// ========== 独立分包的限制 ==========
+// 1. getApp() 返回的是简化版 app 对象，需要 allowDefault: true
+// 2. 无法直接 require 主包或其他分包的模块
+// 3. wx.loadSubPackage 在独立分包中调用其他分包是无效的（微信官方限制）
+// 4. preloadRule 每个页面的预加载分包总大小不能超过 2MB
+//
+// ========== 预加载策略 ==========
+// 由于上述限制，本页面采用以下优化策略：
+// 1. Storage 数据预读取和预处理（独立分包中可用）
+// 2. 数据格式迁移前置（减少主包页面首屏渲染时间）
+// 3. 通过 preloadRule 配置预加载 resources 分包（<2MB）
+// 4. 主包和 audio 分包的预加载由系统自动处理或在 notation 页面处理
+//
+// ========== 分包加载时机 ==========
+// - __APP__（主包）：从独立分包跳转时自动加载
+// - resources：通过 preloadRule 预加载
+// - audio：在 notation 页面 onLoad 时通过代码式预加载
+
+const app = getApp({ allowDefault: true }); // 独立分包需要 allowDefault
 
 Page({
   data: {
@@ -9,8 +29,7 @@ Page({
     countdownFinished: false,
     posterSrc: '',
     preloadProgress: 0, // 预加载进度 (0-100)
-    preloadStatus: '', // 预加载状态文字
-    subpackageProgress: { audio: 0, resources: 0 } // 分包下载进度
+    preloadStatus: '' // 预加载状态文字
   },
 
   countdownTimer: null,
@@ -20,25 +39,25 @@ Page({
   hasStartedCountdown: false,
   imageFormats: ['webp', 'jpeg', 'png'],
   preloadComplete: false, // 预加载是否完成
-  subpackagesLoaded: { audio: false, resources: false }, // 分包加载状态
 
   onLoad() {
     console.log('[Splash] 页面加载开始');
     
-    // 1. 立即开始代码式预加载分包（核心：绕过配置式 2MB 限制）
-    this.preloadSubpackages();
+    // 记录开始时间，用于计算预加载耗时
+    this._loadStartTime = Date.now();
     
-    // 2. 并行预加载 notation 页面所需的数据
+    // 1. 并行预加载 notation 页面所需的数据（Storage 操作在独立分包中可用）
+    //    这是最重要的优化：利用开屏等待时间预读取和预处理数据
     this.preloadNotationData();
     
-    // 3. 预热 notation 页面核心资源
-    this.preloadCriticalImages();
-    
-    // 4. 立即加载海报图片，从 webp 开始
+    // 2. 立即加载海报图片，从 webp 开始
     this.loadPosterImage();
     
-    // 5. 预渲染 notation 页面关键数据到全局缓存
+    // 3. 预渲染 notation 页面关键数据到全局缓存
     this.prepareNotationPageData();
+    
+    // 4. 标记 splash 已完成预加载，供主包页面检查
+    this.markSplashPreloadStatus();
   },
 
   onUnload() {
@@ -115,85 +134,23 @@ Page({
     }
   },
 
-  // ========== 代码式预加载分包（核心：绕过配置式 2MB 限制） ==========
-  preloadSubpackages() {
-    console.log('[Splash] 开始代码式预加载分包...');
-    
-    if (!wx.loadSubpackage) {
-      console.warn('[Splash] wx.loadSubpackage 不可用');
-      return;
-    }
-    
-    // 并发加载 audio 和 resources 分包
-    // 注意：不需要显式加载 __APP__（主包），从独立分包跳转到主包页面时系统会自动处理
-    
-    // 1. 预下载 audio 分包（音频资源，约 1.9MB）
-    const audioTask = wx.loadSubpackage({
-      name: 'audio',
-      success: () => {
-        console.log('[Splash] audio 分包加载成功');
-        this.subpackagesLoaded.audio = true;
-        this.updateSubpackageStatus();
-      },
-      fail: (err) => {
-        console.error('[Splash] audio 分包加载失败:', err);
-        // 记录失败状态，让 notation 页面知道需要重试
-        wx.setStorageSync('subpackage_audio_loaded', false);
-      }
-    });
-    
-    // 监听 audio 分包下载进度
-    if (audioTask && audioTask.onProgressUpdate) {
-      audioTask.onProgressUpdate((res) => {
-        console.log(`[Splash] audio 分包下载进度: ${res.progress}%`);
-        this.setData({
-          ['subpackageProgress.audio']: res.progress
-        });
+  // ========== 标记预加载状态 ==========
+  // 告知主包页面 splash 已完成的预处理工作
+  markSplashPreloadStatus() {
+    try {
+      wx.setStorageSync('splash_preload_status', {
+        completed: true,
+        timestamp: Date.now(),
+        // 记录完成的预处理项目
+        tasks: {
+          dataPreload: true,      // Storage 数据预读取
+          dataMigration: wx.getStorageSync('splash_premigrated') || false, // 数据格式迁移
+          precalcData: true       // 首屏数据预计算
+        }
       });
-    }
-    
-    // 2. 预下载 resources 分包（图标和静态资源）
-    const resourcesTask = wx.loadSubpackage({
-      name: 'resources',
-      success: () => {
-        console.log('[Splash] resources 分包加载成功');
-        this.subpackagesLoaded.resources = true;
-        this.updateSubpackageStatus();
-      },
-      fail: (err) => {
-        console.error('[Splash] resources 分包加载失败:', err);
-        wx.setStorageSync('subpackage_resources_loaded', false);
-      }
-    });
-    
-    // 监听 resources 分包下载进度
-    if (resourcesTask && resourcesTask.onProgressUpdate) {
-      resourcesTask.onProgressUpdate((res) => {
-        console.log(`[Splash] resources 分包下载进度: ${res.progress}%`);
-        this.setData({
-          ['subpackageProgress.resources']: res.progress
-        });
-      });
-    }
-    
-    // 3. 预下载 packageB 分包（引导页等，低优先级）
-    wx.loadSubpackage({
-      name: 'packageB',
-      success: () => console.log('[Splash] packageB 分包加载成功'),
-      fail: (err) => console.log('[Splash] packageB 分包加载失败:', err)
-    });
-  },
-  
-  // 更新分包加载状态
-  updateSubpackageStatus() {
-    const { audio, resources } = this.subpackagesLoaded;
-    
-    if (audio && resources) {
-      console.log('[Splash] 所有核心分包加载完成');
-      // 标记分包已加载，notation 页面可以检查此状态
-      wx.setStorageSync('subpackage_audio_loaded', true);
-      wx.setStorageSync('subpackage_resources_loaded', true);
-      wx.setStorageSync('subpackages_preloaded_time', Date.now());
+      console.log('[Splash] 预加载状态已标记');
+    } catch (e) {
+      console.error('[Splash] 标记预加载状态失败:', e);
     }
   },
   
@@ -243,66 +200,6 @@ Page({
     } catch (e) {
       console.error('[Splash] 预渲染数据准备失败:', e);
     }
-  },
-
-  // 预热核心图片资源（在等待期间完成，不会被销毁）
-  preloadCriticalImages() {
-    console.log('[Splash] 开始预热核心图片资源...');
-    
-    const criticalAssets = [
-      // TabBar 图标（首屏必需）
-      '/assets/icons/notation-active.png',
-      '/assets/icons/library.png',
-      '/assets/icons/metronome.png',
-      '/assets/icons/settings.png',
-      // 常用功能图标
-      '/assets/icons/tool.png',
-      '/assets/icons/upload.png',
-      '/assets/icons/output.png',
-      '/assets/icons/timing.png',
-      '/assets/icons/refresh.png',
-      '/assets/icons/more.png',
-      '/assets/icons/share.png',
-      '/assets/icons/play.png',
-      '/assets/icons/pause.png',
-      // 背景图
-      '/assets/img/note_background.png'
-    ];
-    
-    let loadedCount = 0;
-    const totalCount = criticalAssets.length;
-    
-    // 并行预加载所有图片（wx.getImageInfo 会触发图片解码和缓存）
-    criticalAssets.forEach(src => {
-      wx.getImageInfo({
-        src,
-        success: () => {
-          loadedCount++;
-          if (loadedCount === totalCount) {
-            console.log(`[Splash] 所有核心图片预热完成 (${loadedCount}/${totalCount})`);
-            // 标记图片预热完成
-            wx.setStorageSync('splash_images_preloaded', true);
-          }
-        },
-        fail: () => {
-          loadedCount++;
-          // 静默失败，不影响主流程
-        }
-      });
-    });
-    
-    // 预热 resources 分包中的资源图片路径（如果有的话）
-    const resourceImages = [
-      '/subpackages/resources/img/logo5.png'
-    ];
-    
-    resourceImages.forEach(src => {
-      wx.getImageInfo({
-        src,
-        success: () => console.log(`[Splash] Resource image preloaded: ${src}`),
-        fail: () => {} // 静默失败
-      });
-    });
   },
 
   // 预加载 notation 页面所需的数据
@@ -514,24 +411,53 @@ Page({
   },
 
   // 进入主程序
+  // 从独立分包跳转到主包的 tabBar 页面
   enterApp() {
     if (this._isEntering) return;
     this._isEntering = true;
+    
+    // 记录预加载耗时
+    if (this._loadStartTime) {
+      const elapsed = Date.now() - this._loadStartTime;
+      console.log(`[Splash] 预加载阶段耗时: ${elapsed}ms`);
+      wx.setStorageSync('splash_preload_duration', elapsed);
+    }
 
-    wx.reLaunch({
+    // 优先使用 switchTab，因为 notation 是 tabBar 页面
+    // switchTab 比 reLaunch 更适合跳转到 tabBar 页面：
+    // 1. 语义正确：专门用于 tabBar 页面切换
+    // 2. 性能更好：系统会做专门优化
+    // 3. 不会销毁 tabBar 实例
+    wx.switchTab({
       url: '/pages/notation/notation',
+      success: () => {
+        console.log('[Splash] 成功跳转到 notation 页面');
+      },
       fail: (err) => {
+        console.error('[Splash] switchTab 失败:', err);
         this._isEntering = false;
-        console.error('Failed to enter app:', err);
-        // 备用方案：使用 switchTab
-        wx.switchTab({
+        
+        // 备用方案 1：使用 reLaunch（会重建整个页面栈）
+        wx.reLaunch({
           url: '/pages/notation/notation',
           fail: (err2) => {
-            console.error('SwitchTab also failed:', err2);
-            wx.showToast({
-              title: '加载失败，请重试',
-              icon: 'none'
-            });
+            console.error('[Splash] reLaunch 也失败:', err2);
+            
+            // 备用方案 2：延迟重试
+            setTimeout(() => {
+              this._isEntering = false;
+              wx.switchTab({
+                url: '/pages/notation/notation',
+                fail: (err3) => {
+                  console.error('[Splash] 重试 switchTab 失败:', err3);
+                  wx.showToast({
+                    title: '加载失败，请重试',
+                    icon: 'none'
+                  });
+                  this._isEntering = false;
+                }
+              });
+            }, 500);
           }
         });
       }

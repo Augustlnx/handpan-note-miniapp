@@ -465,7 +465,13 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       // 用户调整参数
       const adjustParams = {
         lineSpacingAdjust: data.lineSpacingAdjust,
-        measureHeightAdjust: data.measureHeightAdjust
+        measureHeightAdjust: data.measureHeightAdjust,
+        dotSizeAdjust: data.dotSizeAdjust,
+        dotUpOffsetAdjust: data.dotUpOffsetAdjust,
+        dotDownOffsetAdjust: data.dotDownOffsetAdjust,
+        underlineThicknessAdjust: data.underlineThicknessAdjust,
+        underlineOffsetAdjust: data.underlineOffsetAdjust,
+        supFontSizeAdjust: data.supFontSizeAdjust
       };
       
       // 绘制所有谱面模块（传入modeConfig和adjustParams确保配置正确生效）
@@ -511,7 +517,13 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       // 用户调整参数
       const adjustParams = {
         lineSpacingAdjust: data.lineSpacingAdjust,
-        measureHeightAdjust: data.measureHeightAdjust
+        measureHeightAdjust: data.measureHeightAdjust,
+        dotSizeAdjust: data.dotSizeAdjust,
+        dotUpOffsetAdjust: data.dotUpOffsetAdjust,
+        dotDownOffsetAdjust: data.dotDownOffsetAdjust,
+        underlineThicknessAdjust: data.underlineThicknessAdjust,
+        underlineOffsetAdjust: data.underlineOffsetAdjust,
+        supFontSizeAdjust: data.supFontSizeAdjust
       };
       
       // 绘制所有谱面模块（传入modeConfig和adjustParams确保配置正确生效）
@@ -957,7 +969,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
     const measureY = currentY + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor, 
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config, adjustParams);
   });
   
   const sectionHeight = config.moduleContentOffsetY + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + config.sectionBottomPadding;
@@ -1044,7 +1056,7 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
     const measureY = y + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor,
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config, adjustParams);
   }
 
   const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + config.sectionBottomPadding;
@@ -1232,7 +1244,13 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
     // 用户调整参数
     const adjustParams = {
       lineSpacingAdjust: data.lineSpacingAdjust,
-      measureHeightAdjust: data.measureHeightAdjust
+      measureHeightAdjust: data.measureHeightAdjust,
+      dotSizeAdjust: data.dotSizeAdjust,
+      dotUpOffsetAdjust: data.dotUpOffsetAdjust,
+      dotDownOffsetAdjust: data.dotDownOffsetAdjust,
+      underlineThicknessAdjust: data.underlineThicknessAdjust,
+      underlineOffsetAdjust: data.underlineOffsetAdjust,
+      supFontSizeAdjust: data.supFontSizeAdjust
     };
 
     // 绘制该页的谱面片段（可跨页拆分模块，传入modeConfig和adjustParams确保配置正确生效）
@@ -1867,12 +1885,14 @@ function loadImage(canvas, src) {
  * 图片水印（居中，按页面宽度比例缩放）
  */
 // 计算右上角水印与文字的布局参数
+// 【修改】logo贴近页面右侧、上侧边缘，不预留间距
 function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false, modeConfig = null) {
   // 获取配置
   const config = modeConfig || exportConfig.LONG_IMAGE_CONFIG;
   const commonConfig = exportConfig.COMMON_CONFIG;
   
-  var margin = config.watermarkMargin || 20;
+  // 【修改】margin设为0，logo贴边
+  var margin = 0;
   var baseScale = config.watermarkScaleBase || 0.08;
   // A4横向时水印尺寸可能需要缩小
   var landscapeMultiplier = config.watermarkLandscapeScaleMultiplier !== undefined ? config.watermarkLandscapeScaleMultiplier : (2/3);
@@ -1880,8 +1900,9 @@ function computeTopRightWatermarkMetrics(image, pageWidth, isA4Landscape = false
   var imgWidth = pageWidth * scale;
   var aspect = image.height / image.width;
   var imgHeight = imgWidth * aspect;
-  var x = pageWidth - margin - imgWidth;
-  var y = margin;
+  // 【修改】x和y都从0开始，logo贴近右上角边缘
+  var x = pageWidth - imgWidth;
+  var y = 0;
   var labelGap = config.watermarkLabelGap || 6;
   var labelFontPx = config.watermarkLabelFontSize || 10;
   var labelX = x + imgWidth / 2; // 水平居中于水印
@@ -2022,7 +2043,7 @@ function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight, modeCo
  * 音符位置轨道：
  * @param {Object} config - 当前模式的配置参数（可选）
  */
-function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode, config = null) {
+function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode, config = null, adjustParams = null) {
   // 获取配置
   const modeConfig = config || exportConfig.getExportConfig({
     exportMode: 'long',
@@ -2052,6 +2073,17 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
     ctx.fillText(String(measureIndex), x, y - modeConfig.measureIndexOffsetY);
   }
   
+  // 【修复】计算最后一个非占位拍的索引，用于正确绘制右侧小节线和中央横线
+  let lastRealBeatIndex = measure.beats.length - 1;
+  for (let i = measure.beats.length - 1; i >= 0; i--) {
+    if (!measure.beats[i].isPlaceholder) {
+      lastRealBeatIndex = i;
+      break;
+    }
+  }
+  // 计算实际绘制宽度（到最后一个非占位拍为止）
+  const actualWidth = (lastRealBeatIndex + 1) * beatWidth;
+  
   // 小节线（左侧）
   ctx.strokeStyle = commonConfig.measureLineColor;
   ctx.lineWidth = modeConfig.measureLineWidth;
@@ -2060,20 +2092,26 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
   ctx.lineTo(x, y + lineHeight);
   ctx.stroke();
   
-  // 中央横线
+  // 中央横线 - 【修复】只绘制到最后一个非占位拍的位置
   ctx.strokeStyle = commonConfig.centerLineColor;
   ctx.lineWidth = modeConfig.centerLineWidth;
   ctx.beginPath();
   ctx.moveTo(x, y + lineHeight / 2);
-  ctx.lineTo(x + width, y + lineHeight / 2);
+  ctx.lineTo(x + actualWidth, y + lineHeight / 2);
   ctx.stroke();
   
   // 绘制每拍
   measure.beats.forEach((beat, bIdx) => {
+    // 【修复】跳过占位拍，不绘制内容
+    if (beat.isPlaceholder) {
+      return;
+    }
+    
     const beatX = x + (bIdx * beatWidth);
     
-    // 拍子分隔线（跳过第一拍）
-    if (bIdx > 0) {
+    // 拍子分隔线（跳过第一拍，且不在占位拍前绘制）
+    const prevBeat = bIdx > 0 ? measure.beats[bIdx - 1] : null;
+    if (bIdx > 0 && !prevBeat?.isPlaceholder) {
       ctx.strokeStyle = commonConfig.beatLineColor;
       ctx.lineWidth = modeConfig.beatLineWidth;
       ctx.beginPath();
@@ -2135,10 +2173,12 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       const supDotSize = Math.max(1, Math.round(fontSize * supDotSizeRatio));
       const supDotGap = Math.max(0.5, (isCompactMode ? (modeConfig.compactDotGap || 0.5) : dotGap) * noteScaleFactor);
       
-      // 下划线参数（应用连携比例）
+      // 下划线参数（应用连携比例）- 支持用户调整
+      const underlineThicknessMultiplier = adjustParams && adjustParams.underlineThicknessAdjust !== undefined 
+        ? (adjustParams.underlineThicknessAdjust / 50) : 1.0;
       const underlineThicknessRatio = modeConfig.underlineThicknessRatio || 0.11;
       const underlineWidthRatio = modeConfig.underlineWidthRatio || 0.8;
-      const underlineThickness = Math.max(1, Math.round(fontSize * underlineThicknessRatio));
+      const underlineThickness = Math.max(1, Math.round(fontSize * underlineThicknessRatio * underlineThicknessMultiplier));
       const underlineWidth = Math.round(fontSize * underlineWidthRatio);
       
       // 计算文字的顶部和底部位置
@@ -2154,10 +2194,17 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       const octaveUpOffset = textHalfHeight * octaveUpMultiplier + dotGap + dotSize / 2;
       const octaveDownOffset = textHalfHeight * octaveDownMultiplier + dotGap + dotSize / 2;
       
-      // 下划线偏移
+      // 下划线偏移 - 支持用户调整
+      const underlineOffsetMultiplier = adjustParams && adjustParams.underlineOffsetAdjust !== undefined 
+        ? (adjustParams.underlineOffsetAdjust / 50) : 1.0;
       const underlineOffsetRatio = modeConfig.underlineOffsetRatio || 0.9;
       const underlineExtraOffset = (modeConfig.underlineExtraOffset || 2) * noteScaleFactor;
-      const underlineOffset = textHalfHeight * underlineOffsetRatio + underlineExtraOffset;
+      const underlineOffset = (textHalfHeight * underlineOffsetRatio + underlineExtraOffset) * underlineOffsetMultiplier;
+      
+      // 下划线与低八度圆点共存时的间距
+      const underlineDotGapBase = modeConfig.underlineDotGapBase || 1;
+      const underlineDotGapRatio = modeConfig.underlineDotGapRatio || 0.04;
+      const underlineDotGap = Math.max(1, Math.min(4, underlineDotGapBase + Math.round(fontSize * underlineDotGapRatio)));
       
       // 上标内的音高圆点偏移
       const supOctaveUpOffsetRatio = modeConfig.supOctaveUpOffsetRatio || 0.65;
@@ -2196,17 +2243,31 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
         ctx.font = 'bold ' + fontSize + 'px sans-serif';
         ctx.fillText(parsed.baseNote, noteX, noteY);
         
-        // 绘制八度点（支持多个）
+        // 绘制上八度点
         if (parsed.octaveUp > 0) {
           drawOctaveDots(ctx, noteX, noteY - octaveUpOffset, true, parsed.octaveUp, dotSize, dotGap, color);
         }
-        if (parsed.octaveDown > 0) {
-          drawOctaveDots(ctx, noteX, noteY + octaveDownOffset, false, parsed.octaveDown, dotSize, dotGap, color);
+        
+        // 绘制下划线和低八度点
+        // 当两者同时存在时，先绘制下划线，低八度点显示在下划线下方
+        const hasUnderline = parsed.underline;
+        const hasOctaveDown = parsed.octaveDown > 0;
+        
+        if (hasUnderline) {
+          drawUnderline(ctx, noteX, noteY + underlineOffset, underlineWidth, underlineThickness, color);
         }
         
-        // 绘制下划线
-        if (parsed.underline) {
-          drawUnderline(ctx, noteX, noteY + underlineOffset, underlineWidth, underlineThickness, color);
+        if (hasOctaveDown) {
+          let octaveDownY;
+          if (hasUnderline) {
+            // 当同时有下划线和低八度点时，低八度点显示在下划线下方
+            // 位置 = 下划线Y + 下划线粗细/2 + 间距 + 圆点半径
+            octaveDownY = noteY + underlineOffset + underlineThickness / 2 + underlineDotGap + dotSize / 2;
+          } else {
+            // 仅有低八度点时，使用原有位置
+            octaveDownY = noteY + octaveDownOffset;
+          }
+          drawOctaveDots(ctx, noteX, octaveDownY, false, parsed.octaveDown, dotSize, dotGap, color);
         }
         
         // 绘制右上标
@@ -2261,12 +2322,13 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
     });
   });
   
-  // 小节线（右侧）
+  // 小节线（右侧）- 【修复】在最后一个非占位拍后面绘制
   ctx.strokeStyle = commonConfig.measureLineColor;
   ctx.lineWidth = modeConfig.measureLineWidth;
   ctx.beginPath();
-  ctx.moveTo(x + width, y);
-  ctx.lineTo(x + width, y + lineHeight);
+  const rightBarX = x + (lastRealBeatIndex + 1) * beatWidth;
+  ctx.moveTo(rightBarX, y);
+  ctx.lineTo(rightBarX, y + lineHeight);
   ctx.stroke();
 }
 

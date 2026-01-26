@@ -8,6 +8,7 @@
  * 3. 脏矩形刷新 - 支持局部重绘
  * 4. 严格复刻View布局 - 保持与原View渲染一致的视觉效果
  * 5. 同层渲染 - 使用 type="2d" 实现Canvas与View同层
+ * 6. 【优化】布局缓存持久化 - 减少重复计算
  */
 
 // 导入配置参数
@@ -24,6 +25,15 @@ const {
   CANVAS_IMAGE_SETTINGS,
   REDRAW_SETTINGS
 } = require('../pages/notation/config.js');
+
+// 【优化】导入布局缓存管理器
+let LayoutCacheManager = null;
+try {
+  const storageOptimizer = require('./storageOptimizer.js');
+  LayoutCacheManager = storageOptimizer.LayoutCacheManager;
+} catch (e) {
+  console.warn('[CanvasRenderer] 无法加载 storageOptimizer，将禁用布局缓存持久化');
+}
 
 /**
  * 解析简谱音符格式
@@ -109,6 +119,17 @@ class CanvasNotationRenderer {
     // 播放高亮状态
     this.playbackHighlight = null;
     this.playbackFadeColumns = [];
+    
+    // 【任务2】选中拍位信息
+    this.selectionInfo = {};
+  }
+  
+  /**
+   * 【任务2】设置选中拍位信息
+   * @param {Object} selectionInfo - 选中拍位信息 { 'notationId-measureIndex-beatIndex': true }
+   */
+  setSelectionInfo(selectionInfo) {
+    this.selectionInfo = selectionInfo || {};
   }
   
   /**
@@ -251,6 +272,19 @@ class CanvasNotationRenderer {
   }
   
   /**
+   * 获取下划线与低八度圆点之间的间距
+   * 当音符同时有下划线和低八度圆点时使用
+   */
+  getUnderlineDotGap() {
+    const fontSize = this.getFontSize();
+    // 计算间距: 基础间距 + 字号比例
+    let gap = OCTAVE_SETTINGS.underlineDotGapBase + Math.round(fontSize * OCTAVE_SETTINGS.underlineDotGapRatio);
+    gap = Math.max(OCTAVE_SETTINGS.underlineDotGapMin, gap);
+    gap = Math.min(OCTAVE_SETTINGS.underlineDotGapMax, gap);
+    return gap;
+  }
+  
+  /**
    * rpx转px（适配不同屏幕）
    */
   rpx2px(rpx) {
@@ -271,6 +305,15 @@ class CanvasNotationRenderer {
     };
   }
   
+  /**
+   * 【优化】生成布局缓存键名
+   * @returns {string} 缓存键名
+   */
+  _generateLayoutCacheKey() {
+    if (!this.notation) return null;
+    return `layout_${this.notation.id || this.notation.label || 'unknown'}_${this.orientation}_${this.measuresPerRow}_${this.notation.measures?.length || 0}_${this.width}`;
+  }
+
   /**
    * 计算布局并缓存
    * @returns {Object} 布局信息
@@ -332,7 +375,96 @@ class CanvasNotationRenderer {
       measures: measuresLayout
     };
     
+    // 【优化】异步持久化布局缓存（不阻塞渲染）
+    this._persistLayoutCache();
+    
     return this.layoutCache;
+  }
+
+  /**
+   * 【优化】异步持久化布局缓存
+   * @private
+   */
+  async _persistLayoutCache() {
+    if (!LayoutCacheManager || !this.layoutCache) return;
+    
+    const cacheKey = this._generateLayoutCacheKey();
+    if (!cacheKey) return;
+    
+    try {
+      // 只缓存不包含 measure 数据的布局信息（减少存储大小）
+      const cacheData = {
+        measureHeight: this.layoutCache.measureHeight,
+        lineSpacing: this.layoutCache.lineSpacing,
+        measuresPerRow: this.layoutCache.measuresPerRow,
+        measureWidth: this.layoutCache.measureWidth,
+        totalRows: this.layoutCache.totalRows,
+        totalHeight: this.layoutCache.totalHeight,
+        padding: this.layoutCache.padding,
+        // 只保存布局坐标，不保存 measure 数据
+        measureCoords: this.layoutCache.measures.map(m => ({
+          measureIndex: m.measureIndex,
+          x: m.x,
+          y: m.y,
+          width: m.width,
+          height: m.height,
+          row: m.row,
+          col: m.col
+        }))
+      };
+      await LayoutCacheManager.saveCache(cacheKey, cacheData);
+    } catch (e) {
+      console.warn('[CanvasRenderer] 持久化布局缓存失败:', e);
+    }
+  }
+
+  /**
+   * 【优化】异步计算布局（优先从持久化缓存加载）
+   * @returns {Promise<Object>} 布局信息
+   */
+  async calculateLayoutAsync() {
+    if (this.layoutCache) return this.layoutCache;
+    
+    const notation = this.notation;
+    if (!notation || !notation.measures) {
+      return null;
+    }
+    
+    // 尝试从持久化缓存加载
+    if (LayoutCacheManager) {
+      const cacheKey = this._generateLayoutCacheKey();
+      if (cacheKey) {
+        try {
+          const cached = await LayoutCacheManager.getCache(cacheKey);
+          if (cached && cached.measureCoords) {
+            // 重建完整的布局缓存（合并坐标和 measure 数据）
+            const measuresLayout = cached.measureCoords.map(coords => ({
+              ...coords,
+              measure: notation.measures[coords.measureIndex]
+            }));
+            
+            this.layoutCache = {
+              measureHeight: cached.measureHeight,
+              lineSpacing: cached.lineSpacing,
+              measuresPerRow: cached.measuresPerRow,
+              measureWidth: cached.measureWidth,
+              totalRows: cached.totalRows,
+              totalHeight: cached.totalHeight,
+              padding: cached.padding,
+              measures: measuresLayout
+            };
+            
+            console.log('[CanvasRenderer] 从持久化缓存加载布局');
+            return this.layoutCache;
+          }
+        } catch (e) {
+          console.warn('[CanvasRenderer] 加载持久化布局缓存失败:', e);
+        }
+      }
+    }
+    
+    // 回退到同步计算
+    return this.calculateLayout();
   }
   
   /**
@@ -393,19 +525,47 @@ class CanvasNotationRenderer {
       ctx.fillRect(x, y, this.rpx2px(LINE_SETTINGS.barLineWidth), height);
     }
     
-    // 绘制右侧小节线
-    ctx.fillStyle = this.colors.barLine;
-    ctx.fillRect(x + width - this.rpx2px(LINE_SETTINGS.barLineWidth), y, this.rpx2px(LINE_SETTINGS.barLineWidth), height);
-    
     // 计算每拍和每个细分的宽度
     const beats = measure.beats || [];
     const beatWidth = width / beats.length;
     
+    // 【优化】计算最后一个非占位拍的索引
+    let lastRealBeatIndex = beats.length - 1;
+    for (let i = beats.length - 1; i >= 0; i--) {
+      if (!beats[i].isPlaceholder) {
+        lastRealBeatIndex = i;
+        break;
+      }
+    }
+    
+    // 绘制右侧小节线（在最后一个非占位拍后面）
+    ctx.fillStyle = this.colors.barLine;
+    const rightBarX = x + (lastRealBeatIndex + 1) * beatWidth - this.rpx2px(LINE_SETTINGS.barLineWidth);
+    ctx.fillRect(rightBarX, y, this.rpx2px(LINE_SETTINGS.barLineWidth), height);
+    
     beats.forEach((beat, beatIndex) => {
       const beatX = x + beatIndex * beatWidth;
       
-      // 绘制拍子分隔线（跳过第一个）
-      if (beatIndex > 0 && !beat.barLineAfter) {
+      // 【任务1】如果是占位拍，只保留空间不绘制内容
+      if (beat.isPlaceholder) {
+        return; // 跳过占位拍的绘制
+      }
+      
+      // 【任务2】绘制选中高亮背景（更透明，无动态效果）
+      const notationId = this.notation?.id;
+      const selectionKey = `${notationId}-${measureIndex}-${beatIndex}`;
+      if (this.selectionInfo && this.selectionInfo[selectionKey]) {
+        ctx.fillStyle = (this.colors.rightHand || '#F4D096') + '30'; // 30% 透明度，更透明
+        ctx.fillRect(beatX + 3, y + 3, beatWidth - 6, height - 6);
+        // 绘制选中边框
+        ctx.strokeStyle = this.colors.rightHand || '#F4D096';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(beatX + 3, y + 3, beatWidth - 6, height - 6);
+      }
+      
+      // 绘制拍子分隔线（跳过第一个，且不在占位拍前绘制）
+      const prevBeat = beats[beatIndex - 1];
+      if (beatIndex > 0 && !beat.barLineAfter && !prevBeat?.isPlaceholder) {
         ctx.fillStyle = this.colors.beatLine;
         ctx.fillRect(beatX, y, this.rpx2px(LINE_SETTINGS.beatLineWidth), height);
       }
@@ -628,24 +788,42 @@ class CanvasNotationRenderer {
       // 绘制音符文字
       ctx.fillText(parsed.baseNote, currentX + baseNoteWidth / 2, centerY);
       
+      // 绘制下划线和下八度点
+      // 当两者同时存在时，先绘制下划线，低八度点显示在下划线下方
+      const hasUnderline = parsed.underline;
+      const hasOctaveDown = parsed.octaveDown > 0;
+      const underlineThickness = this.rpx2px(this.getUnderlineThickness());
+      const underlineY = centerY + fontSize / 2 + OCTAVE_SETTINGS.underlineOffsetY;
+      
       // 绘制下划线（时值减半）
-      if (parsed.underline) {
-        const underlineThickness = this.rpx2px(this.getUnderlineThickness());
+      if (hasUnderline) {
         ctx.fillRect(
           currentX + baseNoteWidth / 2 - baseNoteWidth / 2,
-          centerY + fontSize / 2 + OCTAVE_SETTINGS.underlineOffsetY,
+          underlineY,
           baseNoteWidth,
           underlineThickness
         );
       }
       
       // 绘制下八度点
-      if (parsed.octaveDown > 0) {
+      if (hasOctaveDown) {
+        // 计算低八度点的起始Y位置
+        let octaveDownStartY;
+        if (hasUnderline) {
+          // 当同时有下划线和低八度点时，低八度点显示在下划线下方
+          const underlineDotGap = this.rpx2px(this.getUnderlineDotGap());
+          // 起始位置 = 下划线底部 + 间距 + 圆点半径
+          octaveDownStartY = underlineY + underlineThickness + underlineDotGap + dotSize / 2;
+        } else {
+          // 仅有低八度点时，使用原有位置
+          octaveDownStartY = centerY + fontSize / 2 + dotSize / 2 + OCTAVE_SETTINGS.octaveDotGap;
+        }
+        
         for (let i = 0; i < parsed.octaveDown; i++) {
           ctx.beginPath();
           ctx.arc(
             currentX + baseNoteWidth / 2,
-            centerY + fontSize / 2 + dotSize / 2 + i * (dotSize + OCTAVE_SETTINGS.octaveDotGap) + OCTAVE_SETTINGS.octaveDotGap,
+            octaveDownStartY + i * (dotSize + OCTAVE_SETTINGS.octaveDotGap),
             dotSize / 2,
             0, Math.PI * 2
           );
@@ -870,10 +1048,21 @@ class CanvasNotationRenderer {
       ctx.fillRect(measureX, measureY, this.rpx2px(LINE_SETTINGS.barLineWidth), measureHeight);
     }
     
-    // 6. 重绘右侧小节线（如果是最后一个细分）
-    if (subIndex === subdivisions.length - 1 && beatIndex === beats.length - 1) {
+    // 6. 重绘右侧小节线（如果是最后一个非占位拍的最后一个细分）
+    // 【修复】计算最后一个非占位拍的索引，确保右侧小节线绘制在正确位置
+    let lastRealBeatIndex = beats.length - 1;
+    for (let i = beats.length - 1; i >= 0; i--) {
+      if (!beats[i].isPlaceholder) {
+        lastRealBeatIndex = i;
+        break;
+      }
+    }
+    
+    // 只有当当前拍是最后一个非占位拍，且是该拍的最后一个细分时，才重绘右侧小节线
+    if (subIndex === subdivisions.length - 1 && beatIndex === lastRealBeatIndex) {
       ctx.fillStyle = this.colors.barLine;
-      ctx.fillRect(measureX + measureWidth - this.rpx2px(LINE_SETTINGS.barLineWidth), measureY, this.rpx2px(LINE_SETTINGS.barLineWidth), measureHeight);
+      const rightBarX = measureX + (lastRealBeatIndex + 1) * beatWidth - this.rpx2px(LINE_SETTINGS.barLineWidth);
+      ctx.fillRect(rightBarX, measureY, this.rpx2px(LINE_SETTINGS.barLineWidth), measureHeight);
     }
     
     // 7. 重绘同一细分列中的其他音符槽位（可能被垂直扩展区域影响）

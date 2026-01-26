@@ -78,7 +78,7 @@ Page({
     dotUpOffsetAdjust: 50,      // 音高圆点上偏移
     dotDownOffsetAdjust: 50,    // 音高圆点下偏移
     underlineThicknessAdjust: 50, // 下划线厚度
-    underlineOffsetAdjust: 50,    // 下划线偏移
+    underlineOffsetAdjust: 70,    // 下划线偏移
     supFontSizeAdjust: 50,        // 上标大小
     
     // 预览相关
@@ -502,7 +502,14 @@ Page({
         // 用户调整参数
         lineSpacingAdjust: this.data.lineSpacingAdjust,
         measureHeightAdjust: this.data.measureHeightAdjust,
-        titleScaleAdjust: this.data.titleScaleAdjust
+        titleScaleAdjust: this.data.titleScaleAdjust,
+        // 更多调整参数
+        dotSizeAdjust: this.data.dotSizeAdjust,
+        dotUpOffsetAdjust: this.data.dotUpOffsetAdjust,
+        dotDownOffsetAdjust: this.data.dotDownOffsetAdjust,
+        underlineThicknessAdjust: this.data.underlineThicknessAdjust,
+        underlineOffsetAdjust: this.data.underlineOffsetAdjust,
+        supFontSizeAdjust: this.data.supFontSizeAdjust
       };
     } else {
       // long 模式
@@ -535,7 +542,14 @@ Page({
         // 用户调整参数
         lineSpacingAdjust: this.data.lineSpacingAdjust,
         measureHeightAdjust: this.data.measureHeightAdjust,
-        titleScaleAdjust: this.data.titleScaleAdjust
+        titleScaleAdjust: this.data.titleScaleAdjust,
+        // 更多调整参数
+        dotSizeAdjust: this.data.dotSizeAdjust,
+        dotUpOffsetAdjust: this.data.dotUpOffsetAdjust,
+        dotDownOffsetAdjust: this.data.dotDownOffsetAdjust,
+        underlineThicknessAdjust: this.data.underlineThicknessAdjust,
+        underlineOffsetAdjust: this.data.underlineOffsetAdjust,
+        supFontSizeAdjust: this.data.supFontSizeAdjust
       };
     }
     
@@ -765,9 +779,17 @@ Page({
         // 生成行内注记代码
         const annotationCode = this.generateLineAnnotationCode(rowMeasures);
         
+        // 【新增】检查并生成占位拍标记
+        const placeholderCount = this.countLinePlaceholderBeats(rowMeasures);
+        const placeholderMark = placeholderCount > 0 ? `#${placeholderCount}` : '';
+        
         code += lineCode;
         if (annotationCode) {
           code += annotationCode;
+        }
+        // 添加占位拍标记
+        if (placeholderMark) {
+          code += placeholderMark;
         }
         
         // 如果不是最后一行，添加换行符
@@ -823,8 +845,11 @@ Page({
     let globalIndex = 1;
     
     for (const measure of measures) {
-      for (const beat of measure.beats) {
-        for (const subdivision of beat.subdivisions) {
+      for (const beat of measure.beats || []) {
+        // 【修复】跳过占位拍
+        if (beat.isPlaceholder) continue;
+        
+        for (const subdivision of beat.subdivisions || []) {
           if (subdivision.annotation) {
             annotations.push(`"${globalIndex}:${subdivision.annotation}"`);
           }
@@ -834,6 +859,27 @@ Page({
     }
     
     return annotations.length > 0 ? `/*${annotations.join(',')}*/` : '';
+  },
+  
+  // 【新增】统计一行小节中的占位拍数量（只统计最后一个小节的末尾占位拍）
+  countLinePlaceholderBeats(measures) {
+    if (!measures || measures.length === 0) return 0;
+    
+    // 只检查最后一个小节
+    const lastMeasure = measures[measures.length - 1];
+    if (!lastMeasure || !lastMeasure.beats) return 0;
+    
+    // 从末尾开始统计连续的占位拍数量
+    let count = 0;
+    for (let i = lastMeasure.beats.length - 1; i >= 0; i--) {
+      if (lastMeasure.beats[i].isPlaceholder) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    
+    return count;
   },
 
   // 获取每行小节数
@@ -858,16 +904,19 @@ Page({
     return lineCode;
   },
 
-  // 生成单个小节的代码
+  // 生成单个小节的代码（跳过占位拍）
   generateMeasureCode(measure) {
     let code = '[';
     
-    for (let i = 0; i < measure.beats.length; i++) {
-      const beat = measure.beats[i];
+    // 【修复】过滤掉占位拍
+    const realBeats = (measure.beats || []).filter(beat => !beat.isPlaceholder);
+    
+    for (let i = 0; i < realBeats.length; i++) {
+      const beat = realBeats[i];
       code += this.generateBeatCode(beat);
       
       // 如果不是最后一拍，添加拍号线
-      if (i < measure.beats.length - 1) {
+      if (i < realBeats.length - 1) {
         // 检查是否有小节线（自定义拍号中的分组）
         if (beat.barLineAfter) {
           code += '][';

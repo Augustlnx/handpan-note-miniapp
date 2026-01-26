@@ -64,6 +64,19 @@
   opacity: 0.7;
 }
 
+/* 选中模式下禁用标题区交互 */
+.header-section.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.header-section.disabled .main-title,
+.header-section.disabled .sub-title-row,
+.header-section.disabled .intro-icon {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 .sub-title {
   display: block;
   font-size: 28rpx;
@@ -171,7 +184,7 @@
 
 /* 横屏两栏：线条略细但保持清晰 */
 .staff-container.multi-measure .bar-line {
-  width: 4rpx;
+  border-left-width: 4rpx; /* 修正：使用border-left-width而非width */
 }
 .staff-container.multi-measure .bar-line-left,
 .staff-container.multi-measure .bar-line-right {
@@ -210,6 +223,12 @@
   opacity: 1;
 }
 
+/* 选中模式下禁用删除图标 */
+.delete-icon.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 /* 更多图标（右上角，收起状态） */
 .more-icon-top-right {
   position: absolute;
@@ -245,6 +264,20 @@
   height: 43rpx;
   opacity: 1;
   transition: all 0.3s ease;
+}
+
+/* 选中模式下禁用功能栏 */
+.add-notation-row.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.add-notation-row.disabled .add-icon,
+.add-notation-row.disabled .refresh-icon,
+.add-notation-row.disabled .tool-icon,
+.add-notation-row.disabled .less-icon {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .add-icon:active,
@@ -319,6 +352,14 @@
 }
 
 .bar-line-right {
+  margin-left: 0;
+}
+
+/* 【优化】当有占位拍时，右侧小节线使用绝对定位 */
+.bar-line-right.bar-line-positioned {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   margin-left: 0;
 }
 
@@ -502,12 +543,12 @@
 }
 
 /* 时值减半下划线样式 */
+/* text-underline-offset 由 inline style 动态设置 */
 .note-underline {
   text-decoration: underline;
-  text-decoration-thickness: 4rpx;
-  text-underline-offset: 0rpx;
   text-decoration-color: currentColor;
   font-weight: bold;
+  /* text-decoration-thickness 和 text-underline-offset 由 inline style 控制 */
 }
 
 .note-right-hand {
@@ -752,6 +793,12 @@
 .action-toggle:active {
   opacity: 1;
   transform: scale(1.15) !important;
+}
+
+/* 选中模式下禁用菜单栏展开按钮 */
+.action-toggle.disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 /* —— 横屏整体 UI 缩放：标题区、功能行、模块标签与图标缩小至 50% —— */
@@ -1888,6 +1935,88 @@
   transition: all 0.2s ease;
 }
 
+/* 拍号设置入口卡片特殊样式 - 高级深色按钮设计 */
+.settings-item.settings-item-highlight {
+  background: linear-gradient(135deg, #314D63 0%, #496A81 100%);
+  border: none;
+  cursor: pointer;
+  padding: 32rpx 28rpx;
+  box-shadow: 0 8rpx 24rpx rgba(44, 62, 80, 0.25), 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 高级光泽效果 */
+.settings-item.settings-item-highlight::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.settings-item.settings-item-highlight:active::before {
+  left: 100%;
+}
+
+.settings-item.settings-item-highlight:active {
+  transform: translateY(2rpx) scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(44, 62, 80, 0.3), 0 2rpx 6rpx rgba(0, 0, 0, 0.15);
+}
+
+.settings-item.settings-item-highlight .settings-item-header {
+  margin-bottom: 12rpx;
+}
+
+.settings-item.settings-item-highlight .settings-label {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 32rpx;
+  letter-spacing: 0.5rpx;
+}
+
+.settings-item.settings-item-highlight .settings-icon {
+  filter: brightness(0) invert(1);
+}
+
+.settings-arrow-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  backdrop-filter: blur(8rpx);
+  -webkit-backdrop-filter: blur(8rpx);
+}
+
+.settings-current-value {
+  font-size: 24rpx;
+  color: #ffffff;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.settings-arrow {
+  font-size: 32rpx;
+  color: #ffffff;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.settings-item-desc {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  padding-left: 52rpx;
+}
+
 .settings-item:last-child {
   margin-bottom: 0;
 }
@@ -1897,6 +2026,42 @@
   align-items: center;
   gap: 12rpx;
   margin-bottom: 24rpx;
+}
+
+/* 模块拍号设置弹窗 */
+.module-time-signature-modal {
+  max-width: 650rpx;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* 模块拍号设置弹窗的遮罩层需要更高的层级 */
+.modal-overlay-high {
+  z-index: 10700 !important;
+}
+
+.module-ts-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 16rpx 20rpx;
+  background: linear-gradient(135deg, #f0f6f4 0%, #e8f2ef 100%);
+  border-radius: 12rpx;
+  margin-bottom: 24rpx;
+  border-left: 4rpx solid #8FB9AB;
+}
+
+.module-ts-hint .hint-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+}
+
+.module-ts-hint .hint-text {
+  font-size: 24rpx;
+  color: #555;
+  line-height: 1.5;
 }
 
 .settings-icon {
@@ -3679,6 +3844,403 @@
   box-shadow: 0 4rpx 12rpx rgba(238, 90, 82, 0.4);
 }
 
+/* ========== 【任务1】删除拍位确认弹窗样式 ========== */
+.delete-beat-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.delete-beat-modal {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 40rpx;
+  width: 85%;
+  max-width: 560rpx;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.delete-beat-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28rpx;
+}
+
+.delete-beat-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(243, 156, 18, 0.35);
+}
+
+.delete-beat-icon-text {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.delete-beat-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 16rpx;
+}
+
+.delete-beat-desc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 24rpx;
+}
+
+.delete-beat-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 功能切换胶囊 */
+.delete-beat-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f5f7fa;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 28rpx;
+}
+
+.delete-beat-toggle-label {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.delete-beat-toggle {
+  width: 96rpx;
+  height: 52rpx;
+  border-radius: 26rpx;
+  background: #ddd;
+  position: relative;
+  transition: background 0.3s ease;
+}
+
+.delete-beat-toggle.active {
+  background: #8FB9AB;
+}
+
+.delete-beat-toggle-thumb {
+  position: absolute;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: #fff;
+  top: 4rpx;
+  left: 4rpx;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+}
+
+.delete-beat-toggle.active .delete-beat-toggle-thumb {
+  transform: translateX(44rpx);
+}
+
+.delete-beat-buttons {
+  display: flex;
+  gap: 24rpx;
+}
+
+.delete-beat-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.delete-beat-btn::after {
+  display: none;
+}
+
+.delete-beat-btn-cancel {
+  background: #f0f2f5;
+  color: #666;
+}
+
+.delete-beat-btn-cancel:active {
+  background: #e4e6e9 !important;
+  transform: scale(0.98);
+}
+
+.delete-beat-btn-confirm {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: #ffffff;
+  box-shadow: 0 6rpx 20rpx rgba(243, 156, 18, 0.35);
+}
+
+.delete-beat-btn-confirm:active {
+  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%) !important;
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(243, 156, 18, 0.4);
+}
+
+/* ========== 【任务2】复制/粘贴气泡弹窗样式（紧凑版） ========== */
+/* 【任务2】复制/粘贴/删除气泡弹窗（相对于拍位元素定位，跟随谱面滚动） */
+.beat-bubble {
+  position: absolute;
+  top: -80rpx; /* 显示在拍位上方 */
+  left: 50%;
+  transform: translateX(-50%); /* 水平居中 */
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.96) 0%, rgba(45, 45, 45, 0.94) 100%);
+  border-radius: 16rpx;
+  padding: 10rpx 8rpx;
+  box-shadow: 0 8rpx 28rpx rgba(0, 0, 0, 0.4), 0 3rpx 10rpx rgba(0, 0, 0, 0.2);
+  z-index: 10001; /* 确保在拍位内容上方 */
+  pointer-events: auto;
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  white-space: nowrap; /* 防止换行 */
+}
+
+/* Canvas模式下的气泡（相对于Canvas容器定位） */
+.beat-bubble-canvas {
+  top: auto; /* 覆盖默认的top值 */
+  left: auto; /* 覆盖默认的left值 */
+  transform: none; /* 覆盖默认的transform */
+  z-index: 10002; /* 确保在Canvas上方 */
+}
+
+.beat-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -10rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10rpx solid transparent;
+  border-right: 10rpx solid transparent;
+  border-top: 10rpx solid rgba(45, 45, 45, 0.94);
+}
+
+.beat-bubble-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10rpx 20rpx;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-radius: 10rpx;
+}
+
+.beat-bubble-btn:active {
+  opacity: 0.7;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.beat-bubble-btn.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.beat-bubble-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-bottom: 4rpx;
+  filter: brightness(0) invert(1);
+}
+
+.beat-bubble-divider {
+  width: 1rpx;
+  height: 48rpx;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2rpx;
+}
+
+/* 删除按钮特殊样式 */
+.beat-bubble-btn-delete {
+  color: #FF6B6B;
+}
+
+.beat-bubble-btn-delete:active {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+.beat-bubble-icon-delete {
+  filter: none; /* 删除图标不使用白色滤镜 */
+}
+
+/* ========== 【任务2】拍位选中高亮样式 ========== */
+.beat {
+  position: relative;
+}
+
+/* 【任务1】占位拍样式（保持宽度但不显示内容） */
+.beat.beat-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.beat.beat-selecting {
+  cursor: pointer;
+}
+
+/* 选中模式下的拍位hover效果 */
+.beat.beat-selecting:active {
+  background: rgba(244, 208, 150, 0.2);
+}
+
+/* 选中状态的拍位 */
+.beat.beat-selected {
+  z-index: 2;
+}
+
+.beat-selection-highlight {
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  right: 4rpx;
+  bottom: 4rpx;
+  border-radius: 12rpx;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.2;
+  border: 3rpx solid;
+}
+
+/* ========== 【任务2】选中模式顶部工具栏（iOS风格，优化版） ========== */
+.beat-selection-toolbar {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 44px) + 160rpx);
+  left: 24rpx;
+  right: 24rpx;
+  background: linear-gradient(135deg, rgba(35, 55, 72, 0.95) 0%, rgba(45, 70, 90, 0.90) 100%);
+  z-index: 99999; /* 最高层级确保可见 */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.35), 0 2rpx 12rpx rgba(0, 0, 0, 0.2);
+  animation: toolbarFadeIn 0.25s ease-out;
+}
+
+@keyframes toolbarFadeIn {
+  from {
+    transform: translateY(-20rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.selection-toolbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 28rpx;
+  min-height: 72rpx;
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.selection-icon {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #8FB9AB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3rpx 10rpx rgba(0, 0, 0, 0.35);
+}
+
+.selection-icon-text {
+  width:20rpx;
+  height:20rpx;
+}
+
+.selection-text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+  letter-spacing: 0.5rpx;
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.selection-count {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 10rpx 20rpx;
+  border-radius: 16rpx;
+}
+
+.count-text {
+  color: rgba(244, 244, 244, 0.85);
+  font-size: 22rpx;
+}
+
+.selection-exit-btn {
+  background: #8FB9AB;
+  padding: 14rpx 28rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 14rpx rgba(143, 185, 171, 0.35);
+  transition: all 0.2s ease;
+}
+
+.selection-exit-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2rpx 8rpx rgba(143, 185, 171, 0.3);
+}
+
+.selection-exit-btn text {
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* 旧的选中提示样式（已替换为工具栏，保留以防兼容） */
+.beat-selection-hint {
+  display: none;
+}
+
+@keyframes hintSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 /* 备注显示样式优化 */
 .note-annotation {
   position: absolute;
@@ -5021,8 +5583,8 @@
 
 .vk-main-note.vk-note-underline {
   text-decoration: underline;
-  text-underline-offset: 0rpx;
-  text-decoration-thickness: 4rpx;
+  text-underline-offset: 2rpx;
+  text-decoration-thickness: 6rpx;
 }
 
 /* 八度点容器 - 竖直排列（多个点上下叠加） */
@@ -5039,7 +5601,7 @@
 }
 
 .vk-octave-down {
-  margin-top: 5rpx;
+  margin-top: 3rpx;
 }
 
 .vk-octave-dot {
@@ -5258,6 +5820,11 @@
   pointer-events: none;
 }
 
+/* 拖动时取消过渡动画，实现丝滑跟随 */
+.pitch-fill-bar.dragging {
+  transition: none;
+}
+
 .pitch-fill-icon {
   color: #fff;
   font-size: 24rpx;
@@ -5431,11 +5998,11 @@
   height: 250rpx;
 }
 
-/* 帮助按钮 - 右上角 */
+/* 帮助按钮 - 左上角 */
 .vk-help-corner-btn {
   position: absolute;
-  top: 6rpx;
-  right: 6rpx;
+  top: 8rpx;
+  left: 8rpx;
   width: 50rpx;
   height: 50rpx;
   background: #F2F2F2;
@@ -5461,6 +6028,41 @@
 .vk-help-corner-icon--active {
   width: 44rpx;
   height: 44rpx; 
+}
+
+/* 对角线快捷移动按钮 - 无背景无阴影 */
+.vk-diagonal-btn {
+  position: absolute;
+  width: 20rpx;
+  height: 20rpx;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+}
+
+.vk-diagonal-btn:active {
+  transform: scale(0.88);
+  opacity: 0.6;
+}
+
+/* 右上角按钮 */
+.vk-diagonal-up-right {
+  top: 13rpx;
+  right: 13rpx;
+}
+
+/* 右下角按钮 */
+.vk-diagonal-down-right {
+  bottom: 13rpx;
+  right: 13rpx;
+}
+
+.vk-diagonal-icon {
+  width: 40rpx;
+  height: 40rpx;
 }
 
 /* 方向控制盘 - 拟态设计 */
@@ -6214,8 +6816,8 @@ background: radial-gradient(
 /* 主滑杆容器 */
 .inline-tempo-slider {
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 24rpx;
-  padding: 20rpx 16rpx;
+  border-radius: 54rpx;
+  padding: 20rpx 8rpx;
   box-shadow: 0 10rpx 40rpx rgba(49, 77, 99, 0.25);
   display: flex;
   flex-direction: column;
@@ -6235,6 +6837,14 @@ background: radial-gradient(
   }
 }
 
+/* 触摸区域：包含 180+轨道+20，拖到顶端/底端也能正确取到 180/20 */
+.inline-tempo-track-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .inline-tempo-max,
 .inline-tempo-min {
   font-size: 20rpx;
@@ -6245,60 +6855,71 @@ background: radial-gradient(
 
 /* 自定义竖向滑动条轨道 - 加大 */
 .inline-tempo-track {
-  width: 32rpx;
-  height: 280rpx;
-  background: rgba(143, 185, 171, 0.2);
-  border-radius: 16rpx;
+  width: 44rpx;
+  height: 380rpx;
+  background: rgba(48, 72, 89, 0.2);
+  border-radius: 46rpx;
   position: relative;
   overflow: visible;
 }
 
-/* 已填充部分（从底部向上） - 纯#8FB9AB主题渐变 */
+/* 已填充部分（从底部向上） */
 .inline-tempo-fill {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(0deg, #a8cfc3 0%, #8FB9AB 50%, #b8d9ce 100%);
-  border-radius: 16rpx;
+  z-index: 0;
+  background: #3D586B;
+  border-radius: 0 0 46rpx 46rpx;
   transition: height 0.05s ease-out;
 }
 
-/* 滑块 - 加大 */
+/* 滑块 - 加大，置于填充层之上 */
 .inline-tempo-thumb {
   position: absolute;
   left: 50%;
   transform: translateX(-50%) translateY(50%);
-  width: 40rpx;
-  height: 40rpx;
-  background: #8FB9AB;
+  width: 50rpx;
+  height: 50rpx;
+  z-index: 1;
+  background: #3D586B;
   border-radius: 50%;
-  box-shadow: 0 4rpx 12rpx rgba(143, 185, 171, 0.5);
+  box-shadow: 0 4rpx 12rpx rgba(48, 72, 89, 0.5);
   transition: bottom 0.05s ease-out;
   border: 4rpx solid #fff;
 }
 
 .inline-tempo-thumb:active {
   transform: translateX(-50%) translateY(50%) scale(1.15);
-  box-shadow: 0 6rpx 20rpx rgba(143, 185, 171, 0.6);
+  box-shadow: 0 6rpx 20rpx rgba(48, 72, 89, 0.6);
 }
 
-/* 底部可输入数字 */
+/* 顶部可输入数字 - 圆形内垂直水平居中 */
 .inline-tempo-input-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #314D63;
-  border-radius: 12rpx;
-  padding: 6rpx 8rpx;
-  margin-top: 4rpx;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  box-sizing: border-box;
+  padding: 0;
+  margin-bottom: 4rpx;
 }
 
 .inline-tempo-input {
-  width: 64rpx;
-  font-size: 26rpx;
+  width: 100%;
+  height: 100%;
+  font-size: 22rpx;
   font-weight: 700;
   color: #fff;
   text-align: center;
+  line-height: 1;
   font-family: 'SF Mono', 'Monaco', monospace;
   background: transparent;
+  padding: 0;
 }
 
 /* 常用档位按键组 - 悬浮在容器外侧 */
@@ -6773,6 +7394,15 @@ background: radial-gradient(
   font-weight: 500;
 }
 
+/* 播放模式下底部预留空间，防止播放器菜单栏遮挡谱面 */
+.notation-container.playback-mode {
+  padding-bottom: 520rpx;
+}
+
+.landscape-mode .notation-container.playback-mode {
+  padding-bottom: 320rpx;
+}
+
 /* 播放模式下禁用编辑交互 */
 .notation-container.playback-mode .note-slot,
 .notation-container.playback-mode .slot-click-overlay {
@@ -7010,6 +7640,45 @@ background: radial-gradient(
   box-sizing: border-box;
   pointer-events: none;
   animation: canvasHighlightPulse 1.5s ease-in-out infinite;
+}
+
+/* 【性能优化】使用 transform 和 CSS 变量实现高性能高亮框移动 */
+.canvas-editing-highlight--optimized {
+  /* 使用 transform 替代 left/top，启用 GPU 加速 */
+  left: 0;
+  top: 0;
+  width: var(--highlight-w, 0);
+  height: var(--highlight-h, 0);
+  transform: translate(var(--highlight-x, 0), var(--highlight-y, 0));
+  /* 启用硬件加速 */
+  will-change: transform;
+  /* 快速过渡动画，提升切换流畅感 */
+  transition: transform 30ms ease-out;
+  /* 高层级确保不被遮挡 */
+  z-index: 1000;
+  /* 边框和背景通过 CSS 变量设置 */
+  border: 4rpx solid var(--highlight-color, #F4D096);
+  background: color-mix(in srgb, var(--highlight-color, #F4D096) 15%, transparent);
+}
+
+/* 右手高亮样式 */
+.canvas-editing-highlight--right {
+  border-color: var(--highlight-color, #F4D096);
+}
+
+/* 左手高亮样式 */
+.canvas-editing-highlight--left {
+  border-color: var(--highlight-color, #314D63);
+}
+
+/* 兼容不支持 color-mix 的环境 */
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .canvas-editing-highlight--optimized.canvas-editing-highlight--right {
+    background: rgba(244, 208, 150, 0.2);
+  }
+  .canvas-editing-highlight--optimized.canvas-editing-highlight--left {
+    background: rgba(49, 77, 99, 0.2);
+  }
 }
 
 @keyframes canvasHighlightPulse {

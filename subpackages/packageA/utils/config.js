@@ -219,7 +219,7 @@ const LONG_IMAGE_CONFIG = {
   underlineThicknessRatio: 0.08,    // 下划线粗细（相对于字号）
   underlineWidthRatio: 0.8,         // 下划线宽度（相对于字号）
   underlineOffsetRatio: 0.5,        // 下划线偏移（相对于文字半高）
-  underlineExtraOffset: 2,          // 下划线额外偏移（px）
+  underlineExtraOffset: 3,          // 下划线额外偏移（px）
   
   // 注记字号
   annotationFontSizeRatio: 0.65,    // 注记字号（相对于音符字号）
@@ -483,7 +483,7 @@ const PAGED_PORTRAIT_LOOSE_CONFIG = {
   underlineThicknessRatio: 0.1,
   underlineWidthRatio: 0.8,
   underlineOffsetRatio: 0.6,
-  underlineExtraOffset: 2,
+  underlineExtraOffset: 3,
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
   
@@ -614,7 +614,7 @@ const PAGED_LANDSCAPE_COMPACT_CONFIG = {
   underlineThicknessRatio: 0.08,
   underlineWidthRatio: 0.8,
   underlineOffsetRatio: 0.5,
-  underlineExtraOffset: 2,
+  underlineExtraOffset: 3,
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
   
@@ -745,7 +745,7 @@ const PAGED_LANDSCAPE_LOOSE_CONFIG = {
   underlineThicknessRatio: 0.08,
   underlineWidthRatio: 0.8,
   underlineOffsetRatio: 0.5,
-  underlineExtraOffset: 2,
+  underlineExtraOffset: 3,
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
   

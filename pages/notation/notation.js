@@ -2,6 +2,14 @@ const app = getApp();
 const libraryManager = require('../../utils/libraryManager.js');
 const { CanvasNotationRenderer } = require('../../utils/canvasRenderer.js');
 
+// 存储优化工具
+const { 
+  AsyncStorage, 
+  LayoutCacheManager, 
+  optimizedStorage, 
+  workerManager 
+} = require('../../utils/storageOptimizer.js');
+
 // 播放管理器延迟加载（使用主包模块，音频资源按需加载）
 let sheetPlaybackManager = null;
 const getSheetPlaybackManager = async () => {
@@ -11,24 +19,31 @@ const getSheetPlaybackManager = async () => {
 
   // 预加载 audio 分包（用于音频资源，非模块代码）
   // 注意：主包无法 require 分包模块，但可以预加载分包资源
-  try {
-    await new Promise((resolve, reject) => {
-      wx.loadSubPackage({
-        name: 'audio',
-        success: () => {
-          console.log('[Notation] audio 分包预加载成功');
-          resolve();
-        },
-        fail: (err) => {
-          console.warn('[Notation] audio 分包预加载失败（可忽略）:', err);
-          resolve(); // 即使失败也继续，因为模块在主包
-        }
+  const loadSubPackageAPI = wx.loadSubPackage || wx.loadSubpackage;
+  
+  if (loadSubPackageAPI) {
+    try {
+      await new Promise((resolve) => {
+        loadSubPackageAPI({
+          name: 'audio',
+          success: () => {
+            console.log('[Notation] audio 分包预加载成功');
+            wx.setStorageSync('subpackage_audio_loaded', true);
+            resolve();
+          },
+          fail: (err) => {
+            console.warn('[Notation] audio 分包预加载失败（可忽略）:', err);
+            resolve(); // 即使失败也继续，因为模块在主包
+          }
+        });
+        // 超时保护：2秒后自动继续
+        setTimeout(resolve, 2000);
       });
-      // 超时保护
-      setTimeout(resolve, 3000);
-    });
-  } catch (e) {
-    console.warn('[Notation] 分包预加载异常:', e);
+    } catch (e) {
+      console.warn('[Notation] 分包预加载异常:', e);
+    }
+  } else {
+    console.log('[Notation] wx.loadSubPackage 不可用，跳过分包预加载');
   }
 
   // 从主包加载播放管理器模块（主包可以正常 require）
@@ -135,6 +150,15 @@ Page({
     moduleNoteFontSizeError: '',
     moduleLineSpacing: 65,
     moduleLineSpacingError: '',
+    // 模块拍号设置弹窗
+    showModuleTimeSignatureModal: false,
+    moduleVisualNoteCount: 16,
+    moduleVisualDots: [],
+    moduleVisualSeparators: [],
+    moduleMeasureInfoList: [],
+    moduleTimeSignatureTemplate: '',
+    moduleTimeSignatureError: '',
+    moduleTimeSignatureValid: false,
     // 节拍器相关
     metronomeBeats: [1, 2, 3, 4],
     currentMetronomeBeat: -1,
@@ -166,7 +190,7 @@ Page({
     defaultConversionTable: {
       // 基础音组 (Ding & 底层音)
       'D': ['D', 'D3'],      
-      '0': ['6,', 'D3'], 
+      '0': ['0', ''], 
       'd': ['d', ''],        // d/T/K 特殊处理，SPN在运行时动态判断
       '1': ['3', 'A3'],    
       '2': ['4', 'Bb3'],     
@@ -323,6 +347,7 @@ Page({
       { name: '倍高音', icon: '♪' }
     ],
     pitchDragging: false, // 是否正在拖动音高调节器
+    pitchDragProgress: 60, // 拖动时的实时进度 (0-100)，初始值对应 pitchLevel=2
     pitchToastVisible: false, // 音高提示是否显示
     // 备注弹窗相关
     showAnnotationModal: false, // 是否显示备注编辑弹窗
@@ -372,6 +397,25 @@ Page({
     // 删除行确认弹窗
     showDeleteRowModal: false,
     pendingDeleteRowInfo: null, // 待删除行的信息 { notationIndex, rowStartIndex, measuresPerRow }
+    
+    // ========== 任务1: 删除拍位确认弹窗 ==========
+    showDeleteBeatModal: false, // 是否显示删除拍位确认弹窗
+    deleteBeatAllEmpty: true, // 是否删除当前位置后续所有空拍（默认开启）
+    pendingDeleteBeatInfo: null, // 待删除拍位的信息 { notationIndex, measureIndex, beatIndex, subIndex, deleteAllEmpty }
+    
+    // ========== 任务2: 复制粘贴功能 ==========
+    beatClipboard: '', // 全局拍位剪贴板（格式: |拍A代码|拍B代码|...）
+    beatClipboardBeats: [], // 剪贴板中的拍数组（解析后的数据结构）
+    isSelectingBeats: false, // 是否处于拍位选择模式
+    beatSelectionStart: null, // 选择起点 { notationId, measureIndex, beatIndex }
+    beatSelectionEnd: null, // 选择终点 { notationId, measureIndex, beatIndex }
+    showBeatSelectionBubble: false, // 是否显示复制/粘贴气泡弹窗
+    beatBubblePosition: { x: 0, y: 0 }, // 气泡弹窗位置（已废弃，保留兼容）
+    beatBubbleCanvasPosition: { x: 0, y: 0 }, // Canvas模式下气泡弹窗位置
+    selectedBeatsInfo: [], // 选中的拍位信息数组
+    // Canvas模式两步选择法
+    canvasSelectStep: 0, // 0: 未选择, 1: 已选择起点等待终点, 2: 选择完成
+    canvasSelectStartInfo: null, // Canvas模式起点信息
     
     // 主音选项
     rootNoteOptions: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
@@ -425,7 +469,17 @@ Page({
     // ========== Canvas渲染模式相关 ==========
     canvasEditing: null, // Canvas模式下的编辑状态 { notationId, measureIndex, beatIndex, subIndex, hand, index, inputX, inputY, inputWidth, inputHeight, focus }
     canvasEditingValue: '', // Canvas模式下正在编辑的值
+    
+    // ========== 【性能优化】全局高亮覆盖层 ==========
+    // 使用 CSS transform 快速移动高亮框，避免 Canvas 重绘和 View 条件渲染
+    slotHighlight: null, // 高亮框位置信息 { notationId, x, y, width, height, hand, visible }
+    slotHighlightViewMode: null, // View 模式下的高亮层 { notationId, measureIndex, beatIndex, subIndex, hand, index, visible }
   },
+  
+  // ========== 【性能优化】音符解析缓存 ==========
+  _noteDisplayCache: {},
+  _noteParsedCache: {},
+  _pendingCommitTimer: null, // 延迟提交定时器
 
   // Canvas渲染器实例映射 { notationId: CanvasNotationRenderer }
   _canvasRenderers: {},
@@ -491,7 +545,65 @@ Page({
   },
 
   /**
+   * 【性能优化】获取缓存的音符显示文本
+   * @param {string} note - 音符字符串
+   * @returns {string} 渲染后的显示文本
+   */
+  getCachedNoteDisplay(note) {
+    if (!note) return '';
+    if (!this._noteDisplayCache) this._noteDisplayCache = {};
+    if (!this._noteDisplayCache[note]) {
+      this._noteDisplayCache[note] = this.renderNoteForDisplay(note);
+    }
+    return this._noteDisplayCache[note];
+  },
+  
+  /**
+   * 【性能优化】获取缓存的音符解析结果
+   * @param {string} note - 音符字符串
+   * @returns {Object} 解析结果
+   */
+  getCachedNoteParsed(note) {
+    if (!note) return this.parseNoteForVK('');
+    if (!this._noteParsedCache) this._noteParsedCache = {};
+    if (!this._noteParsedCache[note]) {
+      this._noteParsedCache[note] = this.parseNoteForVK(note);
+    }
+    return this._noteParsedCache[note];
+  },
+  
+  /**
+   * 【性能优化】清除音符缓存（当转换表变更时调用）
+   */
+  clearNoteCache() {
+    this._noteDisplayCache = {};
+    this._noteParsedCache = {};
+  },
+  
+  /**
+   * 【性能优化】计算 Canvas 模式下高亮框的位置
+   * @param {string} notationId - 谱面ID
+   * @param {Object} info - 槽位信息
+   * @returns {Object|null} 高亮框位置 { x, y, width, height }
+   */
+  calculateCanvasHighlightPosition(notationId, info) {
+    const renderer = this._canvasRenderers?.[notationId];
+    if (!renderer || !renderer.hitAreas) return null;
+    
+    const hitArea = renderer.hitAreas.find(area => 
+      area.measureIndex === info.measure &&
+      area.beatIndex === info.beat &&
+      area.subIndex === info.subdivision &&
+      area.hand === info.hand &&
+      area.index === info.index
+    );
+    
+    return hitArea ? { x: hitArea.x, y: hitArea.y, width: hitArea.width, height: hitArea.height } : null;
+  },
+
+  /**
    * 统一导航到指定槽位（同时支持 View 和 Canvas 模式）
+   * 【性能优化】使用 CSS 高亮层替代 Canvas 重绘，使用缓存减少计算
    * @param {Object} info 包含 sheet, measure, beat, subdivision, hand, index, isCanvas
    */
   navigateToSlotUnified(info) {
@@ -507,43 +619,96 @@ Page({
     const slotArray = notation.measures[info.measure]?.beats[info.beat]?.subdivisions[info.subdivision]?.[info.hand === 'right' ? 'rightHand' : 'leftHand'];
     const currentValue = Array.isArray(slotArray) ? (slotArray[info.index] || '') : '';
     
+    // 【优化】使用缓存获取解析结果
+    const cachedDisplay = this.getCachedNoteDisplay(currentValue);
+    const cachedParsed = this.getCachedNoteParsed(currentValue);
+    
     if (info.isCanvas) {
-      // Canvas 模式 - 更新 canvasEditing
-      const renderer = this._canvasRenderers?.[info.sheet];
+      // ========== Canvas 模式优化 ==========
+      // 【优化】直接计算高亮框位置，通过 CSS overlay 显示，不重绘 Canvas
+      const highlightPos = this.calculateCanvasHighlightPosition(info.sheet, info);
+      const notationIndex = notations.findIndex(n => n.id === info.sheet);
       
-      // 先清除旧的高亮
-      const oldEditing = this.data.canvasEditing;
-      if (oldEditing && renderer) {
-        const oldSlot = notation.measures[oldEditing.measureIndex]?.beats[oldEditing.beatIndex]?.subdivisions[oldEditing.subIndex]?.[oldEditing.hand === 'right' ? 'rightHand' : 'leftHand'];
-        const oldValue = Array.isArray(oldSlot) ? (oldSlot[oldEditing.index] || '') : '';
-        renderer.redrawSlot(oldEditing.measureIndex, oldEditing.beatIndex, oldEditing.subIndex, oldEditing.hand, oldEditing.index, oldValue, false);
-      }
+      // 【修复】同步保存前一个位置，避免异步竞态条件
+      const prevCanvasEditing = this._prevCanvasEditing;
+      // 【修复】立即更新 _prevCanvasEditing，确保下次调用时能获取正确的前一个位置
+      this._prevCanvasEditing = { 
+        notationId: info.sheet, 
+        measureIndex: info.measure, 
+        beatIndex: info.beat, 
+        subIndex: info.subdivision, 
+        hand: info.hand, 
+        index: info.index 
+      };
       
-      this.setData({
+      // 构建更新数据，一次性 setData
+      const updateData = {
         canvasEditing: {
-          ...this.data.canvasEditing,
           notationId: info.sheet,
+          notationIndex: notationIndex,
           measureIndex: info.measure,
           beatIndex: info.beat,
           subIndex: info.subdivision,
           hand: info.hand,
-          index: info.index
+          index: info.index,
+          // 【优化】直接存储高亮位置，用于 CSS overlay
+          inputX: highlightPos ? highlightPos.x : 0,
+          inputY: highlightPos ? highlightPos.y : 0,
+          inputWidth: highlightPos ? highlightPos.width : 0,
+          inputHeight: highlightPos ? highlightPos.height : 0,
+          focus: true
         },
         canvasEditingValue: currentValue,
         virtualKeyboardDisplay: currentValue,
-        virtualKeyboardRendered: this.renderNoteForDisplay(currentValue),
-        vkParsed: this.parseNoteForVK(currentValue),
+        virtualKeyboardRendered: cachedDisplay,
+        vkParsed: cachedParsed,
         superscriptMode: null,
-        superscriptContent: ''
-      }, () => {
-        // 绘制新的高亮
-        if (renderer) {
-          renderer.redrawSlot(info.measure, info.beat, info.subdivision, info.hand, info.index, currentValue, true);
-        }
+        superscriptContent: '',
+        // 【优化】全局高亮层数据（用于 CSS transform 动画）
+        slotHighlight: highlightPos ? {
+          notationId: info.sheet,
+          x: highlightPos.x,
+          y: highlightPos.y,
+          width: highlightPos.width,
+          height: highlightPos.height,
+          hand: info.hand,
+          visible: true
+        } : null
+      };
+      
+      this.setData(updateData, () => {
         this.updatePitchLevelFromNote();
       });
+      
+      // 【优化】Canvas 重绘移到 nextTick，不阻塞视觉反馈
+      // 注意：这里保留 Canvas 重绘以确保数据正确性，但不阻塞主要流程
+      wx.nextTick(() => {
+        const renderer = this._canvasRenderers?.[info.sheet];
+        if (renderer) {
+          // 先清除旧的高亮（如果存在且不同位置）
+          // 【修复】使用同步保存的 prevCanvasEditing，而非 this._prevCanvasEditing
+          if (prevCanvasEditing && prevCanvasEditing.notationId === info.sheet) {
+            const isSameSlot = prevCanvasEditing.measureIndex === info.measure &&
+                              prevCanvasEditing.beatIndex === info.beat &&
+                              prevCanvasEditing.subIndex === info.subdivision &&
+                              prevCanvasEditing.hand === info.hand &&
+                              prevCanvasEditing.index === info.index;
+            if (!isSameSlot) {
+              const oldNotation = notations.find(n => n.id === prevCanvasEditing.notationId);
+              if (oldNotation) {
+                const oldSlot = oldNotation.measures[prevCanvasEditing.measureIndex]?.beats[prevCanvasEditing.beatIndex]?.subdivisions[prevCanvasEditing.subIndex]?.[prevCanvasEditing.hand === 'right' ? 'rightHand' : 'leftHand'];
+                const oldValue = Array.isArray(oldSlot) ? (oldSlot[prevCanvasEditing.index] || '') : '';
+                renderer.redrawSlot(prevCanvasEditing.measureIndex, prevCanvasEditing.beatIndex, prevCanvasEditing.subIndex, prevCanvasEditing.hand, prevCanvasEditing.index, oldValue, false);
+              }
+            }
+          }
+          // 绘制新的高亮
+          renderer.redrawSlot(info.measure, info.beat, info.subdivision, info.hand, info.index, currentValue, true);
+        }
+      });
     } else {
-      // View 模式 - 更新 editing
+      // ========== View 模式优化 ==========
+      // 【优化】使用缓存和批量 setData
       this.setData({
         editing: { 
           sheet: info.sheet, 
@@ -555,10 +720,20 @@ Page({
         },
         editingValue: currentValue,
         virtualKeyboardDisplay: currentValue,
-        virtualKeyboardRendered: this.renderNoteForDisplay(currentValue),
-        vkParsed: this.parseNoteForVK(currentValue),
+        virtualKeyboardRendered: cachedDisplay,
+        vkParsed: cachedParsed,
         superscriptMode: null,
-        superscriptContent: ''
+        superscriptContent: '',
+        // 【优化】View 模式高亮层数据
+        slotHighlightViewMode: {
+          notationId: info.sheet,
+          measureIndex: info.measure,
+          beatIndex: info.beat,
+          subIndex: info.subdivision,
+          hand: info.hand,
+          index: info.index,
+          visible: true
+        }
       });
       
       this.prevEditing = this.data.editing;
@@ -639,10 +814,13 @@ Page({
       console.log(`[Notation] audio: ${audioLoaded ? '已加载' : '需加载'}, resources: ${resourcesLoaded ? '已加载' : '需加载'}`);
     }
     
+    // 正确的 API 名称是 wx.loadSubPackage（注意大写 P）
+    const loadSubPackageAPI = wx.loadSubPackage || wx.loadSubpackage;
+    
     // 并发加载需要的分包
-    if (wx.loadSubpackage) {
+    if (loadSubPackageAPI) {
       if (needsAudioReload) {
-        wx.loadSubpackage({
+        loadSubPackageAPI({
           name: 'audio',
           success: () => {
             console.log('[Notation] audio 分包补救加载成功');
@@ -656,7 +834,7 @@ Page({
       }
       
       if (needsResourcesReload) {
-        wx.loadSubpackage({
+        loadSubPackageAPI({
           name: 'resources',
           success: () => {
             console.log('[Notation] resources 分包补救加载成功');
@@ -668,7 +846,7 @@ Page({
         });
       }
     } else {
-      console.warn('[Notation] wx.loadSubpackage 不可用');
+      console.warn('[Notation] wx.loadSubPackage 不可用（可能是开发工具限制）');
     }
   },
 
@@ -686,6 +864,14 @@ Page({
     } else {
       wx.hideLoading();
       this.updateStorageDisplay(false); // 更新存储显示
+    }
+  },
+
+  // 【优化】底部导航栏切换时自动关闭选中模式
+  onTabItemTap(item) {
+    // 如果处于选中模式，自动退出选中模式
+    if (this.data.isSelectingBeats) {
+      this.exitSelectionMode();
     }
   },
 
@@ -807,6 +993,10 @@ Page({
     if (this.data.isPlaybackMode) {
       this.exitPlaybackMode();
     }
+    // 【优化】页面隐藏时自动退出选中模式（通过底部导航栏切换页面时）
+    if (this.data.isSelectingBeats) {
+      this.exitSelectionMode();
+    }
   },
 
   onUnload() {
@@ -829,6 +1019,22 @@ Page({
         this.destroyCanvasRenderer(id);
       });
     }
+    
+    // 【优化】页面卸载时刷新所有待保存数据
+    if (this._saveThrottleTimer) {
+      clearTimeout(this._saveThrottleTimer);
+      this._saveThrottleTimer = null;
+      // 立即保存当前数据
+      this.saveNotationsScoped(this.data.notations);
+    }
+    
+    // 【优化】刷新优化存储的待保存数据
+    optimizedStorage.flushAll().catch(err => {
+      console.warn('[onUnload] 刷新优化存储失败:', err);
+    });
+    
+    // 【优化】终止 Worker
+    workerManager.terminate();
   },
 
   // 加载标题与副标题
@@ -1087,6 +1293,139 @@ Page({
     this.setNotations(withOffsets);
   },
 
+  // 【优化】异步加载谱面数据（非阻塞）
+  async loadNotationsAsync() {
+    // 检查是否有预加载数据（优先使用）
+    const preloaded = app.globalData;
+    if (preloaded && preloaded.notationPreloaded && preloaded.preloadedNotations) {
+      const notationsData = preloaded.preloadedNotations;
+      const beats = notationsData.timeSignatureBeats || 4;
+      const customTimeSignature = notationsData.customTimeSignature;
+      
+      if (customTimeSignature && customTimeSignature.type === 'custom') {
+        this.setData({ 
+          timeSignatureBeats: customTimeSignature.noteCount,
+          currentTimeSignatureType: 'custom'
+        });
+      } else {
+        this.setData({ 
+          timeSignatureBeats: beats,
+          currentTimeSignatureType: 'standard'
+        });
+      }
+      
+      if (notationsData.data && Array.isArray(notationsData.data) && notationsData.data.length > 0) {
+        // 使用 Worker 进行迁移处理（如果可用）
+        let migrated;
+        try {
+          await workerManager.init();
+          migrated = await workerManager.execute('migrateNotations', notationsData.data);
+        } catch (e) {
+          // Worker 不可用，使用同步迁移
+          migrated = this.migrateNotations(notationsData.data);
+        }
+        
+        const withOffsets = this.updateMeasureOffsets(migrated);
+        this.setNotations(withOffsets);
+        console.log('[loadNotationsAsync] 使用预加载数据');
+        
+        // 清除预加载数据以释放内存
+        if (app.clearPreloadedData) {
+          app.clearPreloadedData();
+        }
+        return;
+      }
+    }
+    
+    // 异步检查自定义拍号
+    const customTimeSignature = await AsyncStorage.get('customTimeSignature');
+    if (customTimeSignature && customTimeSignature.type === 'custom') {
+      this.setData({ 
+        timeSignatureBeats: customTimeSignature.noteCount,
+        currentTimeSignatureType: 'custom'
+      });
+      const key = `notations_custom_${customTimeSignature.noteCount}`;
+      
+      // 尝试从优化存储加载
+      let scoped = await optimizedStorage.loadNotations(key);
+      if (!scoped || scoped.length === 0) {
+        // 回退到传统存储
+        scoped = await AsyncStorage.get(key);
+      }
+      
+      if (scoped && Array.isArray(scoped) && scoped.length > 0) {
+        let migrated;
+        try {
+          await workerManager.init();
+          migrated = await workerManager.execute('migrateNotations', scoped);
+        } catch (e) {
+          migrated = this.migrateNotations(scoped);
+        }
+        const withOffsets = this.updateMeasureOffsets(migrated);
+        await this.saveNotationsScopedWithKeyAsync(withOffsets, key);
+        this.setNotations(withOffsets);
+        return;
+      }
+    }
+
+    // 异步读取拍号
+    const storedBeats = await AsyncStorage.get('timeSignatureBeats');
+    const beats = storedBeats || this.data.timeSignatureBeats || 4;
+    this.setData({ 
+      timeSignatureBeats: beats,
+      currentTimeSignatureType: 'standard'
+    });
+
+    const key = this.getNotationStorageKey(beats);
+    
+    // 尝试从优化存储加载（支持分片）
+    let scoped = await optimizedStorage.loadNotations(key);
+    if (!scoped || scoped.length === 0) {
+      // 回退到传统存储
+      scoped = await AsyncStorage.get(key);
+    }
+    
+    if (scoped && Array.isArray(scoped) && scoped.length > 0) {
+      let migrated;
+      try {
+        await workerManager.init();
+        migrated = await workerManager.execute('migrateNotations', scoped);
+      } catch (e) {
+        migrated = this.migrateNotations(scoped);
+      }
+      const withOffsets = this.updateMeasureOffsets(migrated);
+      await this.saveNotationsScopedAsync(withOffsets); // 异步回写规范化
+      this.setNotations(withOffsets);
+      return;
+    }
+
+    // 兼容旧数据
+    const legacyGlobal = app.globalData.notations;
+    const legacyStorage = await AsyncStorage.get('notations');
+    const legacy = legacyGlobal || legacyStorage || [];
+    
+    if (Array.isArray(legacy) && legacy.length > 0) {
+      let migrated;
+      try {
+        await workerManager.init();
+        migrated = await workerManager.execute('migrateNotations', legacy);
+      } catch (e) {
+        migrated = this.migrateNotations(legacy);
+      }
+      const withOffsets = this.updateMeasureOffsets(migrated);
+      await this.saveNotationsScopedAsync(withOffsets);
+      this.setNotations(withOffsets);
+      return;
+    }
+
+    // 初始化当前拍号的默认谱面
+    this.setData({ timeSignatureBeats: beats });
+    const initial = [ this.createNotation('A-1', false), this.createNotation('A-2', false) ];
+    const withOffsets = this.updateMeasureOffsets(initial);
+    await this.saveNotationsScopedAsync(withOffsets);
+    this.setNotations(withOffsets);
+  },
+
   // 生成按拍号的存储键
   getNotationStorageKey(beats) {
     // 检查是否是自定义拍号
@@ -1098,16 +1437,50 @@ Page({
     return `notations_${b}_4`;
   },
 
-  // 保存到当前拍号的独立存储
+  // 保存到当前拍号的独立存储（同步版本 - 保留向后兼容）
   saveNotationsScoped(notations) {
     const key = this.getNotationStorageKey();
     const normalized = this.normalizeBarLines(notations);
     const withOffsets = this.updateMeasureOffsets(normalized);
     app.globalData.notations = withOffsets;
+    
+    // 使用优化存储（异步，带分片）
+    optimizedStorage.saveNotations(key, withOffsets, { 
+      debounce: 0, 
+      immediate: true,
+      useSharding: true 
+    }).catch(err => {
+      console.error('[saveNotationsScoped] 优化存储失败，回退到同步存储:', err);
+      wx.setStorageSync(key, withOffsets);
+    });
+    
+    // 同时保持同步写入以确保数据安全
     wx.setStorageSync(key, withOffsets);
   },
 
+  // 【优化】异步保存到当前拍号的独立存储
+  async saveNotationsScopedAsync(notations) {
+    const key = this.getNotationStorageKey();
+    const normalized = this.normalizeBarLines(notations);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    app.globalData.notations = withOffsets;
+    
+    try {
+      // 使用优化存储（异步，带分片和增量更新）
+      await optimizedStorage.saveNotations(key, withOffsets, { 
+        debounce: 0, 
+        immediate: true,
+        useSharding: true 
+      });
+    } catch (err) {
+      console.error('[saveNotationsScopedAsync] 优化存储失败:', err);
+      // 回退到同步存储
+      wx.setStorageSync(key, withOffsets);
+    }
+  },
+
   // Quick Win: 节流保存操作（500ms节流，避免频繁写入Storage）
+  // 【优化】使用异步存储
   throttledSaveNotations() {
     // 清除之前的定时器
     if (this._saveThrottleTimer) {
@@ -1115,8 +1488,19 @@ Page({
     }
     
     // 设置新的定时器
-    this._saveThrottleTimer = setTimeout(() => {
-      this.saveNotationsScoped(this.data.notations);
+    this._saveThrottleTimer = setTimeout(async () => {
+      const key = this.getNotationStorageKey();
+      const normalized = this.normalizeBarLines(this.data.notations);
+      const withOffsets = this.updateMeasureOffsets(normalized);
+      app.globalData.notations = withOffsets;
+      
+      // 使用优化存储（异步，带防抖合并）
+      await optimizedStorage.saveNotations(key, withOffsets, { 
+        debounce: 0, 
+        immediate: true,
+        useSharding: true 
+      });
+      
       this.markNotationChanged(); // 标记为有更改
       this._saveThrottleTimer = null;
     }, 500);
@@ -1127,7 +1511,37 @@ Page({
     const normalized = this.normalizeBarLines(notations);
     const withOffsets = this.updateMeasureOffsets(normalized);
     app.globalData.notations = withOffsets;
+    
+    // 使用优化存储
+    optimizedStorage.saveNotations(key, withOffsets, { 
+      debounce: 0, 
+      immediate: true,
+      useSharding: true 
+    }).catch(err => {
+      console.error('[saveNotationsScopedWithKey] 优化存储失败:', err);
+      wx.setStorageSync(key, withOffsets);
+    });
+    
+    // 同时保持同步写入
     wx.setStorageSync(key, withOffsets);
+  },
+
+  // 【优化】异步指定key保存谱面数据
+  async saveNotationsScopedWithKeyAsync(notations, key) {
+    const normalized = this.normalizeBarLines(notations);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    app.globalData.notations = withOffsets;
+    
+    try {
+      await optimizedStorage.saveNotations(key, withOffsets, { 
+        debounce: 0, 
+        immediate: true,
+        useSharding: true 
+      });
+    } catch (err) {
+      console.error('[saveNotationsScopedWithKeyAsync] 优化存储失败:', err);
+      wx.setStorageSync(key, withOffsets);
+    }
   },
 
   // 迁移旧版谱面结构到新版（保留原 subdivision 数量，每个 subdivision 仅规范左右手数组长度）
@@ -2200,6 +2614,356 @@ Page({
     });
   },
 
+  // ===== 模块拍号设置方法 =====
+  
+  // 打开模块拍号设置弹窗
+  openModuleTimeSignatureModal() {
+    const moduleId = this.data.currentModuleId;
+    const notation = this.data.notations.find(n => n.id === moduleId);
+    
+    if (!notation) {
+      wx.showToast({ title: '未找到模块', icon: 'none' });
+      return;
+    }
+    
+    // 获取当前模块的模板（优先使用模块级模板，其次使用全局模板）
+    let template = '';
+    if (notation.moduleCustomTemplate) {
+      template = notation.moduleCustomTemplate;
+    } else if (notation.moduleTimeSignature === 'custom') {
+      template = this.inferTemplateFromNotation(notation);
+    } else {
+      // 从全局设置获取
+      const globalCustom = wx.getStorageSync('customTimeSignature') || {};
+      template = globalCustom.template || '';
+    }
+    
+    // 如果没有模板，从当前模块结构推断
+    if (!template) {
+      template = this.inferTemplateFromNotation(notation);
+    }
+    
+    // 初始化可视化数据
+    let moduleVisualNoteCount = 16;
+    let moduleVisualDots = [];
+    let moduleVisualSeparators = [];
+    
+    if (template) {
+      // 从现有模板解析可视化数据
+      const parsed = this.parseTemplateToVisual(template);
+      moduleVisualNoteCount = parsed.noteCount;
+      moduleVisualDots = parsed.dots;
+      moduleVisualSeparators = parsed.separators;
+    } else {
+      // 默认16个音符，使用标准 4/4 拍号格式（每4个音符一拍）
+      moduleVisualDots = Array(moduleVisualNoteCount).fill(0).map(() => ({}));
+      moduleVisualSeparators = Array(moduleVisualNoteCount - 1).fill(0).map((_, i) => {
+        if ((i + 1) % 4 === 0 && i < moduleVisualNoteCount - 1) {
+          return { type: 'beat' };
+        }
+        return { type: 'none' };
+      });
+    }
+    
+    // 生成模板和小节信息
+    const generatedTemplate = template || this.generateTemplateFromVisual(moduleVisualDots, moduleVisualSeparators);
+    const moduleMeasureInfoList = this.generateMeasureInfoList(moduleVisualDots, moduleVisualSeparators);
+    
+    this.setData({
+      showModuleTimeSignatureModal: true,
+      moduleTimeSignatureTemplate: generatedTemplate,
+      moduleTimeSignatureError: '',
+      moduleTimeSignatureValid: this.validateVisualTemplate(moduleVisualDots, moduleVisualSeparators),
+      moduleVisualNoteCount: moduleVisualNoteCount,
+      moduleVisualDots: moduleVisualDots,
+      moduleVisualSeparators: moduleVisualSeparators,
+      moduleMeasureInfoList: moduleMeasureInfoList
+    });
+  },
+  
+  // 关闭模块拍号设置弹窗
+  closeModuleTimeSignatureModal() {
+    this.setData({
+      showModuleTimeSignatureModal: false,
+      moduleTimeSignatureTemplate: '',
+      moduleTimeSignatureError: '',
+      moduleTimeSignatureValid: false,
+      moduleVisualNoteCount: 16,
+      moduleVisualDots: [],
+      moduleVisualSeparators: [],
+      moduleMeasureInfoList: []
+    });
+  },
+  
+  // 更新模块可视化数据并同步模板
+  updateModuleVisualAndTemplate() {
+    const { moduleVisualDots, moduleVisualSeparators } = this.data;
+    const template = this.generateTemplateFromVisual(moduleVisualDots, moduleVisualSeparators);
+    const moduleMeasureInfoList = this.generateMeasureInfoList(moduleVisualDots, moduleVisualSeparators);
+    const valid = this.validateVisualTemplate(moduleVisualDots, moduleVisualSeparators);
+    
+    this.setData({
+      moduleTimeSignatureTemplate: template,
+      moduleTimeSignatureValid: valid,
+      moduleTimeSignatureError: valid ? '' : (moduleVisualDots.length > 35 ? '音符数不能超过35个' : ''),
+      moduleMeasureInfoList: moduleMeasureInfoList
+    });
+  },
+  
+  // 模块音符数输入变化
+  onModuleVisualNoteCountInput(e) {
+    const value = e.detail.value;
+    this.setData({ moduleVisualNoteCount: value });
+  },
+  
+  // 模块音符数输入失焦时更新
+  onModuleVisualNoteCountBlur(e) {
+    let count = parseInt(e.detail.value) || 16;
+    count = Math.max(1, Math.min(35, count));
+    
+    const oldDots = this.data.moduleVisualDots || [];
+    const oldSeparators = this.data.moduleVisualSeparators || [];
+    
+    const newDots = Array(count).fill(0).map(() => ({}));
+    const newSeparators = [];
+    
+    for (let i = 0; i < count - 1; i++) {
+      if (i < oldSeparators.length) {
+        newSeparators.push({ ...oldSeparators[i] });
+      } else {
+        newSeparators.push({ type: 'none' });
+      }
+    }
+    
+    this.setData({
+      moduleVisualNoteCount: count,
+      moduleVisualDots: newDots,
+      moduleVisualSeparators: newSeparators
+    }, () => {
+      this.updateModuleVisualAndTemplate();
+    });
+  },
+  
+  // 模块点击圆点间隙，切换分隔符（三态循环）
+  onModuleDotGapTap(e) {
+    const index = e.currentTarget.dataset.index;
+    const separators = [...this.data.moduleVisualSeparators];
+    
+    if (index < 0 || index >= separators.length) return;
+    
+    const currentType = separators[index].type || 'none';
+    let newType;
+    if (currentType === 'none') {
+      newType = 'beat';
+    } else if (currentType === 'beat') {
+      newType = 'measure';
+    } else {
+      newType = 'none';
+    }
+    
+    separators[index] = { type: newType };
+    
+    this.setData({ moduleVisualSeparators: separators }, () => {
+      this.updateModuleVisualAndTemplate();
+    });
+  },
+  
+  // 模块单拍音符数输入
+  onModuleBeatNoteCountInput(e) {
+    // 仅记录输入值，不立即更新
+  },
+  
+  // 模块单拍音符数失焦时更新
+  onModuleBeatNoteCountBlur(e) {
+    const measureIndex = parseInt(e.currentTarget.dataset.measureIndex);
+    const beatIndex = parseInt(e.currentTarget.dataset.beatIndex);
+    let newCount = parseInt(e.detail.value) || 1;
+    newCount = Math.max(1, Math.min(10, newCount));
+    
+    const measureInfoList = this.data.moduleMeasureInfoList;
+    if (measureIndex >= measureInfoList.length) return;
+    
+    const measure = measureInfoList[measureIndex];
+    if (beatIndex >= measure.beats.length) return;
+    
+    const oldCount = measure.beats[beatIndex].noteCount;
+    const diff = newCount - oldCount;
+    
+    if (diff === 0) return;
+    
+    let globalStart = 0;
+    for (let m = 0; m < measureIndex; m++) {
+      for (let b = 0; b < measureInfoList[m].beats.length; b++) {
+        globalStart += measureInfoList[m].beats[b].noteCount;
+      }
+    }
+    for (let b = 0; b < beatIndex; b++) {
+      globalStart += measure.beats[b].noteCount;
+    }
+    
+    const globalEnd = globalStart + oldCount;
+    
+    const dots = [...this.data.moduleVisualDots];
+    const separators = [...this.data.moduleVisualSeparators];
+    
+    if (diff > 0) {
+      for (let i = 0; i < diff; i++) {
+        dots.splice(globalEnd + i, 0, {});
+        if (globalEnd + i - 1 >= 0 && globalEnd + i <= separators.length) {
+          separators.splice(globalEnd + i, 0, { type: 'none' });
+        }
+      }
+    } else {
+      const removeCount = -diff;
+      const removeStart = globalEnd - removeCount;
+      dots.splice(removeStart, removeCount);
+      if (removeStart > 0) {
+        separators.splice(removeStart - 1, removeCount);
+      } else {
+        separators.splice(0, Math.min(removeCount, separators.length));
+      }
+    }
+    
+    while (separators.length < dots.length - 1) {
+      separators.push({ type: 'none' });
+    }
+    while (separators.length > dots.length - 1) {
+      separators.pop();
+    }
+    
+    if (dots.length > 35) {
+      wx.showToast({ title: '音符总数不能超过35', icon: 'none' });
+      return;
+    }
+    
+    this.setData({
+      moduleVisualDots: dots,
+      moduleVisualSeparators: separators,
+      moduleVisualNoteCount: dots.length
+    }, () => {
+      this.updateModuleVisualAndTemplate();
+    });
+  },
+  
+  // 确认模块拍号设置
+  confirmModuleTimeSignature() {
+    const template = this.data.moduleTimeSignatureTemplate.trim();
+    
+    if (!this.validateVisualTemplate(this.data.moduleVisualDots, this.data.moduleVisualSeparators)) {
+      wx.showToast({ title: '请检查拍号设置', icon: 'none' });
+      return;
+    }
+    
+    const moduleId = this.data.currentModuleId;
+    const notations = [...this.data.notations];
+    const idx = notations.findIndex(n => n.id === moduleId);
+    
+    if (idx === -1) {
+      wx.showToast({ title: '未找到模块', icon: 'none' });
+      return;
+    }
+    
+    const notation = notations[idx];
+    
+    // 解析模板
+    const parsed = this.parseCustomTemplate(template);
+    const sanitizedTemplate = this.sanitizeTemplateString(template);
+    
+    // 统计每行有多少个小节（方括号组数）
+    const portraitRow = this.countBracketGroups(template) || 1;
+    const factor = this.data.orientation === 'landscape' ? 2 : 1;
+    
+    // 将模板拆分成多个方括号组
+    const bracketGroups = template.match(/\[[^\]]*\]/g) || [];
+    
+    // 为每个方括号组创建对应的小节结构模板
+    const measureTemplates = [];
+    if (bracketGroups.length > 0) {
+      for (const group of bracketGroups) {
+        const groupParsed = this.parseCustomTemplate(group);
+        measureTemplates.push({
+          beats: groupParsed.beatStructure.map(beat => ({
+            subdivisions: Array.from({ length: beat.noteCount }).map(() => ({
+              rightHand: ['', ''],
+              leftHand: ['', '']
+            })),
+            barLineAfter: beat.barLineAfter
+          }))
+        });
+      }
+    } else {
+      measureTemplates.push({
+        beats: parsed.beatStructure.map(beat => ({
+          subdivisions: Array.from({ length: beat.noteCount }).map(() => ({
+            rightHand: ['', ''],
+            leftHand: ['', '']
+          })),
+          barLineAfter: beat.barLineAfter
+        }))
+      });
+    }
+    
+    // 保持现有的行数
+    const currentPerRow = notation.measuresPerRow || this.getMeasuresPerRowForNotation(notation) || 1;
+    const currentMeasureCount = (notation.measures || []).length;
+    const visualLines = Math.max(1, Math.ceil(currentMeasureCount / currentPerRow));
+    const newMeasureCount = visualLines * portraitRow;
+    
+    // 创建新的小节数组，尽量保留原有数据
+    const newMeasures = [];
+    for (let i = 0; i < newMeasureCount; i++) {
+      const templateIdx = i % measureTemplates.length;
+      const measureTemplate = JSON.parse(JSON.stringify(measureTemplates[templateIdx]));
+      
+      // 尝试保留原有小节的数据
+      if (i < (notation.measures || []).length) {
+        const oldMeasure = notation.measures[i];
+        if (oldMeasure && oldMeasure.beats) {
+          // 尝试迁移数据
+          measureTemplate.beats.forEach((newBeat, beatIdx) => {
+            if (oldMeasure.beats[beatIdx]) {
+              const oldBeat = oldMeasure.beats[beatIdx];
+              newBeat.subdivisions.forEach((newSub, subIdx) => {
+                if (oldBeat.subdivisions && oldBeat.subdivisions[subIdx]) {
+                  newSub.rightHand = oldBeat.subdivisions[subIdx].rightHand || ['', ''];
+                  newSub.leftHand = oldBeat.subdivisions[subIdx].leftHand || ['', ''];
+                }
+              });
+            }
+          });
+        }
+      }
+      
+      newMeasures.push(measureTemplate);
+    }
+    
+    // 更新模块
+    notation.measures = newMeasures;
+    notation.moduleTimeSignature = 'custom';
+    notation.moduleCustomTemplate = sanitizedTemplate;
+    notation.timeSignature = '自由/自由';
+    notation.measuresPerRowPortrait = portraitRow;
+    notation.measuresPerRow = portraitRow * factor;
+    
+    // 同步 barLineAfter
+    this.syncBarLineAfterWithTemplate(notation);
+    
+    notations[idx] = notation;
+    const withOffsets = this.updateMeasureOffsets(notations);
+    this.setNotations(withOffsets);
+    
+    // 更新模块设置弹窗中的显示
+    this.setData({
+      moduleTimeSignatureBeats: 'custom',
+      moduleCustomTemplate: sanitizedTemplate
+    });
+    
+    // 关闭模块拍号设置弹窗
+    this.closeModuleTimeSignatureModal();
+    
+    wx.showToast({ title: '模块拍号已更新', icon: 'success' });
+  },
+
   // 验证自由设定模板（可选同步 data，支持 debounce）
   // options: { sync: boolean, debounce: boolean }
   validateCustomTemplate(template, options = {}) {
@@ -2491,11 +3255,14 @@ Page({
     return this.generateCodeForNotations([notation]);
   },
 
-  // 将单个小节数据转换为代码片段 [ ... ]
+  // 将单个小节数据转换为代码片段 [ ... ]（跳过占位拍）
   buildMeasureCode(measure) {
     if (!measure || !Array.isArray(measure.beats)) return '[]';
 
-    const beatStrings = measure.beats.map(beat => {
+    // 【修复】过滤掉占位拍
+    const realBeats = measure.beats.filter(beat => !beat.isPlaceholder);
+    
+    const beatStrings = realBeats.map(beat => {
       const subs = Array.isArray(beat.subdivisions) ? beat.subdivisions : [];
       const subStrings = subs.map(sub => {
         const rh = Array.isArray(sub.rightHand) ? sub.rightHand : ['', ''];
@@ -2511,7 +3278,7 @@ Page({
     return `[${content}]`;
   },
 
-  // 将单个notation转换为完整module代码（保留行数与每行小节数）
+  // 将单个notation转换为完整module代码（保留行数与每行小节数，支持占位拍标记）
   buildModuleCodeFromNotation(notation) {
     if (!notation) return '';
     const perRow = this.getMeasuresPerRowForNotation(notation) || 1;
@@ -2520,7 +3287,12 @@ Page({
     for (let i = 0; i < measures.length; i += perRow) {
       const slice = measures.slice(i, i + perRow);
       const line = slice.map(m => this.buildMeasureCode(m)).join('');
-      lines.push(line);
+      
+      // 【新增】检查并生成占位拍标记
+      const placeholderCount = this.countLinePlaceholderBeats(slice);
+      const placeholderMark = placeholderCount > 0 ? `#${placeholderCount}` : '';
+      
+      lines.push(line + placeholderMark);
     }
     // 支持备注格式
     const remarkPart = notation.remark ? `{${notation.remark}}` : '';
@@ -3813,8 +4585,17 @@ Page({
     this.onSlotTap(e);
   },
 
-  // 底部操作栏折叠/展开
+  // 底部操作栏折叠/展开（选中模式下禁止展开）
   toggleActionBar() {
+    // 【优化】选中模式下禁止展开菜单栏
+    if (this.data.isSelectingBeats && !this.data.actionCollapsed) {
+      wx.showToast({
+        title: '选中模式下无法展开菜单',
+        icon: 'none',
+        duration: 1500
+      });
+      return;
+    }
     this.setData({ actionCollapsed: !this.data.actionCollapsed });
   },
 
@@ -4098,11 +4879,23 @@ Page({
   _findAndSeekToColumn(columnRects, x, y, moduleIndex, notationId) {
     if (!columnRects || columnRects.length === 0) return;
     
-    // 查找点击位置对应的列
+    // 【修复】检查一个列是否是占位拍
+    const isPlaceholderBeat = (col) => {
+      const notation = this.data.notations[moduleIndex];
+      if (!notation || !notation.measures || !notation.measures[col.measureIndex]) return false;
+      const measure = notation.measures[col.measureIndex];
+      if (!measure.beats || !measure.beats[col.beatIndex]) return false;
+      return measure.beats[col.beatIndex].isPlaceholder === true;
+    };
+    
+    // 查找点击位置对应的列（排除占位拍）
     let targetColumn = null;
     let minDistance = Infinity;
     
     for (const col of columnRects) {
+      // 【修复】跳过占位拍
+      if (isPlaceholderBeat(col)) continue;
+      
       // 检查Y坐标是否在列范围内（宽松匹配）
       if (y >= col.y - 10 && y <= col.y + col.height + 10) {
         // 计算X方向的距离
@@ -4116,9 +4909,12 @@ Page({
       }
     }
     
-    // 如果没找到Y范围内的，找最接近的列
+    // 如果没找到Y范围内的，找最接近的非占位拍列
     if (!targetColumn) {
       for (const col of columnRects) {
+        // 【修复】跳过占位拍
+        if (isPlaceholderBeat(col)) continue;
+        
         const colCenterX = col.x + col.width / 2;
         const colCenterY = col.y + col.height / 2;
         const distance = Math.sqrt(Math.pow(x - colCenterX, 2) + Math.pow(y - colCenterY, 2));
@@ -4160,13 +4956,34 @@ Page({
         updateData.isPlaying = false;
         updateData.isPaused = true;
         
-        // 更新进度条
-        const targetEvent = sheetPlaybackManager.timeline.find(e => e.columnId === columnId);
+        // 【修复】更新进度条 - 确保从timeline中找到对应事件后同步更新
+        const targetEvent = sheetPlaybackManager.timeline.find(e => !e.isGraceNote && e.columnId === columnId);
         if (targetEvent && sheetPlaybackManager.getTotalDuration) {
           const totalDuration = sheetPlaybackManager.getTotalDuration();
           const progress = totalDuration > 0 ? (targetEvent.absoluteTime / totalDuration) * 100 : 0;
           updateData.playbackProgress = progress;
           updateData.playbackCurrentTimeStr = this.formatPlaybackTime(targetEvent.absoluteTime);
+          
+          // 【修复】同步更新播放管理器的内部索引和偏移量
+          const targetIndex = sheetPlaybackManager.timeline.findIndex(e => !e.isGraceNote && e.columnId === columnId);
+          if (targetIndex >= 0) {
+            sheetPlaybackManager.currentEventIndex = targetIndex;
+            sheetPlaybackManager.playbackOffset = targetEvent.absoluteTime;
+          }
+        } else {
+          // 【修复】如果在timeline中没找到对应事件，尝试找最接近的事件
+          console.warn('[_findAndSeekToColumn] 未在timeline中找到columnId:', columnId);
+          // 使用当前的currentEventIndex对应的进度
+          const currentIdx = sheetPlaybackManager.currentEventIndex;
+          if (currentIdx >= 0 && currentIdx < sheetPlaybackManager.timeline.length) {
+            const currentEvent = sheetPlaybackManager.timeline[currentIdx];
+            if (currentEvent && !currentEvent.isGraceNote) {
+              const totalDuration = sheetPlaybackManager.getTotalDuration();
+              const progress = totalDuration > 0 ? (currentEvent.absoluteTime / totalDuration) * 100 : 0;
+              updateData.playbackProgress = progress;
+              updateData.playbackCurrentTimeStr = this.formatPlaybackTime(currentEvent.absoluteTime);
+            }
+          }
         }
       } else {
         // 播放管理器未初始化时，仅标记为暂停状态（下次播放将从此处开始）
@@ -4209,6 +5026,12 @@ Page({
     }
     
     const beat = measure.beats[beatIndex];
+    
+    // 【修复】如果是占位拍，不播放声音
+    if (beat.isPlaceholder) {
+      return;
+    }
+    
     if (!beat.subdivisions || !beat.subdivisions[subIndex]) {
       return;
     }
@@ -4388,6 +5211,7 @@ Page({
   onCanvasTap(e) {
     const { id: notationId, index: notationIndex } = e.currentTarget.dataset;
     const renderer = this._canvasRenderers[notationId];
+    const { isSelectingBeats } = this.data;
     
     if (!renderer) {
       console.warn('[Canvas] 未找到渲染器:', notationId);
@@ -4412,7 +5236,110 @@ Page({
       
       if (hitResult) {
         console.log('[Canvas] 点击命中:', hitResult);
+        
+        // 【任务2】如果在选中模式下，处理拍位选择
+        if (isSelectingBeats) {
+          const { measureIndex, beatIndex } = hitResult;
+          this.onCanvasBeatTapForSelection(
+            notationId,
+            parseInt(notationIndex),
+            measureIndex,
+            beatIndex,
+            touch.clientX || touch.x,
+            touch.clientY || touch.y
+          );
+          return;
+        }
+        
         this.handleCanvasSlotTap(notationId, parseInt(notationIndex), hitResult, canvasRect);
+      }
+    });
+  },
+  
+  /**
+   * 【任务2】Canvas长按事件处理
+   */
+  onCanvasLongPress(e) {
+    const { id: notationId, index: notationIndex } = e.currentTarget.dataset;
+    const renderer = this._canvasRenderers[notationId];
+    
+    if (!renderer) {
+      console.warn('[Canvas] 未找到渲染器:', notationId);
+      return;
+    }
+    
+    // 获取点击坐标
+    const touch = e.touches ? e.touches[0] : e.detail;
+    
+    const query = wx.createSelectorQuery();
+    query.select(`#notation-canvas-${notationId}`).boundingClientRect().exec((res) => {
+      if (!res || !res[0]) return;
+      
+      const canvasRect = res[0];
+      const x = (touch.clientX || touch.x) - canvasRect.left;
+      const y = (touch.clientY || touch.y) - canvasRect.top;
+      
+      // 点击测试获取拍位信息
+      const hitResult = renderer.hitTest(x, y);
+      
+      if (hitResult) {
+        const { measureIndex, beatIndex } = hitResult;
+        // 调用Canvas模式长按处理
+        this.onCanvasBeatLongPress(
+          notationId, 
+          parseInt(notationIndex), 
+          measureIndex, 
+          beatIndex,
+          touch.clientX || touch.x,
+          touch.clientY || touch.y
+        );
+      }
+    });
+  },
+  
+  /**
+   * 【任务2】Canvas模式选择结束处理
+   */
+  onCanvasSelectEnd(e) {
+    const { canvasSelectStep, canvasSelectStartInfo } = this.data;
+    if (canvasSelectStep !== 1 || !canvasSelectStartInfo) return;
+    
+    const { id: notationId, index: notationIndex } = e.currentTarget.dataset;
+    const renderer = this._canvasRenderers[notationId];
+    
+    if (!renderer || notationId !== canvasSelectStartInfo.notationId) {
+      wx.showToast({ title: '只能选择同一模块内的拍', icon: 'none' });
+      return;
+    }
+    
+    // 获取点击坐标
+    const touch = e.touches ? e.touches[0] : e.detail;
+    
+    const query = wx.createSelectorQuery();
+    query.select(`#notation-canvas-${notationId}`).boundingClientRect().exec((res) => {
+      if (!res || !res[0]) return;
+      
+      const canvasRect = res[0];
+      const x = (touch.clientX || touch.x) - canvasRect.left;
+      const y = (touch.clientY || touch.y) - canvasRect.top;
+      
+      // 点击测试获取拍位信息
+      const hitResult = renderer.hitTest(x, y);
+      
+      if (hitResult) {
+        const { measureIndex, beatIndex } = hitResult;
+        
+        // 设置选择终点
+        this.setData({
+          beatSelectionEnd: { notationId, measureIndex, beatIndex },
+          canvasSelectStep: 2
+        }, () => {
+          // 更新选中拍位信息
+          const selectedBeatsInfo = this.updateSelectedBeatsInfo();
+          this.setData({ selectedBeatsInfo });
+          // 显示复制/粘贴气泡
+          this.showCopyPasteBubble(touch.clientX || touch.x, touch.clientY || touch.y);
+        });
       }
     });
   },
@@ -4423,8 +5350,51 @@ Page({
   handleCanvasSlotTap(notationId, notationIndex, hitResult, canvasRect) {
     const { measureIndex, beatIndex, subIndex, hand, index, note, rect } = hitResult;
     
-    // 提交之前的Canvas编辑
-    if (this.data.canvasEditing) {
+    // 先清除之前的高亮（如果有）
+    const prevEditing = this.data.canvasEditing;
+    if (prevEditing) {
+      // 检查是否点击的是同一个槽位
+      const isSameSlot = prevEditing.notationId === notationId &&
+                         prevEditing.measureIndex === measureIndex &&
+                         prevEditing.beatIndex === beatIndex &&
+                         prevEditing.subIndex === subIndex &&
+                         prevEditing.hand === hand &&
+                         prevEditing.index === index;
+      
+      if (!isSameSlot) {
+        // 不是同一个槽位，先清除旧的高亮
+        const prevRenderer = this._canvasRenderers[prevEditing.notationId];
+        if (prevRenderer) {
+          // 获取旧槽位的当前值
+          const prevNotation = this.data.notations[prevEditing.notationIndex];
+          let prevValue = '';
+          if (prevNotation) {
+            const prevMeasure = prevNotation.measures[prevEditing.measureIndex];
+            if (prevMeasure) {
+              const prevBeat = prevMeasure.beats[prevEditing.beatIndex];
+              if (prevBeat && prevBeat.subdivisions[prevEditing.subIndex]) {
+                const prevSub = prevBeat.subdivisions[prevEditing.subIndex];
+                const prevHandKey = prevEditing.hand === 'right' ? 'rightHand' : 'leftHand';
+                if (prevSub[prevHandKey]) {
+                  prevValue = prevSub[prevHandKey][prevEditing.index] || '';
+                }
+              }
+            }
+          }
+          // 同步清除旧高亮
+          prevRenderer.redrawSlot(
+            prevEditing.measureIndex,
+            prevEditing.beatIndex,
+            prevEditing.subIndex,
+            prevEditing.hand,
+            prevEditing.index,
+            prevValue,
+            false // 取消高亮
+          );
+        }
+      }
+      
+      // 提交之前的编辑（保存数据）
       this.commitCanvasEdit();
     }
     
@@ -4433,6 +5403,16 @@ Page({
     const inputY = rect.y;
     const inputWidth = rect.width;
     const inputHeight = rect.height;
+    
+    // 【性能优化】使用缓存获取解析结果
+    const noteValue = note || '';
+    const cachedDisplay = this.getCachedNoteDisplay(noteValue);
+    const cachedParsed = this.getCachedNoteParsed(noteValue);
+    
+    // 【修复】同步设置 _prevCanvasEditing，确保方向键移动时能正确清除旧高亮
+    this._prevCanvasEditing = { 
+      notationId, measureIndex, beatIndex, subIndex, hand, index 
+    };
     
     // 更新编辑状态
     this.setData({
@@ -4450,26 +5430,39 @@ Page({
         inputHeight,
         focus: true
       },
-      canvasEditingValue: note || '',
+      canvasEditingValue: noteValue,
       // 同时更新虚拟键盘状态
       showVirtualKeyboard: true,
-      virtualKeyboardDisplay: note || '',
-      virtualKeyboardRendered: this.renderNoteForDisplay(note || ''),
-      vkParsed: this.parseNoteForVK(note || ''),
+      virtualKeyboardDisplay: noteValue,
+      virtualKeyboardRendered: cachedDisplay,
+      vkParsed: cachedParsed,
       virtualKeyboardMode: 'number',
       superscriptMode: null,
-      superscriptContent: ''
+      superscriptContent: '',
+      // 【优化】全局高亮层数据
+      slotHighlight: {
+        notationId,
+        x: inputX,
+        y: inputY,
+        width: inputWidth,
+        height: inputHeight,
+        hand,
+        visible: true
+      }
     }, () => {
       // 更新音高档位
       this.updatePitchLevelFromNote();
       // 隐藏tabBar
       wx.hideTabBar({ animation: true });
       
-      // 在Canvas上绘制编辑高亮
-      const renderer = this._canvasRenderers[notationId];
-      if (renderer) {
-        renderer.redrawSlot(measureIndex, beatIndex, subIndex, hand, index, note, true);
-      }
+      // 【优化】Canvas 重绘移到 nextTick，不阻塞视觉反馈
+      wx.nextTick(() => {
+        const renderer = this._canvasRenderers[notationId];
+        if (renderer) {
+          renderer.redrawSlot(measureIndex, beatIndex, subIndex, hand, index, note, true);
+        }
+        // 注意：_prevCanvasEditing 已在同步代码中设置，这里不再重复设置
+      });
     });
   },
   
@@ -4523,6 +5516,65 @@ Page({
         this.commitCanvasEdit();
       }
     }, 100);
+  },
+  
+  /**
+   * 【性能优化】仅保存数据，不清除编辑状态（用于快速切换时）
+   * 这样可以避免在连续切换时重复设置/清除 canvasEditing 状态
+   */
+  commitCanvasEditDataOnly() {
+    const { canvasEditing, canvasEditingValue, notations } = this.data;
+    if (!canvasEditing) return;
+    
+    const { notationIndex, measureIndex, beatIndex, subIndex, hand, index } = canvasEditing;
+    const notation = notations[notationIndex];
+    if (!notation) return;
+    
+    const measure = notation.measures[measureIndex];
+    if (!measure) return;
+    
+    const beat = measure.beats[beatIndex];
+    if (!beat) return;
+    
+    const subdivision = beat.subdivisions[subIndex];
+    if (!subdivision) return;
+    
+    const handKey = hand === 'right' ? 'rightHand' : 'leftHand';
+    if (!Array.isArray(subdivision[handKey])) {
+      subdivision[handKey] = ['', ''];
+    }
+    if (subdivision[handKey].length < 2) {
+      subdivision[handKey] = [subdivision[handKey][0] || '', ''];
+    }
+    
+    const oldValue = subdivision[handKey][index] || '';
+    const newValue = canvasEditingValue;
+    
+    if (oldValue !== newValue) {
+      const editAction = this.recordNoteEditAction(
+        notationIndex, measureIndex, beatIndex, subIndex, handKey, index, oldValue, newValue
+      );
+      this.backupCurrentState(editAction);
+      
+      const path = `notations[${notationIndex}].measures[${measureIndex}].beats[${beatIndex}].subdivisions[${subIndex}].${handKey}[${index}]`;
+      this.setData({ [path]: newValue });
+      
+      this.throttledSaveNotations();
+    }
+  },
+  
+  /**
+   * 【性能优化】延迟提交 Canvas 编辑（用于连续快速操作）
+   * 在快速连续切换时，只保存最后一次的编辑结果
+   */
+  debouncedCommitCanvas() {
+    // 清除之前的定时器
+    if (this._pendingCommitTimer) {
+      clearTimeout(this._pendingCommitTimer);
+    }
+    
+    // 立即保存数据（不清除状态）
+    this.commitCanvasEditDataOnly();
   },
   
   /**
@@ -4768,6 +5820,24 @@ Page({
       const bIdx = parseInt(beat);
       const subIdx = parseInt(subdivision);
       const iIdx = parseInt(index);
+      
+      // 【优化】选中模式下，点击音符格触发选中拍位而非编辑
+      if (this.data.isSelectingBeats) {
+        // 构造一个与onBeatTapForSelection兼容的事件对象
+        const fakeEvent = {
+          currentTarget: {
+            dataset: {
+              sheet: sId,
+              measure: mIdx,
+              beat: bIdx
+            }
+          },
+          touches: e.touches,
+          detail: e.detail
+        };
+        this.onBeatTapForSelection(fakeEvent);
+        return;
+      }
 
       const notation = this.data.notations.find(n => n.id === sId);
       if (!notation) {
@@ -4777,17 +5847,31 @@ Page({
       const slotArray = notation.measures[mIdx].beats[bIdx].subdivisions[subIdx][hand === 'right' ? 'rightHand' : 'leftHand'];
       const currentValue = Array.isArray(slotArray) ? (slotArray[iIdx] || '') : '';
 
+      // 【性能优化】使用缓存获取解析结果
+      const cachedDisplay = this.getCachedNoteDisplay(currentValue);
+      const cachedParsed = this.getCachedNoteParsed(currentValue);
+
       // 先更新编辑状态，立即显示输入框和虚拟键盘
       this.setData({
         editing: { sheet: sId, measure: mIdx, beat: bIdx, subdivision: subIdx, hand, index: iIdx },
         editingValue: currentValue,
         showVirtualKeyboard: true,
         virtualKeyboardDisplay: currentValue,
-        virtualKeyboardRendered: this.renderNoteForDisplay(currentValue),
-        vkParsed: this.parseNoteForVK(currentValue),
+        virtualKeyboardRendered: cachedDisplay,
+        vkParsed: cachedParsed,
         virtualKeyboardMode: 'number',
         superscriptMode: null,
-        superscriptContent: ''
+        superscriptContent: '',
+        // 【优化】View 模式高亮层数据
+        slotHighlightViewMode: {
+          notationId: sId,
+          measureIndex: mIdx,
+          beatIndex: bIdx,
+          subIndex: subIdx,
+          hand: hand,
+          index: iIdx,
+          visible: true
+        }
       });
       
       // 根据当前音符更新音高档位显示
@@ -5028,6 +6112,11 @@ Page({
 
   // 清除编辑状态（点击空白区域时调用）
   clearEditing() {
+    // 【任务2】选中模式下，禁止通过点击空白处触发任何操作（防止误触）
+    if (this.data.isSelectingBeats) {
+      return;
+    }
+    
     // 处理Canvas模式的编辑状态
     if (this.data.canvasEditing) {
       this.commitCanvasEdit();
@@ -5305,9 +6394,17 @@ Page({
         // 生成行内注记代码
         const annotationCode = this.generateLineAnnotationCode(rowMeasures);
         
+        // 【新增】检查并生成占位拍标记
+        const placeholderCount = this.countLinePlaceholderBeats(rowMeasures);
+        const placeholderMark = placeholderCount > 0 ? `#${placeholderCount}` : '';
+        
         code += lineCode;
         if (annotationCode) {
           code += annotationCode;
+        }
+        // 添加占位拍标记
+        if (placeholderMark) {
+          code += placeholderMark;
         }
         
         // 如果不是最后一行，添加换行符
@@ -5351,6 +6448,9 @@ Page({
     
     for (const measure of measures) {
       for (const beat of measure.beats || []) {
+        // 【修复】跳过占位拍
+        if (beat.isPlaceholder) continue;
+        
         for (const subdivision of beat.subdivisions || []) {
           if (subdivision.annotation) {
             annotations.push(`"${globalIndex}:${subdivision.annotation}"`);
@@ -5385,16 +6485,19 @@ Page({
     return lineCode;
   },
 
-  // 生成单个小节的代码
+  // 生成单个小节的代码（跳过占位拍）
   generateMeasureCode(measure) {
     let code = '[';
     
-    for (let i = 0; i < measure.beats.length; i++) {
-      const beat = measure.beats[i];
+    // 【修复】过滤掉占位拍
+    const realBeats = measure.beats.filter(beat => !beat.isPlaceholder);
+    
+    for (let i = 0; i < realBeats.length; i++) {
+      const beat = realBeats[i];
       code += this.generateBeatCode(beat);
       
       // 如果不是最后一拍，添加拍号线
-      if (i < measure.beats.length - 1) {
+      if (i < realBeats.length - 1) {
         // 检查是否有小节线（自定义拍号中的分组）
         if (beat.barLineAfter) {
           code += '][';
@@ -5406,6 +6509,27 @@ Page({
     
     code += ']';
     return code;
+  },
+  
+  // 【新增】统计一行小节中的占位拍数量（只统计最后一个小节的末尾占位拍）
+  countLinePlaceholderBeats(measures) {
+    if (!measures || measures.length === 0) return 0;
+    
+    // 只检查最后一个小节
+    const lastMeasure = measures[measures.length - 1];
+    if (!lastMeasure || !lastMeasure.beats) return 0;
+    
+    // 从末尾开始统计连续的占位拍数量
+    let count = 0;
+    for (let i = lastMeasure.beats.length - 1; i >= 0; i--) {
+      if (lastMeasure.beats[i].isPlaceholder) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    
+    return count;
   },
 
   // 生成单拍的代码
@@ -6954,10 +8078,20 @@ Page({
     
     // 遍历每一行
     lines.forEach((line, idx) => {
+      // 【新增】先提取行末占位拍标记 #数字
+      const { cleanLine: lineWithoutPlaceholder, placeholderCount } = this.extractPlaceholderMark(line);
+      
       // 先提取行内注记 /*"数字:注记","数字:注记"*/
-      const { cleanLine, annotations } = this.extractLineAnnotations(line);
+      const { cleanLine, annotations } = this.extractLineAnnotations(lineWithoutPlaceholder);
       
       const measures = this.parseLine(cleanLine);
+      
+      // 【新增】如果有占位拍标记，在该行最后一个小节添加占位拍
+      if (placeholderCount > 0 && measures.length > 0) {
+        const lastMeasure = measures[measures.length - 1];
+        this.addPlaceholderBeatsToMeasure(lastMeasure, placeholderCount);
+      }
+      
       if (idx === 0) {
         firstLineMeasureCount = measures.length;
       }
@@ -6979,6 +8113,64 @@ Page({
       firstLineMeasureCount,
       measuresPerRow: firstLineMeasureCount || maxMeasuresPerLine || 1
     };
+  },
+  
+  // 【新增】提取行末占位拍标记 #数字
+  // 返回 { cleanLine: 去除标记后的行内容, placeholderCount: 占位拍数量 }
+  extractPlaceholderMark(line) {
+    // 匹配行末的 #数字 格式（可能在注记之后或之前）
+    // 先检查在行末（可能在空格之后）
+    const placeholderRegex = /#(\d+)\s*$/;
+    const match = line.match(placeholderRegex);
+    
+    if (match) {
+      const placeholderCount = parseInt(match[1], 10);
+      const cleanLine = line.replace(placeholderRegex, '').trim();
+      return { cleanLine, placeholderCount };
+    }
+    
+    return { cleanLine: line, placeholderCount: 0 };
+  },
+  
+  // 【新增】向小节添加占位拍（与现有 addRowPlaceholderBeat 逻辑一致）
+  addPlaceholderBeatsToMeasure(measure, count) {
+    if (!measure || !measure.beats || count <= 0) return;
+    
+    // 获取参考拍的细分数量（使用第一个非占位拍的细分数）
+    let subdivisionsCount = 4; // 默认4个细分
+    for (const beat of measure.beats) {
+      if (!beat.isPlaceholder && beat.subdivisions && beat.subdivisions.length > 0) {
+        subdivisionsCount = beat.subdivisions.length;
+        break;
+      }
+    }
+    
+    // 【修复】记录添加占位拍之前的最后一个拍的索引（即最后一个真实拍的索引）
+    // 在解析时，所有现有的拍都是真实拍，所以直接使用当前长度-1
+    const lastRealBeatIndex = measure.beats.length - 1;
+    
+    // 添加指定数量的占位拍
+    for (let i = 0; i < count; i++) {
+      const placeholderBeat = {
+        subdivisions: [],
+        isPlaceholder: true
+      };
+      
+      // 创建空的细分（不带 isPlaceholder，与现有实现一致）
+      for (let j = 0; j < subdivisionsCount; j++) {
+        placeholderBeat.subdivisions.push({
+          rightHand: ['', ''],
+          leftHand: ['', '']
+        });
+      }
+      
+      measure.beats.push(placeholderBeat);
+    }
+    
+    // 【修复】设置最后一个真实拍的索引（用于小节线定位）
+    if (lastRealBeatIndex >= 0) {
+      measure.lastRealBeatIndex = lastRealBeatIndex;
+    }
   },
 
   // 提取行内注记
@@ -7473,13 +8665,27 @@ Page({
     
     // 每个模块包含多个小节
     const measures = parsedModule.measures.map(parsedMeasure => {
-      return {
+      const convertedMeasure = {
         beats: parsedMeasure.beats.map(parsedBeat => {
-          return {
+          const convertedBeat = {
             subdivisions: parsedBeat.subdivisions
           };
+          // 【修复】保留占位拍标记
+          if (parsedBeat.isPlaceholder) {
+            convertedBeat.isPlaceholder = true;
+          }
+          // 保留其他可能的属性
+          if (parsedBeat.barLineAfter) {
+            convertedBeat.barLineAfter = true;
+          }
+          return convertedBeat;
         })
       };
+      // 【修复】保留小节的 lastRealBeatIndex（占位拍右侧小节线位置）
+      if (parsedMeasure.lastRealBeatIndex !== undefined) {
+        convertedMeasure.lastRealBeatIndex = parsedMeasure.lastRealBeatIndex;
+      }
+      return convertedMeasure;
     });
 
     // 依据导入数据推断自定义模板
@@ -8639,6 +9845,9 @@ Page({
     console.log('[谱式转换] 开始转换:', oldType, '->', newType);
     console.log('[谱式转换] 转换表:', conversionTable);
 
+    // 【性能优化】清除音符显示缓存（谱式变更后缓存失效）
+    this.clearNoteCache();
+
     // 先关闭弹窗并显示加载界面
     this.closeNotationTypeModal();
     this.showPageLoadingOverlay();
@@ -8693,6 +9902,9 @@ Page({
    */
   confirmNoMappingConversion() {
     const newType = this.data.notationTypeTemp;
+    
+    // 【性能优化】清除音符显示缓存（谱式变更后缓存失效）
+    this.clearNoteCache();
     
     // 关闭弹窗
     this.closeNotationTypeModal();
@@ -9867,7 +11079,8 @@ Page({
   // 映射数字键盘到简谱音符
   onVirtualKey(e) {
     const key = e.currentTarget.dataset.key;
-    const { editingValue, superscriptMode, conversionEditingKey, conversionEditingField, 
+    const { editingValue, canvasEditing, canvasEditingValue, superscriptMode, 
+            conversionEditingKey, conversionEditingField, 
             newTableEditingIndex, newTableEditingField, audioMappingEditingIndex, audioMappingEditingField,
             newAudioTableEditingIndex, newAudioTableEditingField } = this.data;
     
@@ -9895,7 +11108,8 @@ Page({
       return;
     }
     
-    let newValue = editingValue || '';
+    // 获取当前编辑值（兼容Canvas模式和View模式）
+    let currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
     
     // 如果在上标模式中
     if (superscriptMode) {
@@ -9905,7 +11119,7 @@ Page({
     
     // 普通输入 - 追加到主音符中
     // 解析当前值，提取主音符部分和上标部分
-    const parsed = this.parseNoteForVK(newValue);
+    const parsed = this.parseNoteForVK(currentValue);
     let mainPart = parsed.baseNote + "'".repeat(parsed.octaveUp) + ",".repeat(parsed.octaveDown) + (parsed.underline ? '_' : '');
     
     // 追加新字符到主音符
@@ -10268,8 +11482,8 @@ Page({
       this.prevEditingValue = value;
     }
     
-    // 同步更新音高档位显示
-    this.updatePitchLevelFromNote();
+    // 同步更新音高档位显示（传入刚写入的值，避免 setData 未生效时读到旧值导致档位回弹）
+    this.updatePitchLevelFromNote(value);
   },
   
   // 加格操作：在当前选中格子右侧新增一个音符位
@@ -10371,7 +11585,24 @@ Page({
 
     // 检查是否至少保留一个subdivision
     if (beatData.subdivisions.length <= 1) {
-      wx.showToast({ title: '每拍至少保留一个音符位', icon: 'none' });
+      // 【任务1】检测是否可以删除整拍：当前位置后续到模块末尾都是空拍
+      const canDeleteBeat = this.checkCanDeleteBeat(notation, measureIdx, beatIdx, subIdx);
+      if (canDeleteBeat) {
+        // 显示删除拍位确认弹窗
+        this.setData({
+          showDeleteBeatModal: true,
+          pendingDeleteBeatInfo: {
+            notationIndex,
+            measureIndex: measureIdx,
+            beatIndex: beatIdx,
+            subIndex: subIdx,
+            sheetId,
+            isCollapsed
+          }
+        });
+      } else {
+        wx.showToast({ title: '每拍至少保留一个音符位', icon: 'none' });
+      }
       return;
     }
 
@@ -10386,12 +11617,30 @@ Page({
     this.setNotations(withOffsets);
     this.markNotationChanged(); // 标记为有更改
     
-    // 清除编辑状态
+    // 【优化】删除格后选中下一格而不是退出虚拟键盘，使编辑更流畅
+    const newSubdivisions = beatData.subdivisions;
+    // 确定新的选中位置：优先选中下一格，如果不存在则选中上一格
+    let newSubIdx = subIdx;
+    if (newSubIdx >= newSubdivisions.length) {
+      newSubIdx = newSubdivisions.length - 1;
+    }
+    if (newSubIdx < 0) newSubIdx = 0;
+    
+    // 获取新选中位置的音符值
+    const newSubdivision = newSubdivisions[newSubIdx];
+    const newNoteValue = newSubdivision?.rightHand?.[1] || '';
+    
     if (canvasEditing) {
+      // Canvas模式：更新编辑位置到新的subdivision
       this.setData({
-        canvasEditing: null,
-        canvasEditingValue: '',
-        showVirtualKeyboard: false
+        canvasEditing: {
+          ...canvasEditing,
+          subIndex: newSubIdx
+        },
+        canvasEditingValue: newNoteValue,
+        virtualKeyboardDisplay: newNoteValue,
+        virtualKeyboardRendered: this.renderNoteForDisplay(newNoteValue),
+        vkParsed: this.parseNoteForVK(newNoteValue)
       });
       // 如果是Canvas模式，需要重新渲染
       if (isCollapsed) {
@@ -10400,14 +11649,1139 @@ Page({
         }, 50);
       }
     } else {
+      // View模式：更新编辑位置到新的subdivision
       this.setData({
-        editing: null,
-        editingValue: '',
-        showVirtualKeyboard: false
+        editing: {
+          ...editing,
+          subdivision: newSubIdx
+        },
+        editingValue: newNoteValue,
+        virtualKeyboardDisplay: newNoteValue,
+        virtualKeyboardRendered: this.renderNoteForDisplay(newNoteValue),
+        vkParsed: this.parseNoteForVK(newNoteValue)
       });
     }
     
+    // 更新音高档位
+    this.updatePitchLevelFromNote();
+    
     wx.showToast({ title: '已删除音符位', icon: 'success' });
+  },
+  
+  // 【任务1】检查是否可以删除整拍：当前位置后续到模块末尾都是空拍
+  checkCanDeleteBeat(notation, measureIdx, beatIdx, subIdx) {
+    const measures = notation.measures;
+    if (!measures || measures.length === 0) return false;
+    
+    // 从当前位置开始，检查后续所有音符是否为空
+    for (let m = measureIdx; m < measures.length; m++) {
+      const measure = measures[m];
+      if (!measure || !measure.beats) continue;
+      
+      for (let b = (m === measureIdx ? beatIdx : 0); b < measure.beats.length; b++) {
+        const beat = measure.beats[b];
+        if (!beat || !beat.subdivisions) continue;
+        
+        for (let s = (m === measureIdx && b === beatIdx ? subIdx : 0); s < beat.subdivisions.length; s++) {
+          const sub = beat.subdivisions[s];
+          // 检查是否为空拍
+          if (!this.isEmptySubdivision(sub)) {
+            return false; // 发现非空音符，不能删除
+          }
+        }
+      }
+    }
+    return true; // 后续所有都是空拍
+  },
+  
+  // 【任务1】检查subdivision是否为空
+  isEmptySubdivision(subdivision) {
+    if (!subdivision) return true;
+    const rightHand = subdivision.rightHand || ['', ''];
+    const leftHand = subdivision.leftHand || ['', ''];
+    // 检查所有槽位是否都为空
+    return !rightHand[0] && !rightHand[1] && !leftHand[0] && !leftHand[1];
+  },
+  
+  // 【任务1】关闭删除拍位确认弹窗
+  closeDeleteBeatModal() {
+    this.setData({
+      showDeleteBeatModal: false,
+      pendingDeleteBeatInfo: null
+    });
+  },
+  
+  // 【任务1】切换删除所有空拍选项
+  toggleDeleteBeatAllEmpty() {
+    this.setData({
+      deleteBeatAllEmpty: !this.data.deleteBeatAllEmpty
+    });
+  },
+  
+  // 【任务1】确认删除拍位
+  confirmDeleteBeat() {
+    const { pendingDeleteBeatInfo, deleteBeatAllEmpty, notations } = this.data;
+    if (!pendingDeleteBeatInfo) {
+      this.closeDeleteBeatModal();
+      return;
+    }
+    
+    // 先备份当前状态（用于撤销）
+    const snapshotAction = this.createFullSnapshotAction('删除拍位');
+    this.backupCurrentState(snapshotAction);
+    
+    const { notationIndex, measureIndex, beatIndex, subIndex, sheetId, isCollapsed } = pendingDeleteBeatInfo;
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    const measuresPerRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    
+    if (deleteBeatAllEmpty) {
+      // 删除当前位置到末尾所有空拍
+      this.deleteEmptyBeatsFromPosition(notation, measureIndex, beatIndex, subIndex, measuresPerRow);
+    } else {
+      // 只删除当前拍
+      this.deleteSingleBeat(notation, measureIndex, beatIndex, measuresPerRow);
+    }
+    
+    // 计算光标应该停留的位置（前一拍的最后一个位置）
+    const cursorPosition = this.calculateCursorAfterBeatDelete(notation, measureIndex, beatIndex);
+    
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+    this.markNotationChanged();
+    
+    // 关闭弹窗并清除编辑状态
+    this.setData({
+      showDeleteBeatModal: false,
+      pendingDeleteBeatInfo: null,
+      editing: null,
+      editingValue: '',
+      canvasEditing: null,
+      canvasEditingValue: '',
+      showVirtualKeyboard: false
+    });
+    
+    // 如果是Canvas模式，重新渲染
+    if (isCollapsed && sheetId) {
+      const newHeight = this.calculateCanvasHeight(notation);
+      this.setData({
+        [`notations[${notationIndex}].canvasHeight`]: newHeight
+      }, () => {
+        setTimeout(() => {
+          this.initCanvasRenderer(sheetId, notationIndex);
+        }, 50);
+      });
+    }
+    
+    // 设置光标到新位置
+    if (cursorPosition) {
+      setTimeout(() => {
+        this.navigateToCursorPosition(sheetId, cursorPosition, isCollapsed, notationIndex);
+      }, 100);
+    }
+    
+    wx.showToast({ title: '已删除拍位', icon: 'success' });
+  },
+  
+  // 【任务1】删除从指定位置开始的所有空拍
+  deleteEmptyBeatsFromPosition(notation, measureIdx, beatIdx, subIdx, measuresPerRow) {
+    const measures = notation.measures;
+    if (!measures || measures.length === 0) return;
+    
+    // 计算当前行信息
+    const currentRowIndex = Math.floor(measureIdx / measuresPerRow);
+    const rowStartIndex = currentRowIndex * measuresPerRow;
+    const rowEndIndex = Math.min(rowStartIndex + measuresPerRow, measures.length);
+    
+    // 计算该行原始的总拍数（用于后续补足占位）
+    let originalBeatsInRow = 0;
+    for (let m = rowStartIndex; m < rowEndIndex; m++) {
+      const measure = measures[m];
+      if (measure && measure.beats) {
+        originalBeatsInRow += measure.beats.length;
+      }
+    }
+    
+    // 收集要保留的拍位（当前位置之前的）
+    let beatsToKeep = [];
+    for (let m = rowStartIndex; m <= measureIdx; m++) {
+      const measure = measures[m];
+      if (!measure || !measure.beats) continue;
+      
+      for (let b = 0; b < measure.beats.length; b++) {
+        if (m === measureIdx && b >= beatIdx) break;
+        beatsToKeep.push({ measureIndex: m, beatIndex: b, beat: JSON.parse(JSON.stringify(measure.beats[b])) });
+      }
+    }
+    
+    // 如果当前拍的当前位置之前还有音符格，保留它们
+    if (subIdx > 0) {
+      const currentBeat = measures[measureIdx].beats[beatIdx];
+      const partialBeat = {
+        subdivisions: currentBeat.subdivisions.slice(0, subIdx)
+      };
+      beatsToKeep.push({ measureIndex: measureIdx, beatIndex: beatIdx, beat: partialBeat, partial: true });
+    }
+    
+    // 如果保留的拍位为空（即删除的是第一个拍的第一个位置），则删除整行
+    if (beatsToKeep.length === 0 || (beatsToKeep.length === 1 && beatsToKeep[0].partial && beatsToKeep[0].beat.subdivisions.length === 0)) {
+      // 删除从当前行到末尾的所有内容
+      notation.measures.splice(rowStartIndex);
+      // 确保至少保留一行空小节
+      if (notation.measures.length === 0) {
+        notation.measures.push(this.createEmptyMeasure(4, 4)); // 创建默认空小节
+      }
+      return;
+    }
+    
+    // 计算删除了多少个拍
+    const deletedBeatsCount = originalBeatsInRow - beatsToKeep.length;
+    
+    // 重建当前行及之后的小节结构
+    // 删除当前行及之后的所有小节
+    notation.measures.splice(rowStartIndex);
+    
+    // 根据保留的拍位重建小节
+    this.rebuildMeasuresFromBeats(notation, beatsToKeep, measuresPerRow);
+    
+    // 【优化】在行末尾添加占位拍，保持行宽度不变
+    if (deletedBeatsCount > 0 && notation.measures.length > 0) {
+      const lastMeasureIdx = notation.measures.length - 1;
+      const lastMeasure = notation.measures[lastMeasureIdx];
+      
+      // 记录添加占位拍之前的最后一个非占位拍索引
+      const lastRealBeatIndex = lastMeasure.beats.length - 1;
+      
+      for (let i = 0; i < deletedBeatsCount; i++) {
+        // 创建占位拍
+        const placeholderBeat = {
+          subdivisions: [
+            { rightHand: ['', ''], leftHand: ['', ''], isPlaceholder: true },
+            { rightHand: ['', ''], leftHand: ['', ''], isPlaceholder: true },
+            { rightHand: ['', ''], leftHand: ['', ''], isPlaceholder: true },
+            { rightHand: ['', ''], leftHand: ['', ''], isPlaceholder: true }
+          ],
+          isPlaceholder: true
+        };
+        lastMeasure.beats.push(placeholderBeat);
+      }
+      
+      // 设置最后一个非占位拍的索引（用于小节线定位）
+      lastMeasure.lastRealBeatIndex = lastRealBeatIndex;
+    }
+  },
+  
+  // 【任务1】删除单个拍（保持行宽度不变）
+  deleteSingleBeat(notation, measureIdx, beatIdx, measuresPerRow) {
+    const measure = notation.measures[measureIdx];
+    if (!measure || !measure.beats) return;
+    
+    // 计算当前行信息
+    const currentRowIndex = Math.floor(measureIdx / measuresPerRow);
+    const rowStartIndex = currentRowIndex * measuresPerRow;
+    const rowEndIndex = Math.min(rowStartIndex + measuresPerRow, notation.measures.length);
+    
+    // 如果小节只有一个拍，需要特殊处理
+    if (measure.beats.length <= 1) {
+      const measuresInRow = rowEndIndex - rowStartIndex;
+      
+      if (measuresInRow <= 1 && notation.measures.length > measuresInRow) {
+        // 删除整行（同时清理该行的占位拍）
+        this.removeRowPlaceholders(notation, rowStartIndex, rowEndIndex);
+        notation.measures.splice(rowStartIndex, measuresInRow);
+      } else if (notation.measures.length > 1) {
+        // 删除当前小节
+        notation.measures.splice(measureIdx, 1);
+      }
+      return;
+    }
+    
+    // 获取被删除拍的细分数（用于创建占位）
+    const deletedBeat = measure.beats[beatIdx];
+    const subdivisionsCount = deletedBeat?.subdivisions?.length || 4;
+    
+    // 删除当前拍
+    measure.beats.splice(beatIdx, 1);
+    
+    // 在该行末尾的最后一个小节添加占位拍，保持行宽度不变
+    this.addRowPlaceholderBeat(notation, rowStartIndex, rowEndIndex, subdivisionsCount);
+  },
+  
+  // 【任务1】在行末尾添加占位拍（保持行宽度不变）
+  // 占位拍添加到beats数组末尾，标记isPlaceholder=true，小节线在最后一个非占位拍后绘制
+  addRowPlaceholderBeat(notation, rowStartIndex, rowEndIndex, subdivisionsCount) {
+    // 获取该行的最后一个小节
+    const lastMeasureIdx = Math.min(rowEndIndex - 1, notation.measures.length - 1);
+    if (lastMeasureIdx < rowStartIndex) return;
+    
+    const lastMeasure = notation.measures[lastMeasureIdx];
+    if (!lastMeasure) return;
+    
+    // 在添加占位拍之前，找到当前最后一个非占位拍的索引
+    let currentLastRealBeatIndex = -1;
+    if (lastMeasure.beats) {
+      for (let i = lastMeasure.beats.length - 1; i >= 0; i--) {
+        if (!lastMeasure.beats[i].isPlaceholder) {
+          currentLastRealBeatIndex = i;
+          break;
+        }
+      }
+    }
+    
+    // 创建一个占位拍
+    const placeholderBeat = {
+      subdivisions: [],
+      isPlaceholder: true
+    };
+    
+    // 创建空的细分
+    for (let i = 0; i < subdivisionsCount; i++) {
+      placeholderBeat.subdivisions.push({
+        rightHand: ['', ''],
+        leftHand: ['', '']
+      });
+    }
+    
+    // 添加到该小节的beats数组末尾
+    if (!lastMeasure.beats) lastMeasure.beats = [];
+    lastMeasure.beats.push(placeholderBeat);
+    
+    // 标记该小节有占位拍，并记录最后一个非占位拍的索引
+    // 如果之前已经有占位拍，保持原来的索引；否则设置为新占位拍前一个
+    if (currentLastRealBeatIndex >= 0) {
+      lastMeasure.lastRealBeatIndex = currentLastRealBeatIndex;
+    } else {
+      // 全部都是占位拍的情况（不太可能发生）
+      lastMeasure.lastRealBeatIndex = 0;
+    }
+  },
+  
+  // 【任务1】移除行的占位拍（删除行时调用）
+  removeRowPlaceholders(notation, rowStartIndex, rowEndIndex) {
+    for (let m = rowStartIndex; m < rowEndIndex && m < notation.measures.length; m++) {
+      const measure = notation.measures[m];
+      if (!measure) continue;
+      
+      // 清空placeholderBeats数组
+      if (measure.placeholderBeats) {
+        measure.placeholderBeats = [];
+      }
+      
+      // 兼容旧的beats中的占位拍
+      if (measure.beats) {
+        measure.beats = measure.beats.filter(beat => !beat.isPlaceholder);
+      }
+    }
+  },
+  
+  // 【任务1】根据保留的拍位重建小节
+  rebuildMeasuresFromBeats(notation, beatsToKeep, measuresPerRow) {
+    if (beatsToKeep.length === 0) return;
+    
+    // 确定每小节的拍数（使用第一个完整小节的拍数作为参考）
+    const originalMeasure = notation.measures[0];
+    const beatsPerMeasure = originalMeasure ? originalMeasure.beats.length : 4;
+    
+    let currentMeasure = { beats: [] };
+    let measureCount = 0;
+    
+    for (const beatInfo of beatsToKeep) {
+      currentMeasure.beats.push(beatInfo.beat);
+      
+      // 当达到每小节的拍数时，创建新小节
+      if (currentMeasure.beats.length >= beatsPerMeasure) {
+        notation.measures.push(currentMeasure);
+        currentMeasure = { beats: [] };
+        measureCount++;
+      }
+    }
+    
+    // 添加最后一个不完整的小节（如果有）
+    if (currentMeasure.beats.length > 0) {
+      notation.measures.push(currentMeasure);
+    }
+  },
+  
+  // 【任务1】计算删除拍后光标应该停留的位置
+  calculateCursorAfterBeatDelete(notation, measureIdx, beatIdx) {
+    const measures = notation.measures;
+    if (!measures || measures.length === 0) return null;
+    
+    // 尝试定位到前一拍的最后一个位置
+    if (beatIdx > 0) {
+      // 同一小节的前一拍
+      const prevBeat = measures[measureIdx]?.beats[beatIdx - 1];
+      if (prevBeat && prevBeat.subdivisions) {
+        return {
+          measureIndex: measureIdx,
+          beatIndex: beatIdx - 1,
+          subIndex: prevBeat.subdivisions.length - 1
+        };
+      }
+    } else if (measureIdx > 0) {
+      // 前一小节的最后一拍
+      const prevMeasure = measures[measureIdx - 1];
+      if (prevMeasure && prevMeasure.beats && prevMeasure.beats.length > 0) {
+        const lastBeat = prevMeasure.beats[prevMeasure.beats.length - 1];
+        return {
+          measureIndex: measureIdx - 1,
+          beatIndex: prevMeasure.beats.length - 1,
+          subIndex: lastBeat.subdivisions ? lastBeat.subdivisions.length - 1 : 0
+        };
+      }
+    }
+    
+    // 默认返回第一个位置
+    return { measureIndex: 0, beatIndex: 0, subIndex: 0 };
+  },
+  
+  // 【任务1】导航到光标位置
+  navigateToCursorPosition(sheetId, position, isCollapsed, notationIndex) {
+    const { notations } = this.data;
+    const notation = notations[notationIndex];
+    if (!notation) return;
+    
+    const measure = notation.measures[position.measureIndex];
+    if (!measure || !measure.beats) return;
+    
+    const beat = measure.beats[position.beatIndex];
+    if (!beat || !beat.subdivisions) return;
+    
+    const subdivision = beat.subdivisions[position.subIndex];
+    if (!subdivision) return;
+    
+    // 设置编辑状态到目标位置
+    if (isCollapsed) {
+      // Canvas模式
+      this.setData({
+        canvasEditing: {
+          notationId: sheetId,
+          notationIndex,
+          measureIndex: position.measureIndex,
+          beatIndex: position.beatIndex,
+          subIndex: position.subIndex,
+          hand: 'right',
+          index: 1
+        },
+        canvasEditingValue: subdivision.rightHand?.[1] || ''
+      });
+    } else {
+      // View模式
+      this.setData({
+        editing: {
+          sheet: sheetId,
+          measure: position.measureIndex,
+          beat: position.beatIndex,
+          subdivision: position.subIndex,
+          hand: 'right',
+          index: 1
+        },
+        editingValue: subdivision.rightHand?.[1] || ''
+      });
+    }
+  },
+  
+  // 【任务1】创建空小节
+  createEmptyMeasure(beatsPerMeasure = 4, subdivisionsPerBeat = 4) {
+    const beats = [];
+    for (let i = 0; i < beatsPerMeasure; i++) {
+      const subdivisions = [];
+      for (let j = 0; j < subdivisionsPerBeat; j++) {
+        subdivisions.push({
+          rightHand: ['', ''],
+          leftHand: ['', '']
+        });
+      }
+      beats.push({ subdivisions });
+    }
+    return { beats };
+  },
+  
+  // ========== 任务2: 复制粘贴功能 ==========
+  
+  // 【任务2】处理长按拍位进入选中模式
+  onBeatLongPress(e) {
+    if (this.data.isPlaybackMode || this.data.readingMode) return;
+    
+    const { sheet, measure, beat } = e.currentTarget.dataset;
+    const notationIndex = this.data.notations.findIndex(n => n.id === sheet);
+    if (notationIndex === -1) return;
+    
+    // 震动反馈
+    wx.vibrateShort({ type: 'medium' });
+    
+    // 计算选中拍位信息
+    const selectedBeatsInfo = {};
+    selectedBeatsInfo[`${sheet}-${measure}-${beat}`] = true;
+    
+    // 获取点击位置用于显示气泡
+    const touch = e.touches?.[0] || e.detail;
+    const touchX = touch?.clientX || touch?.x || 0;
+    const touchY = touch?.clientY || touch?.y || 0;
+    
+    // 设置选中状态并立即显示气泡，同时强制收起菜单栏
+    this.setData({
+      isSelectingBeats: true,
+      beatSelectionStart: { notationId: sheet, measureIndex: measure, beatIndex: beat },
+      beatSelectionEnd: { notationId: sheet, measureIndex: measure, beatIndex: beat },
+      selectedBeatsInfo,
+      canvasSelectStep: 0,
+      actionCollapsed: true  // 【优化】强制收起菜单栏
+    }, () => {
+      // 显示气泡弹窗
+      this.showCopyPasteBubbleAtBeat(sheet, measure, beat, touchX, touchY);
+    });
+    
+    // 清除当前编辑状态
+    this.clearEditing();
+  },
+  
+  // 【任务2】选中模式下点击拍位
+  onBeatTapForSelection(e) {
+    const { isSelectingBeats, beatSelectionStart } = this.data;
+    if (!isSelectingBeats) return;
+    
+    const { sheet, measure, beat } = e.currentTarget.dataset;
+    
+    // 检查是否在同一个module
+    if (beatSelectionStart && sheet !== beatSelectionStart.notationId) {
+      wx.showToast({ title: '只能选择同一模块内的拍', icon: 'none' });
+      return;
+    }
+    
+    // 震动反馈
+    wx.vibrateShort({ type: 'light' });
+    
+    // 更新选择终点
+    this.setData({
+      beatSelectionEnd: { notationId: sheet, measureIndex: measure, beatIndex: beat }
+    }, () => {
+      // 更新选中拍位信息
+      const selectedBeatsInfo = this.updateSelectedBeatsInfo();
+      this.setData({ selectedBeatsInfo });
+      
+      // 获取点击位置，在点击的拍上方显示气泡
+      const touch = e.touches?.[0] || e.detail;
+      const touchX = touch?.clientX || touch?.x || 0;
+      const touchY = touch?.clientY || touch?.y || 0;
+      this.showCopyPasteBubbleAtBeat(sheet, measure, beat, touchX, touchY);
+    });
+  },
+  
+  // 【任务2】更新选中拍位信息
+  updateSelectedBeatsInfo() {
+    const { beatSelectionStart, beatSelectionEnd, notations } = this.data;
+    if (!beatSelectionStart || !beatSelectionEnd) return {};
+    if (beatSelectionStart.notationId !== beatSelectionEnd.notationId) return {};
+    
+    const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
+    if (notationIndex === -1) return {};
+    
+    const notation = notations[notationIndex];
+    const notationId = beatSelectionStart.notationId;
+    
+    // 计算全局索引
+    const startGlobal = this.getGlobalBeatIndex(notation, beatSelectionStart.measureIndex, beatSelectionStart.beatIndex);
+    const endGlobal = this.getGlobalBeatIndex(notation, beatSelectionEnd.measureIndex, beatSelectionEnd.beatIndex);
+    const minGlobal = Math.min(startGlobal, endGlobal);
+    const maxGlobal = Math.max(startGlobal, endGlobal);
+    
+    // 构建选中拍位信息
+    const selectedBeatsInfo = {};
+    let globalIdx = 0;
+    for (let m = 0; m < notation.measures.length; m++) {
+      const measure = notation.measures[m];
+      if (!measure || !measure.beats) continue;
+      for (let b = 0; b < measure.beats.length; b++) {
+        if (globalIdx >= minGlobal && globalIdx <= maxGlobal) {
+          selectedBeatsInfo[`${notationId}-${m}-${b}`] = true;
+        }
+        globalIdx++;
+      }
+    }
+    
+    return selectedBeatsInfo;
+  },
+  
+  // 【任务2】Canvas模式长按处理（统一逻辑）
+  onCanvasBeatLongPress(notationId, notationIndex, measureIndex, beatIndex, touchX, touchY) {
+    if (this.data.isPlaybackMode || this.data.readingMode) return;
+    
+    // 震动反馈
+    wx.vibrateShort({ type: 'medium' });
+    
+    const { isSelectingBeats, beatSelectionStart } = this.data;
+    
+    if (!isSelectingBeats) {
+      // 进入选中模式
+      const selectedBeatsInfo = {};
+      selectedBeatsInfo[`${notationId}-${measureIndex}-${beatIndex}`] = true;
+      
+      this.setData({
+        isSelectingBeats: true,
+        beatSelectionStart: { notationId, measureIndex, beatIndex },
+        beatSelectionEnd: { notationId, measureIndex, beatIndex },
+        selectedBeatsInfo,
+        canvasSelectStep: 0,
+        actionCollapsed: true  // 【优化】强制收起菜单栏
+      }, () => {
+        this.showCopyPasteBubbleAtBeat(notationId, measureIndex, beatIndex, touchX, touchY);
+        // Canvas模式需要重绘以显示选中高亮
+        this.redrawCanvasWithSelection(notationId, notationIndex);
+      });
+    }
+  },
+  
+  // 【任务2】Canvas模式点击处理（选中模式下）
+  onCanvasBeatTapForSelection(notationId, notationIndex, measureIndex, beatIndex, touchX, touchY) {
+    const { isSelectingBeats, beatSelectionStart } = this.data;
+    if (!isSelectingBeats) return;
+    
+    // 检查是否在同一个module
+    if (beatSelectionStart && notationId !== beatSelectionStart.notationId) {
+      wx.showToast({ title: '只能选择同一模块内的拍', icon: 'none' });
+      return;
+    }
+    
+    // 震动反馈
+    wx.vibrateShort({ type: 'light' });
+    
+    // 更新选择终点
+    this.setData({
+      beatSelectionEnd: { notationId, measureIndex, beatIndex }
+    }, () => {
+      // 更新选中拍位信息
+      const selectedBeatsInfo = this.updateSelectedBeatsInfo();
+      this.setData({ selectedBeatsInfo });
+      
+      // 显示气泡
+      this.showCopyPasteBubbleAtBeat(notationId, measureIndex, beatIndex, touchX, touchY);
+      // Canvas模式重绘
+      this.redrawCanvasWithSelection(notationId, notationIndex);
+    });
+  },
+  
+  // 【任务2】Canvas模式重绘以显示选中高亮
+  redrawCanvasWithSelection(notationId, notationIndex) {
+    const renderer = this._canvasRenderers[notationId];
+    if (renderer) {
+      // 传递选中信息给渲染器
+      renderer.setSelectionInfo(this.data.selectedBeatsInfo);
+      renderer.render();
+    }
+  },
+  
+  // 【任务2】在指定拍位上方显示气泡（气泡已移到拍位元素内部，使用绝对定位）
+  showCopyPasteBubbleAtBeat(notationId, measureIndex, beatIndex, touchX, touchY) {
+    const { notations } = this.data;
+    const notationIndex = notations.findIndex(n => n.id === notationId);
+    
+    if (notationIndex === -1) {
+      this.setData({ showBeatSelectionBubble: true });
+      return;
+    }
+    
+    const notation = notations[notationIndex];
+    
+    // Canvas模式：需要计算位置
+    if (notation.collapsed) {
+      const renderer = this._canvasRenderers[notationId];
+      if (renderer) {
+        // 获取选中尾拍第一个细分的位置（作为拍位位置）
+        const columnRect = renderer.getColumnRect(measureIndex, beatIndex, 0);
+        if (columnRect) {
+          const bubbleWidth = 180;
+          const bubbleHeight = 60;
+          // 计算拍位的宽度（假设每个拍有4个细分）
+          const beatWidth = columnRect.width * 4;
+          // 气泡显示在拍位上方居中
+          const bubbleX = columnRect.x + beatWidth / 2 - bubbleWidth / 2;
+          const bubbleY = columnRect.y - bubbleHeight - 20;
+          
+          this.setData({
+            showBeatSelectionBubble: true,
+            beatBubbleCanvasPosition: { x: Math.max(10, bubbleX), y: Math.max(10, bubbleY) }
+          });
+          return;
+        }
+      }
+      // 如果无法获取拍位位置，使用触摸坐标
+      const bubbleWidth = 180;
+      const bubbleHeight = 60;
+      const query = wx.createSelectorQuery().in(this);
+      query.select(`#notation-container-${notationId}`).boundingClientRect().exec((res) => {
+        if (res && res[0]) {
+          const containerRect = res[0];
+          const bubbleX = (touchX || containerRect.width / 2) - containerRect.left - bubbleWidth / 2;
+          const bubbleY = (touchY || 50) - containerRect.top - bubbleHeight - 20;
+          
+          this.setData({
+            showBeatSelectionBubble: true,
+            beatBubbleCanvasPosition: { x: Math.max(10, bubbleX), y: Math.max(10, bubbleY) }
+          });
+        } else {
+          this.setData({ showBeatSelectionBubble: true });
+        }
+      });
+    } else {
+      // View模式：气泡直接显示在选中尾拍元素内部，位置由CSS控制
+      this.setData({
+        showBeatSelectionBubble: true
+      });
+    }
+  },
+  
+  // 【任务2】显示复制/粘贴气泡弹窗（保留旧接口兼容）
+  showCopyPasteBubble(x, y) {
+    this.showCopyPasteBubbleAtBeat(null, null, null, x, y);
+  },
+  
+  // 【任务2】关闭复制/粘贴气泡弹窗（点击空白区域）
+  closeBeatSelectionBubble() {
+    const { isSelectingBeats, notations, beatSelectionStart } = this.data;
+    
+    // 如果在Canvas模式下，需要清除选中高亮
+    if (isSelectingBeats && beatSelectionStart) {
+      const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
+      if (notationIndex !== -1) {
+        const notation = notations[notationIndex];
+        if (notation.collapsed) {
+          const renderer = this._canvasRenderers[beatSelectionStart.notationId];
+          if (renderer) {
+            renderer.setSelectionInfo({});
+            renderer.render();
+          }
+        }
+      }
+    }
+    
+    this.setData({
+      showBeatSelectionBubble: false,
+      isSelectingBeats: false,
+      beatSelectionStart: null,
+      beatSelectionEnd: null,
+      selectedBeatsInfo: {},
+      canvasSelectStep: 0,
+      canvasSelectStartInfo: null
+    });
+  },
+  
+  // 【任务2】退出选中模式但不关闭气泡（用于复制/粘贴后）
+  exitSelectionMode() {
+    const { notations, beatSelectionStart } = this.data;
+    
+    // 清除Canvas选中高亮
+    if (beatSelectionStart) {
+      const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
+      if (notationIndex !== -1) {
+        const notation = notations[notationIndex];
+        if (notation.collapsed) {
+          const renderer = this._canvasRenderers[beatSelectionStart.notationId];
+          if (renderer) {
+            renderer.setSelectionInfo({});
+            renderer.render();
+          }
+        }
+      }
+    }
+    
+    this.setData({
+      showBeatSelectionBubble: false,
+      isSelectingBeats: false,
+      beatSelectionStart: null,
+      beatSelectionEnd: null,
+      selectedBeatsInfo: {},
+      canvasSelectStep: 0,
+      canvasSelectStartInfo: null
+    });
+  },
+  
+  // 【任务2】复制选中的拍位
+  copySelectedBeats() {
+    const { beatSelectionStart, beatSelectionEnd, notations } = this.data;
+    
+    if (!beatSelectionStart || !beatSelectionEnd) {
+      wx.showToast({ title: '请先选择拍位', icon: 'none' });
+      return;
+    }
+    
+    // 确保起点和终点在同一个module
+    if (beatSelectionStart.notationId !== beatSelectionEnd.notationId) {
+      wx.showToast({ title: '只能复制同一模块内的拍', icon: 'none' });
+      return;
+    }
+    
+    const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
+    if (notationIndex === -1) {
+      wx.showToast({ title: '未找到谱面', icon: 'none' });
+      return;
+    }
+    
+    const notation = notations[notationIndex];
+    
+    // 计算起点和终点的全局拍位索引
+    const startGlobal = this.getGlobalBeatIndex(notation, beatSelectionStart.measureIndex, beatSelectionStart.beatIndex);
+    const endGlobal = this.getGlobalBeatIndex(notation, beatSelectionEnd.measureIndex, beatSelectionEnd.beatIndex);
+    
+    // 确保起点小于等于终点
+    const minGlobal = Math.min(startGlobal, endGlobal);
+    const maxGlobal = Math.max(startGlobal, endGlobal);
+    
+    // 收集选中的拍位数据并生成代码
+    const selectedBeats = [];
+    let clipboardCode = '';
+    let globalIdx = 0;
+    
+    for (let m = 0; m < notation.measures.length; m++) {
+      const measure = notation.measures[m];
+      if (!measure || !measure.beats) continue;
+      
+      for (let b = 0; b < measure.beats.length; b++) {
+        if (globalIdx >= minGlobal && globalIdx <= maxGlobal) {
+          const beat = measure.beats[b];
+          selectedBeats.push(JSON.parse(JSON.stringify(beat)));
+          clipboardCode += '|' + this.generateBeatCode(beat);
+        }
+        globalIdx++;
+      }
+    }
+    
+    // 添加结尾分隔符
+    clipboardCode += '|';
+    
+    // 保存到剪贴板
+    this.setData({
+      beatClipboard: clipboardCode,
+      beatClipboardBeats: selectedBeats
+    });
+    
+    // 复制后退出选中模式
+    this.exitSelectionMode();
+    
+    wx.showToast({ title: `已复制 ${selectedBeats.length} 个拍`, icon: 'success' });
+  },
+  
+  // 【任务2】获取全局拍位索引
+  getGlobalBeatIndex(notation, measureIndex, beatIndex) {
+    let globalIdx = 0;
+    for (let m = 0; m < measureIndex && m < notation.measures.length; m++) {
+      const measure = notation.measures[m];
+      if (measure && measure.beats) {
+        globalIdx += measure.beats.length;
+      }
+    }
+    return globalIdx + beatIndex;
+  },
+  
+  // 【任务2】粘贴拍位
+  pasteBeats() {
+    const { beatSelectionStart, beatSelectionEnd, beatClipboardBeats, notations } = this.data;
+    
+    if (!beatClipboardBeats || beatClipboardBeats.length === 0) {
+      wx.showToast({ title: '剪贴板为空', icon: 'none' });
+      return;
+    }
+    
+    if (!beatSelectionStart || !beatSelectionEnd) {
+      wx.showToast({ title: '请先选择粘贴位置', icon: 'none' });
+      return;
+    }
+    
+    // 确保起点和终点在同一个module
+    if (beatSelectionStart.notationId !== beatSelectionEnd.notationId) {
+      wx.showToast({ title: '只能在同一模块内粘贴', icon: 'none' });
+      return;
+    }
+    
+    const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
+    if (notationIndex === -1) {
+      wx.showToast({ title: '未找到谱面', icon: 'none' });
+      return;
+    }
+    
+    // 先备份当前状态（用于撤销）
+    const snapshotAction = this.createFullSnapshotAction('粘贴拍位');
+    this.backupCurrentState(snapshotAction);
+    
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    const isCollapsed = notation.collapsed;
+    const sheetId = beatSelectionStart.notationId;
+    const measuresPerRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    
+    // 计算起点和终点的全局拍位索引
+    const startGlobal = this.getGlobalBeatIndex(notation, beatSelectionStart.measureIndex, beatSelectionStart.beatIndex);
+    const endGlobal = this.getGlobalBeatIndex(notation, beatSelectionEnd.measureIndex, beatSelectionEnd.beatIndex);
+    const minGlobal = Math.min(startGlobal, endGlobal);
+    const maxGlobal = Math.max(startGlobal, endGlobal);
+    
+    // 执行粘贴逻辑
+    this.executePaste(notation, minGlobal, maxGlobal, beatClipboardBeats, measuresPerRow);
+    
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+    this.markNotationChanged();
+    
+    // 关闭气泡
+    this.closeBeatSelectionBubble();
+    
+    // 如果是Canvas模式，重新渲染
+    if (isCollapsed) {
+      const newHeight = this.calculateCanvasHeight(notation);
+      this.setData({
+        [`notations[${notationIndex}].canvasHeight`]: newHeight
+      }, () => {
+        setTimeout(() => {
+          this.initCanvasRenderer(sheetId, notationIndex);
+        }, 50);
+      });
+    }
+    
+    wx.showToast({ title: '粘贴成功', icon: 'success' });
+  },
+  
+  // 【任务2】删除选中的拍位
+  deleteSelectedBeats() {
+    const { beatSelectionStart, beatSelectionEnd, notations } = this.data;
+    
+    if (!beatSelectionStart || !beatSelectionEnd) {
+      wx.showToast({ title: '请先选择拍位', icon: 'none' });
+      return;
+    }
+    
+    // 确保起点和终点在同一个module
+    if (beatSelectionStart.notationId !== beatSelectionEnd.notationId) {
+      wx.showToast({ title: '只能删除同一模块内的拍', icon: 'none' });
+      return;
+    }
+    
+    const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
+    if (notationIndex === -1) {
+      wx.showToast({ title: '未找到谱面', icon: 'none' });
+      return;
+    }
+    
+    // 先备份当前状态（用于撤销）
+    const snapshotAction = this.createFullSnapshotAction('删除选中拍位');
+    this.backupCurrentState(snapshotAction);
+    
+    const notation = this.deepCloneNotation(notations[notationIndex]);
+    const isCollapsed = notation.collapsed;
+    const sheetId = beatSelectionStart.notationId;
+    const measuresPerRow = this.getMeasuresPerRowForNotation(notation) || 1;
+    
+    // 计算起点和终点的全局拍位索引
+    const startGlobal = this.getGlobalBeatIndex(notation, beatSelectionStart.measureIndex, beatSelectionStart.beatIndex);
+    const endGlobal = this.getGlobalBeatIndex(notation, beatSelectionEnd.measureIndex, beatSelectionEnd.beatIndex);
+    const minGlobal = Math.min(startGlobal, endGlobal);
+    const maxGlobal = Math.max(startGlobal, endGlobal);
+    
+    // 收集所有拍位（不包含占位拍）
+    const allBeats = [];
+    for (const measure of notation.measures) {
+      if (measure && measure.beats) {
+        for (const beat of measure.beats) {
+          if (!beat.isPlaceholder) {
+            allBeats.push(JSON.parse(JSON.stringify(beat)));
+          }
+        }
+      }
+    }
+    
+    // 删除选中区域的拍位
+    const deleteCount = maxGlobal - minGlobal + 1;
+    allBeats.splice(minGlobal, deleteCount);
+    
+    // 重新构建小节结构（会自动补足空拍）
+    this.rebuildMeasureStructure(notation, allBeats, measuresPerRow);
+    
+    // 更新notations
+    const updatedNotations = [...notations];
+    updatedNotations[notationIndex] = notation;
+    const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+    this.markNotationChanged();
+    
+    // 退出选中模式
+    this.exitSelectionMode();
+    
+    // 如果是Canvas模式，重新渲染
+    if (isCollapsed) {
+      const newHeight = this.calculateCanvasHeight(notation);
+      this.setData({
+        [`notations[${notationIndex}].canvasHeight`]: newHeight
+      }, () => {
+        setTimeout(() => {
+          this.initCanvasRenderer(sheetId, notationIndex);
+        }, 50);
+      });
+    }
+    
+    wx.showToast({ title: `已删除 ${deleteCount} 个拍`, icon: 'success' });
+  },
+  
+  // 【任务2】执行粘贴操作
+  executePaste(notation, startGlobalIdx, endGlobalIdx, pasteBeats, measuresPerRow) {
+    // 收集所有拍位
+    const allBeats = [];
+    for (const measure of notation.measures) {
+      if (measure && measure.beats) {
+        for (const beat of measure.beats) {
+          allBeats.push(JSON.parse(JSON.stringify(beat)));
+        }
+      }
+    }
+    
+    // 删除选中区域的拍位
+    const deleteCount = endGlobalIdx - startGlobalIdx + 1;
+    allBeats.splice(startGlobalIdx, deleteCount);
+    
+    // 在选中位置插入粘贴的拍位
+    for (let i = 0; i < pasteBeats.length; i++) {
+      allBeats.splice(startGlobalIdx + i, 0, JSON.parse(JSON.stringify(pasteBeats[i])));
+    }
+    
+    // 重新构建小节结构
+    this.rebuildMeasureStructure(notation, allBeats, measuresPerRow);
+  },
+  
+  // 【任务2】重新构建小节结构
+  rebuildMeasureStructure(notation, allBeats, measuresPerRow) {
+    // 获取原有的小节结构（每小节的拍数）
+    const originalMeasureStructure = notation.measures.map(m => m.beats ? m.beats.length : 4);
+    const beatsPerMeasure = originalMeasureStructure[0] || 4;
+    const beatsPerRow = beatsPerMeasure * measuresPerRow; // 每行的总拍数
+    
+    // 清空现有小节
+    notation.measures = [];
+    
+    // 按照原有结构重建小节
+    let beatIdx = 0;
+    let measureIdx = 0;
+    
+    while (beatIdx < allBeats.length) {
+      const beatsInThisMeasure = originalMeasureStructure[measureIdx % originalMeasureStructure.length] || beatsPerMeasure;
+      const measureBeats = [];
+      
+      for (let i = 0; i < beatsInThisMeasure && beatIdx < allBeats.length; i++) {
+        measureBeats.push(allBeats[beatIdx]);
+        beatIdx++;
+      }
+      
+      if (measureBeats.length > 0) {
+        notation.measures.push({ beats: measureBeats });
+      }
+      measureIdx++;
+    }
+    
+    // 确保至少有一个小节
+    if (notation.measures.length === 0) {
+      notation.measures.push(this.createEmptyMeasure(beatsPerMeasure, 4));
+    }
+    
+    // 【优化】补足最后一行的空拍，防止新增行变形
+    // 计算最后一行的起始小节索引
+    const totalMeasures = notation.measures.length;
+    const lastRowStartIdx = Math.floor((totalMeasures - 1) / measuresPerRow) * measuresPerRow;
+    
+    // 计算最后一行当前的拍数
+    let lastRowBeats = 0;
+    for (let m = lastRowStartIdx; m < totalMeasures; m++) {
+      const measure = notation.measures[m];
+      if (measure && measure.beats) {
+        lastRowBeats += measure.beats.length;
+      }
+    }
+    
+    // 计算需要补足的空拍数
+    const neededPlaceholders = beatsPerRow - lastRowBeats;
+    if (neededPlaceholders > 0) {
+      // 获取最后一个小节
+      const lastMeasure = notation.measures[totalMeasures - 1];
+      
+      // 记录添加占位拍之前的最后一个非占位拍索引
+      const lastRealBeatIndex = lastMeasure.beats.length - 1;
+      
+      for (let i = 0; i < neededPlaceholders; i++) {
+        // 创建占位拍（默认为空，标记 isPlaceholder）
+        const placeholderBeat = {
+          subdivisions: [
+            { rightHand: ['', ''], leftHand: ['', ''] },
+            { rightHand: ['', ''], leftHand: ['', ''] },
+            { rightHand: ['', ''], leftHand: ['', ''] },
+            { rightHand: ['', ''], leftHand: ['', ''] }
+          ],
+          isPlaceholder: true  // 标记为占位拍
+        };
+        lastMeasure.beats.push(placeholderBeat);
+      }
+      
+      // 设置最后一个非占位拍的索引（用于小节线定位）
+      lastMeasure.lastRealBeatIndex = lastRealBeatIndex;
+    }
+  },
+  
+  // 【任务2】View模式拍位点击扩展选择
+  onBeatTapForSelection(e) {
+    const { isSelectingBeats, beatSelectionStart } = this.data;
+    if (!isSelectingBeats || !beatSelectionStart) return;
+    
+    const { sheet, measure, beat } = e.currentTarget.dataset;
+    
+    // 检查是否在同一个module
+    if (sheet !== beatSelectionStart.notationId) {
+      wx.showToast({ title: '只能选择同一模块内的拍', icon: 'none' });
+      return;
+    }
+    
+    // 更新选择终点
+    this.setData({
+      beatSelectionEnd: { notationId: sheet, measureIndex: measure, beatIndex: beat }
+    }, () => {
+      // 更新选中拍位信息
+      const selectedBeatsInfo = this.updateSelectedBeatsInfo();
+      this.setData({ selectedBeatsInfo });
+    });
+    
+    // 获取点击位置显示气泡
+    const touch = e.detail;
+    if (touch && touch.x && touch.y) {
+      this.showCopyPasteBubble(touch.x, touch.y);
+    } else {
+      // 如果没有坐标，在屏幕中央显示
+      const screenWidth = wx.getWindowInfo().screenWidth;
+      const screenHeight = wx.getWindowInfo().screenHeight;
+      this.showCopyPasteBubble(screenWidth / 2, screenHeight / 2);
+    }
+  },
+  
+  // 【任务2】检查拍位是否被选中
+  isBeatSelected(notationId, measureIndex, beatIndex) {
+    const { isSelectingBeats, beatSelectionStart, beatSelectionEnd, notations } = this.data;
+    
+    if (!isSelectingBeats || !beatSelectionStart || !beatSelectionEnd) return false;
+    if (notationId !== beatSelectionStart.notationId) return false;
+    
+    const notationIndex = notations.findIndex(n => n.id === notationId);
+    if (notationIndex === -1) return false;
+    
+    const notation = notations[notationIndex];
+    
+    const currentGlobal = this.getGlobalBeatIndex(notation, measureIndex, beatIndex);
+    const startGlobal = this.getGlobalBeatIndex(notation, beatSelectionStart.measureIndex, beatSelectionStart.beatIndex);
+    const endGlobal = this.getGlobalBeatIndex(notation, beatSelectionEnd.measureIndex, beatSelectionEnd.beatIndex);
+    
+    const minGlobal = Math.min(startGlobal, endGlobal);
+    const maxGlobal = Math.max(startGlobal, endGlobal);
+    
+    return currentGlobal >= minGlobal && currentGlobal <= maxGlobal;
   },
   
   // 插入行：在当前选中位置的下方插入一行空模板
@@ -10546,6 +12920,10 @@ Page({
     
     const { notationIndex, rowStartIndex, measuresPerRow, isCollapsed, sheetId } = pendingDeleteRowInfo;
     const notation = this.deepCloneNotation(notations[notationIndex]);
+    
+    // 【任务1】删除行时先清理该行的占位拍
+    const rowEndIndex = Math.min(rowStartIndex + measuresPerRow, notation.measures.length);
+    this.removeRowPlaceholders(notation, rowStartIndex, rowEndIndex);
     
     // 删除指定行的小节
     notation.measures.splice(rowStartIndex, measuresPerRow);
@@ -10882,13 +13260,16 @@ Page({
     }
     
     // 处理主音符 - 使用 parseNoteForVK 正确解析，保持上标内容不变
-    let newValue = editingValue || '';
-    if (!newValue || newValue === '' || newValue === '-') {
+    // 获取当前编辑值（兼容Canvas模式和View模式）
+    const { canvasEditing, canvasEditingValue } = this.data;
+    let currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    
+    if (!currentValue || currentValue === '' || currentValue === '-') {
       return; // 没有内容时只更新档位显示
     }
     
     // 使用标准解析函数解析音符结构
-    const parsed = this.parseNoteForVK(newValue);
+    const parsed = this.parseNoteForVK(currentValue);
     
     // 只修改主音符的音高，保持上标内容完全不变
     parsed.octaveUp = offset > 0 ? offset : 0;
@@ -10904,14 +13285,8 @@ Page({
       reconstructed += '^{' + parsed.rightSup + '}';
     }
     
-    // 直接更新编辑值，避免重复计算音高档位
-    this.setData({
-      editingValue: reconstructed,
-      virtualKeyboardDisplay: reconstructed,
-      virtualKeyboardRendered: this.renderNoteForDisplay(reconstructed),
-      vkParsed: this.parseNoteForVK(reconstructed)
-    });
-    this.prevEditingValue = reconstructed;
+    // 使用统一的更新函数（同时处理View模式和Canvas模式）
+    this.updateEditingValue(reconstructed);
   },
 
   /**
@@ -10957,78 +13332,278 @@ Page({
    * 音高调节器拖动开始
    */
   onPitchTouchStart(e) {
-    this.setData({ pitchDragging: true });
-    // 立即处理初始位置
-    this.handlePitchDrag(e);
+    // 初始化拖动进度为当前档位对应的位置
+    const currentProgress = this.pitchLevelToProgress(this.data.pitchLevel);
+    this.setData({ 
+      pitchDragging: true,
+      pitchDragProgress: currentProgress
+    });
+    // 记录轨道信息用于后续拖动
+    this._initPitchTrackRect(e);
   },
 
   /**
-   * 音高调节器拖动中
+   * 音高调节器拖动中 - 实时跟随手指，不做吸附
    */
   onPitchTouchMove(e) {
     if (!this.data.pitchDragging) return;
-    this.handlePitchDrag(e);
+    
+    const touch = e.touches[0];
+    if (!this._pitchTrackRect) {
+      this._initPitchTrackRect(e);
+      return;
+    }
+    
+    const rect = this._pitchTrackRect;
+    const trackTop = rect.top;
+    const trackHeight = rect.height;
+    const touchY = touch.clientY;
+    
+    // 计算相对位置（从底部算起），转换为百分比
+    const relativeY = touchY - trackTop;
+    let progress = ((trackHeight - relativeY) / trackHeight) * 100;
+    
+    // 限制范围 20-100 (对应5个档位的显示高度)
+    if (progress < 20) progress = 20;
+    if (progress > 100) progress = 100;
+    
+    // 实时更新进度条高度（不吸附）
+    this.setData({ pitchDragProgress: progress });
+    
+    // 计算预览档位，用于实时显示档位提示（拖动时不震动）
+    const previewLevel = this.progressToPitchLevel(progress);
+    if (this._lastPreviewLevel !== previewLevel) {
+      this._lastPreviewLevel = previewLevel;
+      // 实时显示档位提示
+      this.setData({ 
+        pitchLevel: previewLevel,
+        pitchToastVisible: true 
+      });
+    }
   },
 
   /**
-   * 音高调节器拖动结束
+   * 音高调节器拖动结束 - 弹性吸附到最近档位
    */
   onPitchTouchEnd() {
-    this.setData({ pitchDragging: false });
+    if (!this.data.pitchDragging) return;
+    
+    const { pitchDragProgress } = this.data;
+    
+    // 计算最近的档位
+    const targetLevel = this.progressToPitchLevel(pitchDragProgress);
+    const targetProgress = this.pitchLevelToProgress(targetLevel);
+    
+    // 吸附到档位时震动反馈
+    wx.vibrateShort({ type: 'light' });
+    
+    // 弹性动画吸附到目标位置
+    this.setData({ 
+      pitchDragging: false,
+      pitchDragProgress: targetProgress,
+      pitchLevel: targetLevel
+    });
+    
+    // 应用档位到音符
+    this.applyPitchLevelToNote(targetLevel);
+    
+    // 清理
+    this._pitchTrackRect = null;
+    this._lastPreviewLevel = null;
+    
+    // 显示提示
+    this.showPitchToast();
   },
 
   /**
-   * 处理音高调节器拖动
+   * 初始化轨道位置信息
    */
-  handlePitchDrag(e) {
-    // 获取触摸点位置
-    const touch = e.touches[0];
-    
-    // 使用wx.createSelectorQuery获取轨道位置
+  _initPitchTrackRect(e) {
     const query = wx.createSelectorQuery().in(this);
     query.select('.pitch-capsule-track').boundingClientRect((rect) => {
-      if (!rect) return;
-      
-      const trackTop = rect.top;
-      const trackHeight = rect.height;
-      const touchY = touch.clientY;
-      
-      // 计算相对位置（从底部算起）
-      const relativeY = touchY - trackTop;
-      let progress = (trackHeight - relativeY) / trackHeight;
-      
-      // 限制范围
-      if (progress < 0) progress = 0;
-      if (progress > 1) progress = 1;
-      
-      // 映射到5个档位
-      const newLevel = Math.round(progress * 4);
-      
-      if (newLevel !== this.data.pitchLevel) {
-        wx.vibrateShort({ type: 'light' });
-        this.setPitchLevel(newLevel);
+      if (rect) {
+        this._pitchTrackRect = rect;
       }
     }).exec();
   },
 
   /**
+   * 将进度百分比转换为档位 (0-4)
+   * 进度 20% = 档位0, 40% = 档位1, 60% = 档位2, 80% = 档位3, 100% = 档位4
+   */
+  progressToPitchLevel(progress) {
+    // 进度范围 20-100 映射到档位 0-4
+    const normalized = (progress - 20) / 80; // 0-1
+    const level = Math.round(normalized * 4);
+    return Math.max(0, Math.min(4, level));
+  },
+
+  /**
+   * 将档位转换为进度百分比
+   * 档位0 = 20%, 档位1 = 40%, 档位2 = 60%, 档位3 = 80%, 档位4 = 100%
+   */
+  pitchLevelToProgress(level) {
+    return 20 + level * 20;
+  },
+
+  /**
+   * 将档位应用到当前编辑的音符（提取自 setPitchLevel）
+   */
+  applyPitchLevelToNote(level) {
+    const { editingValue, superscriptMode, superscriptContent, 
+            canvasEditing, canvasEditingValue,
+            conversionEditingKey, conversionEditingField, virtualKeyboardDisplay,
+            newTableEditingIndex, newTableEditingField,
+            audioMappingEditingIndex, audioMappingEditingField } = this.data;
+    
+    // 计算相对于原音(level=2)的音高偏移
+    const offset = level - 2;
+    
+    // 如果在新建音频转换表编辑模式中
+    const { newAudioTableEditingIndex, newAudioTableEditingField } = this.data;
+    if (newAudioTableEditingIndex !== null && newAudioTableEditingField !== null) {
+      const currentValue = virtualKeyboardDisplay || '';
+      let basePart = currentValue.replace(/['',]+/g, '');
+      let newValue = basePart;
+      
+      if (offset > 0) {
+        newValue = basePart + "'".repeat(offset);
+      } else if (offset < 0) {
+        newValue = basePart + ','.repeat(-offset);
+      }
+      
+      this.handleNewAudioTablePitchChange(newValue);
+      return;
+    }
+    
+    // 如果在音频映射编辑模式中
+    if (audioMappingEditingIndex !== null && audioMappingEditingField !== null) {
+      const currentValue = virtualKeyboardDisplay || '';
+      let basePart = currentValue.replace(/['',]+/g, '');
+      let newValue = basePart;
+      
+      if (offset > 0) {
+        newValue = basePart + "'".repeat(offset);
+      } else if (offset < 0) {
+        newValue = basePart + ','.repeat(-offset);
+      }
+      
+      this.handleAudioMappingPitchChange(newValue);
+      return;
+    }
+    
+    // 如果在转换弹窗编辑模式中
+    if (conversionEditingKey !== null && conversionEditingField !== null) {
+      const currentValue = virtualKeyboardDisplay || '';
+      let basePart = currentValue.replace(/['',]+/g, '');
+      let newValue = basePart;
+      
+      if (offset > 0) {
+        newValue = basePart + "'".repeat(offset);
+      } else if (offset < 0) {
+        newValue = basePart + ','.repeat(-offset);
+      }
+      
+      this.handleConversionPitchChange(newValue);
+      return;
+    }
+    
+    // 如果在新建转换表编辑模式中
+    if (newTableEditingIndex !== null && newTableEditingField !== null) {
+      const currentValue = virtualKeyboardDisplay || '';
+      let basePart = currentValue.replace(/['',]+/g, '');
+      let newValue = basePart;
+      
+      if (offset > 0) {
+        newValue = basePart + "'".repeat(offset);
+      } else if (offset < 0) {
+        newValue = basePart + ','.repeat(-offset);
+      }
+      
+      this.handleNewTablePitchChange(newValue);
+      return;
+    }
+    
+    // 如果在上标模式中
+    if (superscriptMode) {
+      let basePart = (superscriptContent || '').replace(/['',_]+/g, '');
+      let hasUnderline = (superscriptContent || '').includes('_');
+      let newContent = basePart;
+      
+      if (offset > 0) {
+        newContent += "'".repeat(offset);
+      } else if (offset < 0) {
+        newContent += ','.repeat(-offset);
+      }
+      if (hasUnderline) {
+        newContent += '_';
+      }
+      
+      this.setData({ superscriptContent: newContent });
+      this.updateSuperscriptDisplay();
+      return;
+    }
+    
+    // 获取当前编辑值（兼容Canvas模式和View模式）
+    const currentValue = canvasEditing ? canvasEditingValue : editingValue;
+    if (!currentValue || currentValue === '' || currentValue === '-') {
+      return; // 无内容时不处理
+    }
+    
+    // 解析当前音符
+    const parsed = this.parseNoteForVK(currentValue);
+    
+    // 应用新的音高偏移
+    if (offset > 0) {
+      parsed.octaveUp = offset;
+      parsed.octaveDown = 0;
+    } else if (offset < 0) {
+      parsed.octaveUp = 0;
+      parsed.octaveDown = -offset;
+    } else {
+      parsed.octaveUp = 0;
+      parsed.octaveDown = 0;
+    }
+    
+    // 重建完整值
+    let reconstructed = '';
+    if (parsed.leftSup !== null) {
+      reconstructed = '^{' + parsed.leftSup + '}';
+    }
+    reconstructed += this.buildMainPart(parsed);
+    if (parsed.rightSup !== null) {
+      reconstructed += '^{' + parsed.rightSup + '}';
+    }
+    
+    this.updateEditingValue(reconstructed);
+  },
+
+  /**
    * 根据当前编辑的音符值反推音高档位
    * 在打开虚拟键盘或切换音符时调用
+   * @param {string} [valueOverride] 若传入，则用此值反推档位（避免 setData 未生效时读到旧值）
    */
-  updatePitchLevelFromNote() {
-    const { editingValue, superscriptMode, superscriptContent } = this.data;
+  updatePitchLevelFromNote(valueOverride) {
+    const { editingValue, canvasEditing, canvasEditingValue, superscriptMode, superscriptContent } = this.data;
     
     let octaveUp = 0;
     let octaveDown = 0;
 
-    if (superscriptMode) {
+    if (typeof valueOverride === 'string') {
+      // 调用方刚写入的值，直接用来反推
+      const parsed = this.parseNoteForVK(valueOverride);
+      octaveUp = parsed.octaveUp;
+      octaveDown = parsed.octaveDown;
+    } else if (superscriptMode) {
       // 在上标编辑模式下，根据上标内容反推档位
-      const supParsed = this.parseSupContent(superscriptContent);
+      const supParsed = this.parseSupContent(superscriptContent || '');
       octaveUp = supParsed.octaveUp;
       octaveDown = supParsed.octaveDown;
     } else {
       // 在主音符模式下，解析完整字符串并提取主音符部分的音高符号
-      const parsed = this.parseNoteForVK(editingValue);
+      // Canvas 模式使用 canvasEditingValue，View 模式使用 editingValue
+      const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+      const parsed = this.parseNoteForVK(currentValue);
       octaveUp = parsed.octaveUp;
       octaveDown = parsed.octaveDown;
     }
@@ -11046,21 +13621,22 @@ Page({
   
   // 更新上标模式下的显示
   updateSuperscriptDisplay() {
-    const { superscriptMode, superscriptContent, editingValue } = this.data;
+    const { superscriptMode, superscriptContent, editingValue, canvasEditing, canvasEditingValue } = this.data;
     
-    // 解析当前主音符
-    const parsed = this.parseNoteForVK(editingValue);
+    // Canvas 模式用 canvasEditingValue 保留主音符，View 模式用 editingValue
+    const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    const parsed = this.parseNoteForVK(currentValue);
     
     // 根据上标模式更新解析结果，同时解析上标内容的音高信息
     if (superscriptMode === 'right') {
       parsed.rightSup = superscriptContent;
-      const supParsed = this.parseSupContent(superscriptContent);
+      const supParsed = this.parseSupContent(superscriptContent || '');
       parsed.rightSupBase = supParsed.baseNote;
       parsed.rightSupOctaveUp = supParsed.octaveUp;
       parsed.rightSupOctaveDown = supParsed.octaveDown;
     } else if (superscriptMode === 'left') {
       parsed.leftSup = superscriptContent;
-      const supParsed = this.parseSupContent(superscriptContent);
+      const supParsed = this.parseSupContent(superscriptContent || '');
       parsed.leftSupBase = supParsed.baseNote;
       parsed.leftSupOctaveUp = supParsed.octaveUp;
       parsed.leftSupOctaveDown = supParsed.octaveDown;
@@ -11080,35 +13656,41 @@ Page({
       virtualKeyboardDisplay: display,
       vkParsed: parsed
     });
+    if (canvasEditing) {
+      this.setData({ canvasEditingValue: display });
+    }
   },
   
-  // 添加下划线
+  // 切换下划线（添加/移除）
   addUnderline() {
-    const { editingValue, superscriptMode, superscriptContent } = this.data;
+    const { editingValue, canvasEditing, canvasEditingValue, superscriptMode, superscriptContent } = this.data;
     
-    // 如果在上标模式中，给上标内容添加下划线
+    // 如果在上标模式中，切换上标内容的下划线
     if (superscriptMode) {
       // 解析上标内容，确保下划线在最右侧
       const supParsed = this.parseSupContent(superscriptContent || '');
       let hasUnderline = (superscriptContent || '').includes('_');
       
-      if (!hasUnderline) {
-        // 重建上标内容：基础音符 + 音高符号 + 下划线
-        let newContent = supParsed.baseNote;
-        if (supParsed.octaveUp > 0) {
-          newContent += "'".repeat(supParsed.octaveUp);
-        } else if (supParsed.octaveDown > 0) {
-          newContent += ','.repeat(supParsed.octaveDown);
-        }
-        newContent += '_';
-        
-        this.setData({ superscriptContent: newContent });
-        this.updateSuperscriptDisplay();
+      // 重建上标内容：基础音符 + 音高符号 + 下划线（切换）
+      let newContent = supParsed.baseNote;
+      if (supParsed.octaveUp > 0) {
+        newContent += "'".repeat(supParsed.octaveUp);
+      } else if (supParsed.octaveDown > 0) {
+        newContent += ','.repeat(supParsed.octaveDown);
       }
+      // 切换下划线：有则移除，无则添加
+      if (!hasUnderline) {
+        newContent += '_';
+      }
+      // hasUnderline 时不添加 '_'，即移除下划线
+      
+      this.setData({ superscriptContent: newContent });
+      this.updateSuperscriptDisplay();
       return;
     }
     
-    let newValue = editingValue || '';
+    // 获取当前编辑值（兼容Canvas模式和View模式）
+    let newValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
     
     // 检查是否有内容
     if (!newValue || newValue === '' || newValue === '-') {
@@ -11119,13 +13701,8 @@ Page({
     // 使用标准解析函数解析音符结构
     const parsed = this.parseNoteForVK(newValue);
     
-    // 如果已有下划线，不重复添加
-    if (parsed.underline) {
-      return;
-    }
-    
-    // 设置下划线标记
-    parsed.underline = true;
+    // 切换下划线：有则移除，无则添加
+    parsed.underline = !parsed.underline;
     
     // 重建完整值：左上标 + 主音符（基础音符+音高+下划线） + 右上标
     let reconstructed = '';
@@ -11317,14 +13894,17 @@ Page({
   
   // 切换左上标模式
   toggleLeftSuperscript() {
-    const { superscriptMode, editingValue, superscriptContent } = this.data;
+    const { superscriptMode, editingValue, canvasEditing, canvasEditingValue, superscriptContent } = this.data;
     
     if (superscriptMode === 'left') {
       // 已经在左上标模式，完成并退出
       this.completeSuperscript();
     } else {
+      // 获取当前编辑值（兼容Canvas模式和View模式）
+      const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+      
       // 解析当前值，提取已有的左上标
-      const parsed = this.parseNoteForVK(editingValue);
+      const parsed = this.parseNoteForVK(currentValue);
       
       // 检查是否已有主音符
       if (!parsed.baseNote || parsed.baseNote === '' || parsed.baseNote === '-') {
@@ -11347,14 +13927,17 @@ Page({
   
   // 切换右上标模式
   toggleRightSuperscript() {
-    const { superscriptMode, editingValue, superscriptContent } = this.data;
+    const { superscriptMode, editingValue, canvasEditing, canvasEditingValue, superscriptContent } = this.data;
     
     if (superscriptMode === 'right') {
       // 已经在右上标模式，完成并退出
       this.completeSuperscript();
     } else {
+      // 获取当前编辑值（兼容Canvas模式和View模式）
+      const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+      
       // 解析当前值，提取已有的右上标
-      const parsed = this.parseNoteForVK(editingValue);
+      const parsed = this.parseNoteForVK(currentValue);
       
       // 检查是否已有主音符
       if (!parsed.baseNote || parsed.baseNote === '' || parsed.baseNote === '-') {
@@ -11382,8 +13965,10 @@ Page({
   
   // 更新vkParsed用于上标模式显示
   updateVkParsedForSuperscript(mode) {
-    const { editingValue, superscriptContent } = this.data;
-    const parsed = this.parseNoteForVK(editingValue);
+    const { editingValue, canvasEditing, canvasEditingValue, superscriptContent } = this.data;
+    // 获取当前编辑值（兼容Canvas模式和View模式）
+    const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    const parsed = this.parseNoteForVK(currentValue);
     
     if (mode === 'left') {
       parsed.leftSup = superscriptContent;
@@ -11406,9 +13991,11 @@ Page({
   
   // 处理上标输入
   handleSuperscriptInput(key) {
-    const { superscriptContent, superscriptMode, editingValue } = this.data;
-    const newContent = superscriptContent + key;
-    const parsed = this.parseNoteForVK(editingValue);
+    const { superscriptContent, superscriptMode, editingValue, canvasEditing, canvasEditingValue } = this.data;
+    const newContent = (superscriptContent || '') + key;
+    // Canvas 模式用 canvasEditingValue 保留主音符，View 模式用 editingValue
+    const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    const parsed = this.parseNoteForVK(currentValue);
     
     // 解析新上标内容的音高信息
     const supParsed = this.parseSupContent(newContent);
@@ -11421,6 +14008,7 @@ Page({
       this.setData({
         superscriptContent: newContent,
         virtualKeyboardDisplay: (parsed.leftSup !== null ? '^{' + parsed.leftSup + '}' : '') + this.buildMainPart(parsed) + '^{' + newContent + '}',
+        virtualKeyboardRendered: this.renderNoteForDisplay((parsed.leftSup !== null ? '^{' + parsed.leftSup + '}' : '') + this.buildMainPart(parsed) + '^{' + newContent + '}'),
         vkParsed: parsed
       });
     } else if (superscriptMode === 'left') {
@@ -11431,15 +14019,26 @@ Page({
       this.setData({
         superscriptContent: newContent,
         virtualKeyboardDisplay: '^{' + newContent + '}' + this.buildMainPart(parsed) + (parsed.rightSup !== null ? '^{' + parsed.rightSup + '}' : ''),
+        virtualKeyboardRendered: this.renderNoteForDisplay('^{' + newContent + '}' + this.buildMainPart(parsed) + (parsed.rightSup !== null ? '^{' + parsed.rightSup + '}' : '')),
         vkParsed: parsed
       });
+    }
+    
+    // Canvas 模式下保持「逻辑完整值」在 canvasEditingValue，便于完成上标时写入谱面
+    if (canvasEditing) {
+      const fullValue = superscriptMode === 'right'
+        ? (parsed.leftSup !== null ? '^{' + parsed.leftSup + '}' : '') + this.buildMainPart(parsed) + '^{' + newContent + '}'
+        : '^{' + newContent + '}' + this.buildMainPart(parsed) + (parsed.rightSup !== null ? '^{' + parsed.rightSup + '}' : '');
+      this.setData({ canvasEditingValue: fullValue });
     }
   },
   
   // 完成上标输入
   completeSuperscript() {
-    const { superscriptMode, superscriptContent, editingValue } = this.data;
-    const parsed = this.parseNoteForVK(editingValue);
+    const { superscriptMode, superscriptContent, editingValue, canvasEditing, canvasEditingValue } = this.data;
+    // Canvas 模式用 canvasEditingValue 保留主音符，View 模式用 editingValue
+    const currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    const parsed = this.parseNoteForVK(currentValue);
     
     // 更新上标内容
     if (superscriptMode === 'right') {
@@ -11459,18 +14058,15 @@ Page({
     }
     
     this.setData({
-      editingValue: newValue,
-      virtualKeyboardDisplay: newValue,
-      virtualKeyboardRendered: this.renderNoteForDisplay(newValue),
-      vkParsed: this.parseNoteForVK(newValue),
       superscriptMode: null,
       superscriptContent: ''
     });
     
-    this.prevEditingValue = newValue;
-    
-    // 同步更新音高档位（基于主音符）
-    this.updatePitchLevelFromNote();
+    // 用统一接口写回，兼容 View / Canvas
+    this.updateEditingValue(newValue);
+    if (!canvasEditing) {
+      this.prevEditingValue = newValue;
+    }
   },
   
   // 确认输入并关闭键盘
@@ -11571,9 +14167,9 @@ Page({
       this.completeSuperscript();
     }
     
-    // 先提交当前编辑
+    // 【性能优化】使用延迟提交，避免阻塞视觉切换
     if (isCanvas) {
-      this.commitCanvasEdit();
+      this.debouncedCommitCanvas();
     } else {
       this.commitInlineEdit(this.data.editing, this.data.editingValue);
     }
@@ -11619,9 +14215,9 @@ Page({
       this.completeSuperscript();
     }
     
-    // 先提交当前编辑
+    // 【性能优化】使用延迟提交，避免阻塞视觉切换
     if (isCanvas) {
-      this.commitCanvasEdit();
+      this.debouncedCommitCanvas();
     } else {
       this.commitInlineEdit(this.data.editing, this.data.editingValue);
     }
@@ -11655,6 +14251,7 @@ Page({
   },
   
   // 导航到指定槽位
+  // 【性能优化】使用缓存减少重复计算
   navigateToSlot(sheet, measure, beat, subdivision, hand, index) {
     const { notations } = this.data;
     const notation = notations.find(n => n.id === sheet);
@@ -11668,12 +14265,13 @@ Page({
     const slotArray = notation.measures[measure]?.beats[beat]?.subdivisions[subdivision]?.[hand === 'right' ? 'rightHand' : 'leftHand'];
     const currentValue = Array.isArray(slotArray) ? (slotArray[index] || '') : '';
     
+    // 【优化】使用缓存获取解析结果
     this.setData({
       editing: { sheet, measure, beat, subdivision, hand, index },
       editingValue: currentValue,
       virtualKeyboardDisplay: currentValue,
-      virtualKeyboardRendered: this.renderNoteForDisplay(currentValue),
-      vkParsed: this.parseNoteForVK(currentValue),
+      virtualKeyboardRendered: this.getCachedNoteDisplay(currentValue),
+      vkParsed: this.getCachedNoteParsed(currentValue),
       superscriptMode: null,
       superscriptContent: ''
     });
@@ -11699,9 +14297,9 @@ Page({
       this.completeSuperscript();
     }
 
-    // 先提交当前编辑
+    // 【性能优化】使用延迟提交，避免阻塞视觉切换
     if (isCanvas) {
-      this.commitCanvasEdit();
+      this.debouncedCommitCanvas();
     } else {
       this.commitInlineEdit(this.data.editing, this.data.editingValue);
     }
@@ -11754,9 +14352,9 @@ Page({
       this.completeSuperscript();
     }
 
-    // 先提交当前编辑
+    // 【性能优化】使用延迟提交，避免阻塞视觉切换
     if (isCanvas) {
-      this.commitCanvasEdit();
+      this.debouncedCommitCanvas();
     } else {
       this.commitInlineEdit(this.data.editing, this.data.editingValue);
     }
@@ -11789,6 +14387,144 @@ Page({
       subdivision: newSubdivision,
       hand,
       index,
+      isCanvas
+    });
+  },
+
+  // 向右上方移动（等价于 up + right 两次）
+  moveCursorUpRight() {
+    // 使用统一的编辑状态获取函数
+    const editInfo = this.getCurrentEditingInfo();
+    if (!editInfo) return;
+
+    const { sheet, measure, beat, subdivision, hand, index, isCanvas } = editInfo;
+    const { notations } = this.data;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+    
+    // 【性能优化】使用延迟提交，避免阻塞视觉切换
+    if (isCanvas) {
+      this.debouncedCommitCanvas();
+    } else {
+      this.commitInlineEdit(this.data.editing, this.data.editingValue);
+    }
+
+    // 计算向上移动后的槽位
+    let currentPos = (hand === 'right' ? 0 : 2) + index;
+    let newPos = currentPos > 0 ? currentPos - 1 : currentPos;
+    let newHand = newPos < 2 ? 'right' : 'left';
+    let newIndex = newPos % 2;
+
+    // 计算向右移动后的位置
+    const currentBeat = notation.measures[measure].beats[beat];
+    let newMeasure = measure;
+    let newBeat = beat;
+    let newSubdivision = subdivision + 1;
+
+    if (newSubdivision >= currentBeat.subdivisions.length) {
+      newBeat = beat + 1;
+      newSubdivision = 0;
+      if (newBeat >= notation.measures[measure].beats.length) {
+        newMeasure = measure + 1;
+        newBeat = 0;
+        if (newMeasure >= notation.measures.length) {
+          // 已到最后，只执行向上移动
+          this.navigateToSlotUnified({
+            sheet,
+            measure,
+            beat,
+            subdivision,
+            hand: newHand,
+            index: newIndex,
+            isCanvas
+          });
+          return;
+        }
+      }
+    }
+
+    // 导航到新位置（右上方）
+    this.navigateToSlotUnified({
+      sheet,
+      measure: newMeasure,
+      beat: newBeat,
+      subdivision: newSubdivision,
+      hand: newHand,
+      index: newIndex,
+      isCanvas
+    });
+  },
+
+  // 向右下方移动（等价于 down + right 两次）
+  moveCursorDownRight() {
+    // 使用统一的编辑状态获取函数
+    const editInfo = this.getCurrentEditingInfo();
+    if (!editInfo) return;
+
+    const { sheet, measure, beat, subdivision, hand, index, isCanvas } = editInfo;
+    const { notations } = this.data;
+    const notation = notations.find(n => n.id === sheet);
+    if (!notation) return;
+
+    // 如果在上标模式中，先完成上标保存
+    if (this.data.superscriptMode) {
+      this.completeSuperscript();
+    }
+    
+    // 【性能优化】使用延迟提交，避免阻塞视觉切换
+    if (isCanvas) {
+      this.debouncedCommitCanvas();
+    } else {
+      this.commitInlineEdit(this.data.editing, this.data.editingValue);
+    }
+
+    // 计算向下移动后的槽位
+    let currentPos = (hand === 'right' ? 0 : 2) + index;
+    let newPos = currentPos < 3 ? currentPos + 1 : currentPos;
+    let newHand = newPos < 2 ? 'right' : 'left';
+    let newIndex = newPos % 2;
+
+    // 计算向右移动后的位置
+    const currentBeat = notation.measures[measure].beats[beat];
+    let newMeasure = measure;
+    let newBeat = beat;
+    let newSubdivision = subdivision + 1;
+
+    if (newSubdivision >= currentBeat.subdivisions.length) {
+      newBeat = beat + 1;
+      newSubdivision = 0;
+      if (newBeat >= notation.measures[measure].beats.length) {
+        newMeasure = measure + 1;
+        newBeat = 0;
+        if (newMeasure >= notation.measures.length) {
+          // 已到最后，只执行向下移动
+          this.navigateToSlotUnified({
+            sheet,
+            measure,
+            beat,
+            subdivision,
+            hand: newHand,
+            index: newIndex,
+            isCanvas
+          });
+          return;
+        }
+      }
+    }
+
+    // 导航到新位置（右下方）
+    this.navigateToSlotUnified({
+      sheet,
+      measure: newMeasure,
+      beat: newBeat,
+      subdivision: newSubdivision,
+      hand: newHand,
+      index: newIndex,
       isCanvas
     });
   },
@@ -13247,7 +15983,8 @@ Page({
   
   /**
    * 根据触摸位置更新速度值
-   * 范围：30~150 BPM
+   * 范围：20~180 BPM
+   * 拇指使用 bottom + translateY(50%)，视觉中心在“数值线”上方约半颗拇指，需补偿使手指与拇指中心对齐
    */
   _updateTempoFromTouch(e) {
     const touch = e.touches[0];
@@ -13255,14 +15992,17 @@ Page({
     query.select('.inline-tempo-track').boundingClientRect((rect) => {
       if (!rect) return;
       
-      // 计算触摸位置相对于轨道的比例（从底部算起）
+      // 计算触摸位置相对于轨道的比例（从底部算起，0=20bpm，1=180bpm）
       const trackHeight = rect.height;
       const touchY = touch.clientY - rect.top;
       const ratio = 1 - (touchY / trackHeight);
       
-      // 限制范围并计算tempo值（范围30~150，总跨度120）
-      const clampedRatio = Math.max(0, Math.min(1, ratio));
-      const tempo = Math.round(30 + clampedRatio * 120);
+      // 拇指视觉中心比 bottom 高约半颗拇指（轨道 380rpx、拇指 40rpx → 约 5.26%），
+      // 手指在 R 时应对应“拇指中心在 R”，故取值用 R - 半拇指比例
+      const thumbHalfRatio = 20 / 380;
+      const adjustedRatio = ratio - thumbHalfRatio;
+      const clampedRatio = Math.max(0, Math.min(1, adjustedRatio));
+      const tempo = Math.round(20 + clampedRatio * 160);
       
       this.setData({ playbackTempo: tempo });
       
@@ -13303,10 +16043,10 @@ Page({
     let tempo = parseInt(e.detail.value, 10);
     
     // 验证范围
-    if (isNaN(tempo) || tempo < 30) {
-      tempo = 30;
-    } else if (tempo > 150) {
-      tempo = 150;
+    if (isNaN(tempo) || tempo < 5) {
+      tempo = 5;
+    } else if (tempo > 200) {
+      tempo = 200;
     }
     
     this.setData({ playbackTempo: tempo });

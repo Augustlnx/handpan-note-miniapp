@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Canvas2D 谱面渲染器配置参数
  * 
  * 所有尺寸单位说明：
@@ -206,6 +206,21 @@ const OCTAVE_SETTINGS = {
   
   // 下划线宽度系数 - 下划线宽度 = 音符宽度 * 此系数
   underlineWidthRatio: 1.0,
+  
+  // ==================== 下划线与低八度圆点共存参数 ====================
+  // 当音符同时有下划线和低八度圆点时，低八度圆点显示在下划线下方
+  
+  // 下划线与低八度圆点之间的基础间距 (rpx)
+  underlineDotGapBase: 1,
+  
+  // 间距随字号缩放的比例 - 实际间距 = underlineDotGapBase + fontSize * underlineDotGapRatio
+  underlineDotGapRatio: 0.04,
+  
+  // 间距最小值 (rpx)
+  underlineDotGapMin: 1,
+  
+  // 间距最大值 (rpx)
+  underlineDotGapMax: 4,
   
   // ==================== 上标位置参数 ====================
   

@@ -230,7 +230,7 @@ var getOctaveOffset = function(fontSize, isUp) {
 // 获取下划线粗细（根据字号动态调整）
 var getUnderlineThickness = function(fontSize) {
   // 默认字号28对应下划线粗细4rpx
-  var thickness = Math.round(fontSize * 0.14);
+  var thickness = Math.round(fontSize * 0.2);
   if (thickness < 2) thickness = 2;   // 最小2rpx
   if (thickness > 6) thickness = 6;   // 最大6rpx
   return thickness;
@@ -238,10 +238,56 @@ var getUnderlineThickness = function(fontSize) {
 
 // 获取下划线偏移（距离基线的距离）
 var getUnderlineOffset = function(fontSize) {
-  var offset = Math.round(fontSize * 0.04);
+  var offset = Math.round(fontSize * 0.03);
   if (offset < 1) offset = 1;
   if (offset > 4) offset = 4;
   return offset;
+}
+
+// 获取下划线与低八度圆点之间的间距
+// 当音符同时有下划线和低八度圆点时使用
+// 缩小到原先的1/4
+var getUnderlineDotGap = function(fontSize) {
+  // 极小的间距，仅保证视觉分隔
+  var gap = Math.round(fontSize * 0.01);
+  if (gap < 1) gap = 1;   // 最小1rpx
+  if (gap > 2) gap = 2;   // 最大2rpx
+  return gap;
+}
+
+// 计算下划线底部到音符底部的距离（用于定位低八度圆点）
+// 当同时有下划线和低八度圆点时，圆点需要显示在下划线下方
+// 缩小间距到原先的1/4
+var getUnderlineBottomOffset = function(fontSize) {
+  // 下划线偏移 + 下划线粗细的一小部分
+  var underlineOffset = getUnderlineOffset(fontSize);
+  var underlineThickness = getUnderlineThickness(fontSize);
+  return underlineOffset + underlineThickness * 0.15;
+}
+
+// 判断音符是否同时有下划线和低八度圆点
+var hasUnderlineAndOctaveDown = function(note) {
+  var parsed = parseSimplifiedNote(note);
+  return parsed.underline && parsed.octaveDown > 0;
+}
+
+// 获取上标的额外向上偏移量（当有下划线+低八度圆点时使用）
+// 返回负值表示向上偏移（em单位）
+var getSupExtraTopOffset = function(note) {
+  var parsed = parseSimplifiedNote(note);
+  // 当同时有下划线和低八度圆点时，上标需要额外向上偏移
+  if (parsed.underline && parsed.octaveDown > 0) {
+    return -0.25; // 额外向上偏移0.25em
+  }
+  // 仅有下划线时，也需要轻微调整
+  if (parsed.underline) {
+    return -0.1;
+  }
+  // 仅有低八度圆点时
+  if (parsed.octaveDown > 0) {
+    return -0.15;
+  }
+  return 0;
 }
 
 module.exports = {
@@ -259,7 +305,11 @@ module.exports = {
   getSupOffset: getSupOffset,
   getSupOctaveDotSize: getSupOctaveDotSize,
   getUnderlineThickness: getUnderlineThickness,
-  getUnderlineOffset: getUnderlineOffset
+  getUnderlineOffset: getUnderlineOffset,
+  getUnderlineDotGap: getUnderlineDotGap,
+  getUnderlineBottomOffset: getUnderlineBottomOffset,
+  hasUnderlineAndOctaveDown: hasUnderlineAndOctaveDown,
+  getSupExtraTopOffset: getSupExtraTopOffset
 };
 </wxs>
 
@@ -274,18 +324,18 @@ module.exports = {
   <!-- 背景图片装饰（固定右下角，半透明，层级低于菜单栏） -->
   <image class="background-image" src="/assets/img/bg2.png" mode="widthFix" style="opacity: {{backgroundOpacity}}"></image>
   
-  <!-- 分页容器：处理触摸事件 -->
-  <view id="notation-pages" class="notation-pages-wrapper {{pageTransitioning ? 'page-transition-out' : 'page-transition-in'}}" bindtouchstart="{{!isPlaybackMode ? 'onTouchStart' : ''}}" bindtouchmove="{{!isPlaybackMode ? 'onTouchMove' : ''}}" bindtouchend="{{!isPlaybackMode ? 'onTouchEnd' : ''}}">
-    <!-- 标题区（仅在第一页显示） -->
-    <view class="header-section" wx:if="{{currentPage === 0}}">
+  <!-- 分页容器：处理触摸事件（选中模式下禁用分页切换） -->
+  <view id="notation-pages" class="notation-pages-wrapper {{pageTransitioning ? 'page-transition-out' : 'page-transition-in'}}" bindtouchstart="{{!isPlaybackMode && !isSelectingBeats ? 'onTouchStart' : ''}}" bindtouchmove="{{!isPlaybackMode && !isSelectingBeats ? 'onTouchMove' : ''}}" bindtouchend="{{!isPlaybackMode && !isSelectingBeats ? 'onTouchEnd' : ''}}">
+    <!-- 标题区（仅在第一页显示，选中模式下禁用所有点击） -->
+    <view class="header-section {{isSelectingBeats ? 'disabled' : ''}}" wx:if="{{currentPage === 0}}">
       <!-- 右上角简介图标 -->
-      <image class="intro-icon" src="/assets/icons/信息_info.svg" bindtap="{{!isPlaybackMode ? 'openIntroModal' : ''}}" mode="aspectFit"></image>
+      <image class="intro-icon" src="/assets/icons/信息_info.svg" bindtap="{{!isPlaybackMode && !isSelectingBeats ? 'openIntroModal' : ''}}" mode="aspectFit"></image>
       
       <!-- 主标题 -->
-      <text class="main-title" bindtap="{{!isPlaybackMode ? 'editTitle' : ''}}" style="color: {{mainTitleColor}}">{{mainTitle}}</text>
+      <text class="main-title" bindtap="{{!isPlaybackMode && !isSelectingBeats ? 'editTitle' : ''}}" style="color: {{mainTitleColor}}">{{mainTitle}}</text>
       
       <!-- 副标题行 -->
-      <view class="sub-title-row" bindtap="{{!isPlaybackMode ? 'editSubTitle' : ''}}">
+      <view class="sub-title-row" bindtap="{{!isPlaybackMode && !isSelectingBeats ? 'editSubTitle' : ''}}">
         <text class="sub-title" style="color: {{subTitleColor}}">{{subTitle}}</text>
         <text class="sub-title-divider" style="color: {{subTitleColor}}">|</text>
         <text class="sub-title" style="color: {{subTitleColor}}">{{composer}}</text>
@@ -350,15 +400,15 @@ module.exports = {
         <view wx:if="{{notations[pageModule.index]}}">
           <!-- 定义引用以简化代码 -->
           <block wx:key="id" wx:for-item="notation" wx:for-index="notationItemIdx" wx:for="{{[notations[pageModule.index]]}}">
-            <!-- 删除图标（右上角） -->
-            <image class="delete-icon" src="/assets/icons/delete.png" data-id="{{notation.id}}" bindtap="deleteNotation" wx:if="{{!notations[pageModule.index].collapsed}}"></image>
+            <!-- 删除图标（右上角，选中模式下禁用） -->
+            <image class="delete-icon {{isSelectingBeats ? 'disabled' : ''}}" src="/assets/icons/delete.png" data-id="{{notation.id}}" bindtap="{{!isSelectingBeats ? 'deleteNotation' : ''}}" wx:if="{{!notations[pageModule.index].collapsed}}"></image>
             
-            <!-- 收起状态时显示more.png（Canvas模式展开按钮），播放模式下禁用防止误触 -->
-            <image class="more-icon-top-right" src="/assets/icons/more.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse" wx:if="{{notations[pageModule.index].collapsed && !isPlaybackMode}}"></image>
+            <!-- 收起状态时显示more.png（Canvas模式展开按钮），播放模式和选中模式下禁用防止误触 -->
+            <image class="more-icon-top-right" src="/assets/icons/more.png" data-id="{{notation.id}}" bindtap="{{!isSelectingBeats ? 'toggleNotationCollapse' : ''}}" wx:if="{{notations[pageModule.index].collapsed && !isPlaybackMode}}"></image>
             
-            <!-- 谱面信息 -->
+            <!-- 谱面信息（选中模式下禁用点击） -->
             <view class="sheet-info">
-              <view class="sheet-label" bindtap="editLabel" data-id="{{notation.id}}">
+              <view class="sheet-label" bindtap="{{!isSelectingBeats ? 'editLabel' : ''}}" data-id="{{notation.id}}">
                 <text>{{notation.label}}</text>
               </view>
               <text wx:if="{{notation.remark}}" class="sheet-remark">{{notation.remark}}</text>
@@ -382,7 +432,7 @@ module.exports = {
                 bindtap="onCollapsedNotationTap"
               />
               
-              <!-- 模式2: Canvas 2D 谱面渲染（编辑状态） -->
+              <!-- 模式2: Canvas 2D 谱面渲染（编辑状态）【任务2】添加长按事件 -->
               <canvas 
                 wx:else
                 type="2d" 
@@ -392,6 +442,7 @@ module.exports = {
                 data-id="{{notation.id}}"
                 data-index="{{pageModule.index}}"
                 bindtap="onCanvasTap"
+                bindlongpress="{{!isPlaybackMode && !readingMode ? 'onCanvasLongPress' : ''}}"
               ></canvas>
               
               <!-- 播放光标覆盖层（View层，pointer-events: none） -->
@@ -411,12 +462,33 @@ module.exports = {
               </view>
               
               <!-- 透明输入层已移除，使用虚拟键盘输入 -->
-              <!-- Canvas编辑状态下的选中框高亮（由虚拟键盘处理输入） -->
+              <!-- 【性能优化】Canvas编辑状态下的选中框高亮（使用 transform 提升性能） -->
               <view 
                 wx:if="{{canvasEditing && canvasEditing.notationId === notation.id}}"
-                class="canvas-editing-highlight"
-                style="left: {{canvasEditing.inputX}}px; top: {{canvasEditing.inputY}}px; width: {{canvasEditing.inputWidth}}px; height: {{canvasEditing.inputHeight}}px; border: 4rpx solid {{canvasEditing.hand === 'right' ? rightHandColor : leftHandColor}}; background: {{canvasEditing.hand === 'right' ? rightHandColor : leftHandColor}}20; pointer-events: none;"
+                class="canvas-editing-highlight canvas-editing-highlight--optimized {{canvasEditing.hand === 'right' ? 'canvas-editing-highlight--right' : 'canvas-editing-highlight--left'}}"
+                style="--highlight-x: {{canvasEditing.inputX}}px; --highlight-y: {{canvasEditing.inputY}}px; --highlight-w: {{canvasEditing.inputWidth}}px; --highlight-h: {{canvasEditing.inputHeight}}px; --highlight-color: {{canvasEditing.hand === 'right' ? rightHandColor : leftHandColor}};"
               ></view>
+              
+              <!-- 【任务2】Canvas模式下的复制/粘贴/删除气泡弹窗（显示在选中尾拍位置） -->
+              <view wx:if="{{showBeatSelectionBubble && beatSelectionEnd && beatSelectionEnd.notationId === notation.id && notations[pageModule.index].collapsed}}" 
+                    class="beat-bubble beat-bubble-canvas" 
+                    style="left: {{beatBubbleCanvasPosition.x}}px; top: {{beatBubbleCanvasPosition.y}}px;"
+                    catchtap="stopPropagation">
+                <view class="beat-bubble-btn" bindtap="copySelectedBeats">
+                  <image class="beat-bubble-icon" src="/assets/icons/copy.svg" mode="aspectFit"></image>
+                  <text>复制</text>
+                </view>
+                <view class="beat-bubble-divider"></view>
+                <view class="beat-bubble-btn {{beatClipboardBeats.length > 0 ? '' : 'disabled'}}" bindtap="{{beatClipboardBeats.length > 0 ? 'pasteBeats' : ''}}">
+                  <image class="beat-bubble-icon" src="/assets/icons/paste.svg" mode="aspectFit"></image>
+                  <text>粘贴</text>
+                </view>
+                <view class="beat-bubble-divider"></view>
+                <view class="beat-bubble-btn beat-bubble-btn-delete" bindtap="deleteSelectedBeats">
+                  <image class="beat-bubble-icon beat-bubble-icon-delete" src="/assets/icons/delete.png" mode="aspectFit"></image>
+                  <text>删除</text>
+                </view>
+              </view>
             </view>
 
             <!-- ========== View渲染模式（展开状态）========== -->
@@ -427,8 +499,37 @@ module.exports = {
                 <!-- 小节线（左侧） -->
                 <view wx:if="{{measureIndex % (notation.measuresPerRow || measuresPerRow) === 0}}" class="bar-line bar-line-left"></view>
 
-                <!-- 拍子 -->
-                <view wx:for="{{measure.beats}}" wx:key="index" wx:for-item="beat" wx:for-index="beatIndex" class="beat">
+                <!-- 拍子 【任务2】添加长按选择和选中样式 -->
+                <view wx:for="{{measure.beats}}" wx:key="index" wx:for-item="beat" wx:for-index="beatIndex" 
+                      class="beat {{beat.isPlaceholder ? 'beat-placeholder' : ''}} {{isSelectingBeats && beatSelectionStart && beatSelectionStart.notationId === notation.id ? 'beat-selecting' : ''}} {{isSelectingBeats && selectedBeatsInfo && selectedBeatsInfo[notation.id + '-' + measureIndex + '-' + beatIndex] ? 'beat-selected' : ''}}"
+                      id="beat-{{notation.id}}-{{measureIndex}}-{{beatIndex}}"
+                      data-sheet="{{notation.id}}" data-measure="{{measureIndex}}" data-beat="{{beatIndex}}"
+                      bindlongpress="{{!isPlaybackMode && !readingMode && !beat.isPlaceholder ? 'onBeatLongPress' : ''}}"
+                      bindtap="{{isSelectingBeats && !beat.isPlaceholder ? 'onBeatTapForSelection' : ''}}">
+                  <!-- 【任务2】拍位选中高亮背景 -->
+                  <view wx:if="{{isSelectingBeats && selectedBeatsInfo && selectedBeatsInfo[notation.id + '-' + measureIndex + '-' + beatIndex]}}" 
+                        class="beat-selection-highlight"
+                        style="background: {{rightHandColor}}; border-color: {{rightHandColor}};"></view>
+                  
+                  <!-- 【任务2】复制/粘贴/删除气泡弹窗（显示在选中尾拍上方） -->
+                  <view wx:if="{{showBeatSelectionBubble && beatSelectionEnd && beatSelectionEnd.notationId === notation.id && beatSelectionEnd.measureIndex === measureIndex && beatSelectionEnd.beatIndex === beatIndex}}" 
+                        class="beat-bubble" catchtap="stopPropagation">
+                    <view class="beat-bubble-btn" bindtap="copySelectedBeats">
+                      <image class="beat-bubble-icon" src="/assets/icons/copy.svg" mode="aspectFit"></image>
+                      <text>复制</text>
+                    </view>
+                    <view class="beat-bubble-divider"></view>
+                    <view class="beat-bubble-btn {{beatClipboardBeats.length > 0 ? '' : 'disabled'}}" bindtap="{{beatClipboardBeats.length > 0 ? 'pasteBeats' : ''}}">
+                      <image class="beat-bubble-icon" src="/assets/icons/paste.svg" mode="aspectFit"></image>
+                      <text>粘贴</text>
+                    </view>
+                    <view class="beat-bubble-divider"></view>
+                    <view class="beat-bubble-btn beat-bubble-btn-delete" bindtap="deleteSelectedBeats">
+                      <image class="beat-bubble-icon beat-bubble-icon-delete" src="/assets/icons/delete.png" mode="aspectFit"></image>
+                      <text>删除</text>
+                    </view>
+                  </view>
+                  
                   <!-- 拍子分隔线（左侧，跳过第一个拍子避免与小节线重合） -->
                   <view wx:if="{{beatIndex > 0}}" class="beat-line beat-line-left"></view>
 
@@ -488,13 +589,13 @@ module.exports = {
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                   </view>
                                   <text class="note-number note-right-hand {{utils.parseSimplifiedNote(subdivision.rightHand[0]).underline ? 'note-underline' : ''}}" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx; {{utils.parseSimplifiedNote(subdivision.rightHand[0]).underline ? 'text-decoration-thickness: ' + utils.getUnderlineThickness(utils.getFontSize(orientation, notation.style)) + 'rpx; text-underline-offset: ' + utils.getUnderlineOffset(utils.getFontSize(orientation, notation.style)) + 'rpx;' : ''}}">{{utils.parseSimplifiedNote(subdivision.rightHand[0]).baseNote}}</text>
-                                  <!-- 下加点（降八度） -->
-                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown > 0}}" class="octave-dots-down">
+                                  <!-- 下加点（降八度）- 当同时有下划线时显示在下划线下方 -->
+                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown > 0}}" class="octave-dots-down" style="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).underline ? 'margin-top: ' + (utils.getUnderlineBottomOffset(utils.getFontSize(orientation, notation.style)) + utils.getUnderlineDotGap(utils.getFontSize(orientation, notation.style))) + 'rpx;' : ''}}">
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                   </view>
                                 </view>
-                                <!-- 右上标（带音高圆点） -->
-                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).rightSup}}" class="note-superscript-container note-sup-right">
+                                <!-- 右上标（带音高圆点）- 当有下划线+低八度圆点时调整位置 -->
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[0]).rightSup}}" class="note-superscript-container note-sup-right" style="{{utils.getSupExtraTopOffset(subdivision.rightHand[0]) != 0 ? 'top: calc(-0.6em + ' + utils.getSupExtraTopOffset(subdivision.rightHand[0]) + 'em);' : ''}}">
                                   <view wx:if="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.rightHand[0]).rightSup).octaveUp > 0}}" class="sup-octave-dots-up">
                                     <view wx:for="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.rightHand[0]).rightSup).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="sup-octave-dot" style="width: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                   </view>
@@ -542,12 +643,13 @@ module.exports = {
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                   </view>
                                   <text class="note-number note-right-hand {{utils.parseSimplifiedNote(subdivision.rightHand[1]).underline ? 'note-underline' : ''}}" style="color: {{rightHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx; {{utils.parseSimplifiedNote(subdivision.rightHand[1]).underline ? 'text-decoration-thickness: ' + utils.getUnderlineThickness(utils.getFontSize(orientation, notation.style)) + 'rpx; text-underline-offset: ' + utils.getUnderlineOffset(utils.getFontSize(orientation, notation.style)) + 'rpx;' : ''}}">{{utils.parseSimplifiedNote(subdivision.rightHand[1]).baseNote}}</text>
-                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown > 0}}" class="octave-dots-down">
+                                  <!-- 下加点（降八度）- 当同时有下划线时显示在下划线下方 -->
+                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown > 0}}" class="octave-dots-down" style="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).underline ? 'margin-top: ' + (utils.getUnderlineBottomOffset(utils.getFontSize(orientation, notation.style)) + utils.getUnderlineDotGap(utils.getFontSize(orientation, notation.style))) + 'rpx;' : ''}}">
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                   </view>
                                 </view>
-                                <!-- 右上标（带音高圆点） -->
-                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).rightSup}}" class="note-superscript-container note-sup-right">
+                                <!-- 右上标（带音高圆点）- 当有下划线+低八度圆点时调整位置 -->
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.rightHand[1]).rightSup}}" class="note-superscript-container note-sup-right" style="{{utils.getSupExtraTopOffset(subdivision.rightHand[1]) != 0 ? 'top: calc(-0.6em + ' + utils.getSupExtraTopOffset(subdivision.rightHand[1]) + 'em);' : ''}}">
                                   <view wx:if="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.rightHand[1]).rightSup).octaveUp > 0}}" class="sup-octave-dots-up">
                                     <view wx:for="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.rightHand[1]).rightSup).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="sup-octave-dot" style="width: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{rightHandColor}};"></view>
                                   </view>
@@ -601,12 +703,13 @@ module.exports = {
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                   </view>
                                   <text class="note-number note-left-hand {{utils.parseSimplifiedNote(subdivision.leftHand[0]).underline ? 'note-underline' : ''}}" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx; {{utils.parseSimplifiedNote(subdivision.leftHand[0]).underline ? 'text-decoration-thickness: ' + utils.getUnderlineThickness(utils.getFontSize(orientation, notation.style)) + 'rpx; text-underline-offset: ' + utils.getUnderlineOffset(utils.getFontSize(orientation, notation.style)) + 'rpx;' : ''}}">{{utils.parseSimplifiedNote(subdivision.leftHand[0]).baseNote}}</text>
-                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown > 0}}" class="octave-dots-down">
+                                  <!-- 下加点（降八度）- 当同时有下划线时显示在下划线下方 -->
+                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown > 0}}" class="octave-dots-down" style="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).underline ? 'margin-top: ' + (utils.getUnderlineBottomOffset(utils.getFontSize(orientation, notation.style)) + utils.getUnderlineDotGap(utils.getFontSize(orientation, notation.style))) + 'rpx;' : ''}}">
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                   </view>
                                 </view>
-                                <!-- 右上标（带音高圆点） -->
-                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).rightSup}}" class="note-superscript-container note-sup-right">
+                                <!-- 右上标（带音高圆点）- 当有下划线+低八度圆点时调整位置 -->
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[0]).rightSup}}" class="note-superscript-container note-sup-right" style="{{utils.getSupExtraTopOffset(subdivision.leftHand[0]) != 0 ? 'top: calc(-0.6em + ' + utils.getSupExtraTopOffset(subdivision.leftHand[0]) + 'em);' : ''}}">
                                   <view wx:if="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.leftHand[0]).rightSup).octaveUp > 0}}" class="sup-octave-dots-up">
                                     <view wx:for="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.leftHand[0]).rightSup).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="sup-octave-dot" style="width: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                   </view>
@@ -654,12 +757,13 @@ module.exports = {
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                   </view>
                                   <text class="note-number note-left-hand {{utils.parseSimplifiedNote(subdivision.leftHand[1]).underline ? 'note-underline' : ''}}" style="color: {{leftHandColor}}; font-size: {{utils.getFontSize(orientation, notation.style)}}rpx; {{utils.parseSimplifiedNote(subdivision.leftHand[1]).underline ? 'text-decoration-thickness: ' + utils.getUnderlineThickness(utils.getFontSize(orientation, notation.style)) + 'rpx; text-underline-offset: ' + utils.getUnderlineOffset(utils.getFontSize(orientation, notation.style)) + 'rpx;' : ''}}">{{utils.parseSimplifiedNote(subdivision.leftHand[1]).baseNote}}</text>
-                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown > 0}}" class="octave-dots-down">
+                                  <!-- 下加点（降八度）- 当同时有下划线时显示在下划线下方 -->
+                                  <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown > 0}}" class="octave-dots-down" style="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).underline ? 'margin-top: ' + (utils.getUnderlineBottomOffset(utils.getFontSize(orientation, notation.style)) + utils.getUnderlineDotGap(utils.getFontSize(orientation, notation.style))) + 'rpx;' : ''}}">
                                     <view wx:for="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="octave-dot" style="width: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                   </view>
                                 </view>
-                                <!-- 右上标（带音高圆点） -->
-                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).rightSup}}" class="note-superscript-container note-sup-right">
+                                <!-- 右上标（带音高圆点）- 当有下划线+低八度圆点时调整位置 -->
+                                <view wx:if="{{utils.parseSimplifiedNote(subdivision.leftHand[1]).rightSup}}" class="note-superscript-container note-sup-right" style="{{utils.getSupExtraTopOffset(subdivision.leftHand[1]) != 0 ? 'top: calc(-0.6em + ' + utils.getSupExtraTopOffset(subdivision.leftHand[1]) + 'em);' : ''}}">
                                   <view wx:if="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.leftHand[1]).rightSup).octaveUp > 0}}" class="sup-octave-dots-up">
                                     <view wx:for="{{utils.parseSupContent(utils.parseSimplifiedNote(subdivision.leftHand[1]).rightSup).octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="sup-octave-dot" style="width: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; height: {{utils.getSupOctaveDotSize(utils.getFontSize(orientation, notation.style))}}rpx; background: {{leftHandColor}};"></view>
                                   </view>
@@ -678,23 +782,28 @@ module.exports = {
                   </view>
 
                   <!-- 拍子分隔线（右侧，跳过最后一个拍子且不与中间小节线重叠） -->
-                  <view wx:if="{{beatIndex < measure.beats.length - 1 && !beat.barLineAfter}}" class="beat-line beat-line-right"></view>
+                  <view wx:if="{{beatIndex < measure.beats.length - 1 && !beat.barLineAfter && !beat.isPlaceholder && !(measure.beats[beatIndex + 1] && measure.beats[beatIndex + 1].isPlaceholder)}}" class="beat-line beat-line-right"></view>
 
                   <!-- 中间小节线（自定义拍子模式中的分组间分隔线，使用小节线样式） -->
                   <view wx:if="{{beat.barLineAfter}}" class="bar-line bar-line-middle"></view>
                 </view>
 
-                <!-- 小节线（右侧） -->
-                <view class="bar-line bar-line-right"></view>
+                <!-- 小节线（右侧）：
+                     1. 当有占位拍时：使用绝对定位绘制在最后一个非占位拍后
+                     2. 当没有占位拍时：使用正常流绘制在measure末尾 -->
+                <view wx:if="{{measure.lastRealBeatIndex !== undefined && measure.lastRealBeatIndex < measure.beats.length - 1}}" 
+                      class="bar-line bar-line-right bar-line-positioned" 
+                      style="left: calc({{(measure.lastRealBeatIndex + 1) * 100 / measure.beats.length}}% - 2rpx);"></view>
+                <view wx:else class="bar-line bar-line-right"></view>
               </view>
             </view>
             
-            <!-- 添加谱面图标（仅展开状态显示） -->
-            <view class="add-notation-row" wx:if="{{!notations[pageModule.index].collapsed}}">
-              <image class="add-icon" src="/assets/icons/add.svg" data-after-id="{{notation.id}}" bindtap="addNotationAfter"></image>
-              <image class="refresh-icon" src="/assets/icons/refresh.png" data-id="{{notation.id}}" bindtap="refreshNotation"></image>
-              <image class="tool-icon" src="/assets/icons/tool.png" data-id="{{notation.id}}" bindtap="openModuleSettings"></image>
-              <image class="less-icon" src="/assets/icons/less.png" data-id="{{notation.id}}" bindtap="toggleNotationCollapse"></image>
+            <!-- 添加谱面图标（仅展开状态显示，选中模式下禁用所有操作） -->
+            <view class="add-notation-row {{isSelectingBeats ? 'disabled' : ''}}" wx:if="{{!notations[pageModule.index].collapsed}}">
+              <image class="add-icon" src="/assets/icons/add.svg" data-after-id="{{notation.id}}" bindtap="{{!isSelectingBeats ? 'addNotationAfter' : ''}}"></image>
+              <image class="refresh-icon" src="/assets/icons/refresh.png" data-id="{{notation.id}}" bindtap="{{!isSelectingBeats ? 'refreshNotation' : ''}}"></image>
+              <image class="tool-icon" src="/assets/icons/tool.png" data-id="{{notation.id}}" bindtap="{{!isSelectingBeats ? 'openModuleSettings' : ''}}"></image>
+              <image class="less-icon" src="/assets/icons/less.png" data-id="{{notation.id}}" bindtap="{{!isSelectingBeats ? 'toggleNotationCollapse' : ''}}"></image>
             </view>
           </block>
         </view>
@@ -824,20 +933,11 @@ module.exports = {
                mode="aspectFit"></image>
         <text class="player-tempo-value">{{playbackTempo || 80}}</text>
         
-        <!-- 内联竖向速度调节杠（自定义触摸实现），范围30~150 -->
+        <!-- 内联竖向速度调节杠（自定义触摸实现），范围20~180 -->
         <view wx:if="{{showInlineTempoSlider}}" class="inline-tempo-slider-wrapper" catchtap="stopPropagation">
           <!-- 主容器 -->
           <view class="inline-tempo-slider">
-            <text class="inline-tempo-max">150</text>
-            <view class="inline-tempo-track"
-                  bindtouchstart="onTempoTrackTouchStart"
-                  bindtouchmove="onTempoTrackTouchMove"
-                  bindtouchend="onTempoTrackTouchEnd">
-              <view class="inline-tempo-fill" style="height: {{((playbackTempo - 30) / 120) * 100}}%"></view>
-              <view class="inline-tempo-thumb" style="bottom: {{((playbackTempo - 30) / 120) * 100}}%"></view>
-            </view>
-            <text class="inline-tempo-min">30</text>
-            <!-- 底部可输入数字 -->
+            <!-- 可输入数字 -->
             <view class="inline-tempo-input-wrapper">
               <input class="inline-tempo-input" 
                      type="number" 
@@ -846,6 +946,19 @@ module.exports = {
                      bindblur="onTempoInputBlur"
                      maxlength="3" />
             </view>
+            <!-- 触摸区域包含 180+轨道+20，便于拖到最上/最下也能取到 180/20 -->
+            <view class="inline-tempo-track-area"
+                  bindtouchstart="onTempoTrackTouchStart"
+                  bindtouchmove="onTempoTrackTouchMove"
+                  bindtouchend="onTempoTrackTouchEnd">
+              <text class="inline-tempo-max">180</text>
+              <view class="inline-tempo-track">
+                <view class="inline-tempo-fill" style="height: {{((playbackTempo - 20) / 160) * 100}}%"></view>
+                <view class="inline-tempo-thumb" style="bottom: {{((playbackTempo - 20) / 160) * 100}}%"></view>
+              </view>
+              <text class="inline-tempo-min">20</text>
+            </view>
+            
           </view>
         </view>
       </view>
@@ -962,7 +1075,7 @@ module.exports = {
                   value="{{metronomeVolume || 50}}" 
                   activeColor="#8FB9AB"
                   backgroundColor="rgba(49, 77, 99, 0.15)"
-                  block-size="22"
+                  block-size="12"
                   block-color="#314D63"
                   bindchange="onMetronomeVolumeChange"/>
           <text class="player-setting-value">{{metronomeVolume || 50}}%</text>
@@ -995,9 +1108,9 @@ module.exports = {
     </view>
   </view>
 
-  <image class="action-toggle" 
+  <image class="action-toggle {{isSelectingBeats ? 'disabled' : ''}}" 
     src="/assets/icons/toolkit.svg" 
-    bindtap="toggleActionBar"
+    bindtap="{{!isSelectingBeats ? 'toggleActionBar' : ''}}"
     wx:if="{{actionCollapsed && !isPlaybackMode}}"></image>
 
   <!-- 播放倒计时遮罩 -->
@@ -1250,6 +1363,112 @@ module.exports = {
     </view>
   </view>
 
+  <!-- 模块拍号设置弹窗 -->
+  <view wx:if="{{showModuleTimeSignatureModal}}" class="modal-overlay modal-overlay-high" bindtap="closeModuleTimeSignatureModal">
+    <view class="modal-content module-time-signature-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <view class="modal-title">模块拍号设置</view>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeModuleTimeSignatureModal"></image>
+      </view>
+      
+      <view class="module-ts-hint">
+        <image class="hint-icon" src="/assets/icons/信息_info.svg" mode="aspectFit"></image>
+        <text class="hint-text">仅调整当前模块的拍号结构，不会影响其他模块</text>
+      </view>
+
+      <view class="modal-body">
+        <!-- 音符数输入 -->
+        <view class="note-count-row">
+          <text class="note-count-label">总音符数：</text>
+          <input 
+            class="note-count-input"
+            type="number"
+            value="{{moduleVisualNoteCount}}" 
+            bindinput="onModuleVisualNoteCountInput"
+            bindblur="onModuleVisualNoteCountBlur"
+          />
+          <text class="note-count-hint">（1~35）</text>
+        </view>
+
+        <!-- 可视化圆点区域 -->
+        <scroll-view scroll-x class="visual-dots-scroll">
+          <view class="visual-dots-container">
+            <text class="bracket-text">[</text>
+            <block wx:for="{{moduleVisualDots}}" wx:key="index">
+              <!-- 圆点 -->
+              <view class="visual-dot"></view>
+              <!-- 间隙（除最后一个外） -->
+              <view 
+                wx:if="{{index < moduleVisualDots.length - 1}}"
+                class="dot-gap {{moduleVisualSeparators[index].type !== 'none' ? 'has-separator' : ''}}"
+                data-index="{{index}}"
+                bindtap="onModuleDotGapTap"
+              >
+                <text 
+                  wx:if="{{moduleVisualSeparators[index].type === 'beat'}}" 
+                  class="separator-beat"
+                >|</text>
+                <text 
+                  wx:elif="{{moduleVisualSeparators[index].type === 'measure'}}" 
+                  class="separator-measure"
+                >][</text>
+              </view>
+            </block>
+            <text class="bracket-text">]</text>
+          </view>
+        </scroll-view>
+
+        <!-- 生成的模板预览 -->
+        <view class="template-preview">
+          <text class="preview-label">模板预览：</text>
+          <text class="preview-text">{{moduleTimeSignatureTemplate || '[----|----|----|----]'}}</text>
+        </view>
+
+        <!-- 小节信息列表 -->
+        <view wx:if="{{moduleMeasureInfoList.length > 0}}" class="measure-info-list">
+          <view class="measure-info-header">结构详情</view>
+          <view class="measure-info-grid">
+            <view 
+              wx:for="{{moduleMeasureInfoList}}" 
+              wx:key="measureIndex" 
+              class="measure-info-card"
+            >
+              <view class="measure-card-title">第{{item.measureIndex + 1}}小节</view>
+              <view class="beat-info-list">
+                <view 
+                  wx:for="{{item.beats}}" 
+                  wx:for-item="beat"
+                  wx:for-index="beatIdx"
+                  wx:key="beatIdx"
+                  class="beat-info-row"
+                >
+                  <text class="beat-label">第{{beatIdx + 1}}拍：</text>
+                  <input 
+                    class="beat-note-input"
+                    type="number"
+                    value="{{beat.noteCount}}"
+                    data-measure-index="{{item.measureIndex}}"
+                    data-beat-index="{{beatIdx}}"
+                    bindinput="onModuleBeatNoteCountInput"
+                    bindblur="onModuleBeatNoteCountBlur"
+                  />
+                  <text class="beat-unit">音符</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{moduleTimeSignatureError}}" class="error-message">{{moduleTimeSignatureError}}</view>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="closeModuleTimeSignatureModal">取消</button>
+        <button class="btn-primary" bindtap="confirmModuleTimeSignature" disabled="{{!!moduleTimeSignatureError || !moduleTimeSignatureValid}}">应用到此模块</button>
+      </view>
+    </view>
+  </view>
+
   <!-- 模块设置模态框 -->
   <view wx:if="{{showModuleSettingsModal}}" class="modal-overlay" bindtap="closeModuleSettingsModal">
     <view class="modal-content module-settings-modal" catchtap="stopPropagation">
@@ -1259,6 +1478,21 @@ module.exports = {
       </view>
       
       <view class="module-settings-scrollable">
+      <!-- 拍号设置入口 -->
+      <view class="settings-item settings-item-highlight" bindtap="openModuleTimeSignatureModal">
+        <view class="settings-item-header">
+          <image class="settings-icon" src="/assets/icons/tim_signature.svg"></image>
+          <text class="settings-label">拍号设置</text>
+          <view class="settings-arrow-wrapper">
+            <text class="settings-current-value">{{moduleTimeSignatureBeats === 'custom' ? '自定义' : (moduleTimeSignatureBeats + '/4拍')}}</text>
+            <text class="settings-arrow">›</text>
+          </view>
+        </view>
+        <view class="settings-item-desc">
+          <text>调整当前模块的拍号结构，不影响其他模块</text>
+        </view>
+      </view>
+
       <view class="settings-item">
         <view class="settings-item-header">
           <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
@@ -2346,7 +2580,8 @@ module.exports = {
               <view wx:for="{{vkParsed.octaveUp}}" wx:for-item="dotIdx" wx:key="dotIdx" class="vk-octave-dot" style="background: {{editing.hand === 'right' ? rightHandColor : leftHandColor}};"></view>
             </view>
             <text class="vk-main-note {{vkParsed.underline ? 'vk-note-underline' : ''}}" style="color: {{editing.hand === 'right' ? rightHandColor : leftHandColor}};">{{vkParsed.baseNote || '-'}}</text>
-            <view wx:if="{{vkParsed.octaveDown > 0}}" class="vk-octave-dots vk-octave-down">
+            <!-- 低八度圆点 - 当同时有下划线时显示在下划线下方 -->
+            <view wx:if="{{vkParsed.octaveDown > 0}}" class="vk-octave-dots vk-octave-down" style="{{vkParsed.underline ? 'margin-top: 10rpx;' : ''}}">
               <view wx:for="{{vkParsed.octaveDown}}" wx:for-item="dotIdx" wx:key="dotIdx" class="vk-octave-dot" style="background: {{editing.hand === 'right' ? rightHandColor : leftHandColor}};"></view>
             </view>
           </view>
@@ -2452,8 +2687,8 @@ module.exports = {
                 <view class="pitch-tick"></view>
                 <view class="pitch-tick"></view>
               </view>
-              <!-- 填充条 -->
-              <view class="pitch-fill-bar" style="height: {{pitchLevel === 0 ? 20 : pitchLevel === 1 ? 40 : pitchLevel === 2 ? 60 : pitchLevel === 3 ? 80 : 100}}%;">
+              <!-- 填充条：拖动时使用实时进度，否则使用档位对应高度 -->
+              <view class="pitch-fill-bar {{pitchDragging ? 'dragging' : ''}}" style="height: {{pitchDragging ? pitchDragProgress : (pitchLevel === 0 ? 20 : pitchLevel === 1 ? 40 : pitchLevel === 2 ? 60 : pitchLevel === 3 ? 80 : 100)}}%;">
                 <text class="pitch-fill-icon">{{pitchLevelConfig[pitchLevel].icon}}</text>
               </view>
             </view>
@@ -2552,14 +2787,22 @@ module.exports = {
 
       <!-- 右侧: 方向盘 + 删除键 -->
       <view class="vk-right-panel">
-        <!-- 方向控制盘容器（包含帮助按钮） -->
+        <!-- 方向控制盘容器（包含帮助按钮和快捷移动按钮） -->
         <view class="vk-direction-pad-container">
-          <!-- 帮助按钮（右上角） -->
+          <!-- 帮助按钮（左上角） -->
           <view class="vk-help-corner-btn {{showKeyboardHelp ? 'vk-help-corner-btn--active' : ''}}" bindtap="toggleKeyboardHelp">
             <image 
               class="vk-help-corner-icon {{showKeyboardHelp ? 'vk-help-corner-icon--active' : ''}}" 
               src="{{showKeyboardHelp ? '/assets/icons/keyboard/reduce-help.png' : '/assets/icons/keyboard/helpcenter.png'}}" 
               mode="aspectFit"></image>
+          </view>
+          <!-- 右上角快捷键：向右上移动 -->
+          <view class="vk-diagonal-btn vk-diagonal-up-right" bindtap="moveCursorUpRight">
+            <image src="/assets/icons/keyboard/right-up.png" class="vk-diagonal-icon" mode="aspectFit"></image>
+          </view>
+          <!-- 右下角快捷键：向右下移动 -->
+          <view class="vk-diagonal-btn vk-diagonal-down-right" bindtap="moveCursorDownRight">
+            <image src="/assets/icons/keyboard/right-down.png" class="vk-diagonal-icon" mode="aspectFit"></image>
           </view>
           <!-- 方向控制盘 -->
           <view class="vk-direction-pad">
@@ -2735,6 +2978,62 @@ module.exports = {
       <view class="delete-row-buttons">
         <button class="delete-row-btn delete-row-btn-cancel" bindtap="closeDeleteRowModal">取消</button>
         <button class="delete-row-btn delete-row-btn-confirm" bindtap="confirmDeleteRow">确认删除</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 【任务1】删除拍位确认弹窗 -->
+  <view wx:if="{{showDeleteBeatModal}}" class="modal-overlay delete-beat-overlay" bindtap="closeDeleteBeatModal">
+    <view class="modal-content delete-beat-modal" catchtap="stopPropagation">
+      <!-- 警告图标 -->
+      <view class="delete-beat-icon-wrapper">
+        <view class="delete-beat-icon">
+          <text class="delete-beat-icon-text">!</text>
+        </view>
+      </view>
+      
+      <!-- 标题 -->
+      <view class="delete-beat-title">确认删除此拍？</view>
+      
+      <!-- 描述 -->
+      <view class="delete-beat-desc">
+        <text>检测到当前位置后续均为空拍</text>
+        <text class="delete-beat-hint">删除后右侧内容将合并过来</text>
+      </view>
+      
+      <!-- 功能切换胶囊 -->
+      <view class="delete-beat-toggle-row">
+        <text class="delete-beat-toggle-label">删除后续所有空拍</text>
+        <view class="delete-beat-toggle {{deleteBeatAllEmpty ? 'active' : ''}}" bindtap="toggleDeleteBeatAllEmpty">
+          <view class="delete-beat-toggle-thumb"></view>
+        </view>
+      </view>
+      
+      <!-- 按钮组 -->
+      <view class="delete-beat-buttons">
+        <button class="delete-beat-btn delete-beat-btn-cancel" bindtap="closeDeleteBeatModal">取消</button>
+        <button class="delete-beat-btn delete-beat-btn-confirm" bindtap="confirmDeleteBeat">确认删除</button>
+      </view>
+    </view>
+  </view>
+
+
+  <!-- 【任务2】选中模式顶部提示栏（iOS风格） -->
+  <view wx:if="{{isSelectingBeats}}" class="beat-selection-toolbar">
+    <view class="selection-toolbar-content">
+      <view class="selection-info">
+        <view class="selection-icon">
+          <image class = "selection-icon-text" src="/assets/icons/check.svg" mode="aspectFit"></image>
+        </view>
+        <text class="selection-text">选中模式</text>
+      </view>
+      <view class="selection-actions">
+        <view class="selection-count" wx:if="{{beatSelectionStart && beatSelectionEnd}}">
+          <text class="count-text">点击首尾拍确定选择范围</text>
+        </view>
+        <view class="selection-exit-btn" bindtap="exitSelectionMode">
+          <text>退出</text>
+        </view>
       </view>
     </view>
   </view>

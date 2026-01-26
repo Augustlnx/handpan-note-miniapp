@@ -326,15 +326,19 @@ class SheetPlaybackManager {
   }
 
   /**
-   * 从音符字符串中提取装饰音
-   * @param {string} noteStr - 音符字符串，如 ^{1}7
+   * 从音符字符串中提取装饰音（左上标）
+   * @param {string} noteStr - 音符字符串，如 ^{1}7 或 (^{1}7_)
    * @returns {string|null} 装饰音字符串或null
    */
   extractGraceNote(noteStr) {
     if (!noteStr || typeof noteStr !== 'string') return null;
     
-    // 匹配左上标 ^{...}
-    const match = noteStr.match(/^\^{([^}]+)}/);
+    // 【修复】先去掉括号，再匹配左上标 ^{...}
+    const cleaned = noteStr.replace(/[()]/g, '').trim();
+    if (!cleaned) return null;
+    
+    // 匹配左上标 ^{...}（必须在字符串开头）
+    const match = cleaned.match(/^\^{([^}]+)}/);
     if (match) {
       return match[1];
     }
@@ -534,9 +538,12 @@ class SheetPlaybackManager {
    * 生成播放时间线（包含装饰音）
    * 预计算所有音符事件的绝对时间
    * 
+   * 【重要修复】时间线始终包含所有事件，startColumnId 只用于设置初始播放位置，
+   * 不会过滤掉之前的事件，这样点击跳转到任意位置都能正常工作。
+   * 
    * @param {Array} notations - 谱面数据
    * @param {number} tempo - BPM
-   * @param {string} startColumnId - 起始列ID（可选，用于从选中位置开始）
+   * @param {string} startColumnId - 起始列ID（可选，用于设置初始播放位置）
    * @param {Object} pageInfo - 分页信息 { pages, currentPage }
    * @returns {Array} 时间线事件队列
    */
@@ -550,11 +557,13 @@ class SheetPlaybackManager {
     
     const beatDuration = 60 / tempo; // 每拍秒数
     const beatDurationMs = 60000 / tempo; // 每拍毫秒数
-    const graceNoteDuration = this.calculateGraceNoteDuration(beatDurationMs) / 1000; // 转换为秒
     
     let absoluteTime = 0;
     let globalColumnIndex = 0;
-    let foundStartColumn = startColumnId === null;
+    
+    // 【修复】记录起始列的索引，用于设置初始播放位置
+    let startEventIndex = 0;
+    let foundStartColumn = false;
     
     // 计算每个音符列对应的页码
     const getPageIndexForModule = (moduleIndex) => {
@@ -575,10 +584,16 @@ class SheetPlaybackManager {
       notation.measures.forEach((measure, measureIndex) => {
         if (!measure.beats) return;
         
-        // 计算每小节的节拍数（用于节拍器同步）
-        this.beatsPerMeasure = measure.beats.length;
+        // 【修复】获取非占位拍的数量用于计算节拍数
+        const nonPlaceholderBeats = measure.beats.filter(beat => !beat.isPlaceholder);
+        this.beatsPerMeasure = nonPlaceholderBeats.length || measure.beats.length;
         
         measure.beats.forEach((beat, beatIndex) => {
+          // 【修复】跳过占位拍，不播放也不移动光标
+          if (beat.isPlaceholder) {
+            return;
+          }
+          
           if (!beat.subdivisions) return;
           
           this.subdivisionsPerBeat = beat.subdivisions.length;
@@ -624,20 +639,8 @@ class SheetPlaybackManager {
           subdivisionInfo.forEach(({ sub, subIndex, hasUnderline }) => {
             const columnId = `${moduleIndex}-${measureIndex}-${beatIndex}-${subIndex}`;
             
-            // 检查是否到达起始位置
-            if (!foundStartColumn && startColumnId === columnId) {
-              foundStartColumn = true;
-              absoluteTime = 0; // 重置时间
-            }
-            
             // 计算当前音符的时值
             const currentDuration = hasUnderline ? underlineDuration : normalDuration;
-            
-            if (!foundStartColumn) {
-              absoluteTime += currentDuration;
-              globalColumnIndex++;
-              return;
-            }
             
             // 提取该列的所有音符和装饰音
             const soundKeys = []; // 主音符
@@ -659,10 +662,12 @@ class SheetPlaybackManager {
                   });
                 }
                 
-                // 提取装饰音
+                // 提取装饰音（左上标）
                 const graceNote = this.extractGraceNote(noteStr);
                 if (graceNote) {
-                  const graceAudioInfo = this.getNoteAudioInfo(graceNote, this.notationType);
+                  // 装饰音字符串也需要去掉下划线再获取音频信息
+                  const cleanedGraceNote = graceNote.replace(/_/g, '');
+                  const graceAudioInfo = this.getNoteAudioInfo(cleanedGraceNote, this.notationType);
                   if (graceAudioInfo && this.audioBuffers.has(graceAudioInfo.spn)) {
                     graceNotes.push({
                       spn: graceAudioInfo.spn,
@@ -678,7 +683,15 @@ class SheetPlaybackManager {
             
             // 添加装饰音事件（提前主音一定时间）
             if (graceNotes.length > 0) {
-              const graceNoteTime = Math.max(0, absoluteTime - graceNoteDuration);
+              // 装饰音时长 = 当前音符时值 * 25%，但限制在20ms-50ms
+              const actualGraceNoteDuration = Math.max(
+                this.graceNoteConfig.minDuration / 1000,
+                Math.min(
+                  this.graceNoteConfig.maxDuration / 1000,
+                  currentDuration * this.graceNoteConfig.durationRatio
+                )
+              );
+              const graceNoteTime = Math.max(0, absoluteTime - actualGraceNoteDuration);
               this.timeline.push({
                 absoluteTime: graceNoteTime,
                 soundKeys: graceNotes,
@@ -711,8 +724,14 @@ class SheetPlaybackManager {
               duration: currentDuration // 保留当前音符的实际时值
             });
             
+            // 【修复】检查是否是起始位置，记录索引
+            if (!foundStartColumn && startColumnId && startColumnId === columnId) {
+              foundStartColumn = true;
+              // 记录当前timeline的长度减1作为起始索引（刚刚添加的事件）
+              startEventIndex = this.timeline.length - 1;
+            }
+            
             // 计算下一个事件的时间
-            // 带下划线的音符（32分音符）时值为普通音符的一半
             absoluteTime += currentDuration;
             globalColumnIndex++;
           });
@@ -722,6 +741,21 @@ class SheetPlaybackManager {
     
     // 按时间排序（装饰音和主音符可能需要重新排序）
     this.timeline.sort((a, b) => a.absoluteTime - b.absoluteTime);
+    
+    // 【修复】如果指定了起始列，设置初始播放位置
+    if (startColumnId && foundStartColumn) {
+      // 排序后需要重新查找索引
+      const sortedStartIndex = this.timeline.findIndex(e => !e.isGraceNote && e.columnId === startColumnId);
+      if (sortedStartIndex >= 0) {
+        this.currentEventIndex = sortedStartIndex;
+        this.playbackOffset = this.timeline[sortedStartIndex].absoluteTime;
+        console.log(`[SheetPlaybackManager] 设置起始位置: ${startColumnId}, 索引: ${sortedStartIndex}, 时间: ${this.playbackOffset.toFixed(2)}s`);
+      }
+    } else {
+      // 没有指定起始列或未找到，从头开始
+      this.currentEventIndex = 0;
+      this.playbackOffset = 0;
+    }
     
     console.log(`[SheetPlaybackManager] 生成时间线: ${this.timeline.length} 个事件（含装饰音）`);
     return this.timeline;
@@ -836,8 +870,11 @@ class SheetPlaybackManager {
   _beginPlayback() {
     this.isPlaying = true;
     this.isPaused = false;
-    this.currentEventIndex = 0;
-    this.playbackStartTime = this.audioContext.currentTime;
+    
+    // 【修复】使用 generateTimeline 设置的 currentEventIndex 和 playbackOffset
+    // 而不是总是从0开始，这样支持从任意位置开始播放
+    // currentEventIndex 和 playbackOffset 已由 generateTimeline 或 seekToColumn 设置
+    this.playbackStartTime = this.audioContext.currentTime - this.playbackOffset;
     this.lastMetronomeBeat = -1;
     
     // 启动 RAF 循环
@@ -1203,9 +1240,10 @@ class SheetPlaybackManager {
   /**
    * 跳转到指定列开始播放
    * @param {string} columnId - 列ID格式: moduleIndex-measureIndex-beatIndex-subIndex
+   * @returns {boolean} 是否成功找到并跳转
    */
   seekToColumn(columnId) {
-    if (!columnId || this.timeline.length === 0) return;
+    if (!columnId || this.timeline.length === 0) return false;
     
     // 查找对应的时间线事件（跳过装饰音）
     const targetIndex = this.timeline.findIndex(event => !event.isGraceNote && event.columnId === columnId);
@@ -1230,7 +1268,18 @@ class SheetPlaybackManager {
         });
       }
       
+      // 【修复】同步更新进度回调
+      if (this.onProgressUpdate) {
+        const totalTime = this.getTotalDuration();
+        this.onProgressUpdate(targetEvent.absoluteTime, totalTime);
+      }
+      
       console.log(`[SheetPlaybackManager] 跳转到: ${columnId}, 时间: ${targetEvent.absoluteTime.toFixed(2)}s`);
+      return true;
+    } else {
+      // 【修复】如果未找到对应的columnId（可能是占位拍），打印警告
+      console.warn(`[SheetPlaybackManager] 未在timeline中找到columnId: ${columnId}`);
+      return false;
     }
   }
   
@@ -1284,12 +1333,14 @@ class SheetPlaybackManager {
   /**
    * 根据点击的columnId跳转并暂停
    * @param {string} columnId - 列ID
+   * @returns {boolean} 是否成功找到并跳转
    */
   seekAndPause(columnId) {
-    this.seekToColumn(columnId);
+    const success = this.seekToColumn(columnId);
     if (this.isPlaying) {
       this.pausePlayback();
     }
+    return success;
   }
 
   /**
