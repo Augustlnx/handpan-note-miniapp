@@ -1051,20 +1051,23 @@ Page({
     
     // 检查是否是五音/拍片段（有linkedPair属性）
     if (segment.linkedPair !== null && segment.linkedPair !== undefined) {
-      // 五音/拍：点击时切换32分音符对的位置
-      const currentLinkedPair = segment.linkedPair;
-      // 循环切换位置：0->1->2->3->0
-      const newLinkedPair = (currentLinkedPair + 1) % 4;
+      // 五音/拍：只切换当前音符的状态（1变0，0变1），保持时值分配不变
+      rhythm[noteIndex] = rhythm[noteIndex] === 1 ? 0 : 1;
       
-      // 找到对应的模板
-      const templateLetters = ['①', '②', '③', '④'];
-      const newLetter = templateLetters[newLinkedPair];
-      const mapItem = RHYTHM_MAP_5[newLetter];
+      // 更新节奏，保持timing和linkedPair不变
+      segment.rhythm = rhythm;
       
-      segment.letter = newLetter;
-      segment.rhythm = [...mapItem.notes];
-      segment.timing = [...mapItem.timing];
-      segment.linkedPair = mapItem.linkedPair;
+      // 更新字母标识（如果所有音符都是1，使用原模板字母；否则用自定义符号）
+      const noteCount = rhythm.filter(n => n === 1).length;
+      if (noteCount === 5) {
+        // 如果所有音符都是1，保持原模板字母
+        const templateLetters = ['①', '②', '③', '④'];
+        const linkedPairIndex = segment.linkedPair;
+        segment.letter = templateLetters[linkedPairIndex] || '①';
+      } else {
+        // 对于自定义节奏，用符号表示
+        segment.letter = noteCount > 0 ? '●' : '○';
+      }
     } else {
       // 普通节奏：切换音符/休止
       rhythm[noteIndex] = rhythm[noteIndex] === 1 ? 0 : 1;

@@ -337,6 +337,26 @@ Page({
     },
     vkClipboard: '', // 虚拟键盘剪贴板（用于复制粘贴功能）
     showKeyboardHelp: false, // 是否显示虚拟键盘图标说明
+    
+    // ========== 更多设置界面相关 ==========
+    showKeyboardSettings: false, // 是否显示更多设置界面
+    insertDirection: 'right', // 插入方向: 'right' 向右插入, 'left' 向左插入
+    showHelpBtnSetting: true, // 是否显示帮助按钮
+    isCustomizingKeyboard: false, // 是否在自定义键盘模式
+    customSymbolKeys: { // 自定义符号键（默认值与系统一致）
+      key1: 'd', key2: 'D', key3: 'P',
+      key4: 's', key5: 'T', key6: 'x',
+      key7: 'F', key8: 'B', key9: 'O',
+      key10: 'H'
+    },
+    defaultSymbolKeys: { // 默认符号键（用于恢复）
+      key1: 'd', key2: 'D', key3: 'P',
+      key4: 's', key5: 'T', key6: 'x',
+      key7: 'F', key8: 'B', key9: 'O',
+      key10: 'H'
+    },
+    customKeyEditingIndex: null, // 当前正在编辑的自定义键索引
+    
     // 胶囊音高调节器相关
     pitchLevel: 2, // 音高档位: 0-倍低音, 1-低音, 2-原音, 3-高音, 4-倍高音
     pitchLevelConfig: [
@@ -456,6 +476,9 @@ Page({
     audioMappingsLoaded: false, // 音频文件列表是否已加载
     currentAudioMappingTableId: null, // 当前使用的音频映射表ID
     showAudioMappingLibrary: false, // 显示音频映射表库弹窗
+    saveAudioMappingToScore: false, // 是否将音频映射保存到曲谱
+    savedAudioMappings: null, // 曲谱保存的音频映射（从文件数据加载）
+    audioMappingNewNotesHint: '', // 新音符类型提示
     // 新建/编辑音频映射转换表相关
     showNewAudioMappingTableModal: false, // 显示新建转换表弹窗
     newAudioMappingTableName: '', // 新建转换表的名称
@@ -469,6 +492,7 @@ Page({
     // ========== Canvas渲染模式相关 ==========
     canvasEditing: null, // Canvas模式下的编辑状态 { notationId, measureIndex, beatIndex, subIndex, hand, index, inputX, inputY, inputWidth, inputHeight, focus }
     canvasEditingValue: '', // Canvas模式下正在编辑的值
+    canvasUseNativeInput: false, // 主乐谱「切换键盘」后是否使用设备原生键盘输入（保持选中、收起虚拟键盘时 true）
     
     // ========== 【性能优化】全局高亮覆盖层 ==========
     // 使用 CSS transform 快速移动高亮框，避免 Canvas 重绘和 View 条件渲染
@@ -779,6 +803,7 @@ Page({
       this.loadLibraryFileInfo();    // 库文件关联
       this.setupPlaybackListeners(); // 播放监听
       this.preloadLogoImage();       // Logo 图片
+      this.loadKeyboardSettings();   // 键盘设置（插入方向、帮助按钮、自定义键）
       
       // 清除 splash 预处理标记
       wx.removeStorageSync('splash_premigrated');
@@ -913,6 +938,7 @@ Page({
       editingValue: '',
       canvasEditing: null,
       canvasEditingValue: '',
+      canvasUseNativeInput: false,
       showVirtualKeyboard: false,
       // 重置音频映射弹窗状态
       audioMappingsLoaded: false,
@@ -937,12 +963,15 @@ Page({
       mainTitle: payload.title || payload.file_name || '未命名',
       subTitle: payload.subtitle || 'Author: Unknown',
       globalTempo: payload.tempo || 60,
-      orientation,
+      orientation: 'portrait', // 【Bug修复】加载曲库文件时重置为"宽松"模式（竖屏）
       timeSignatureBeats: beats,
       timeSignatureBottom: bottom,
       timeSignatureDisplay: timingText,
       currentTimeSignatureType: 'standard',
       notationType: payload.notationType || 'digital', // 恢复谱式类型
+      // 【Bug修复】加载曲库文件时重置为"编辑"模式
+      readingMode: false,
+      manualOrientation: false, // 重置手动排版标记
       // 保存文件来源信息
       libraryFileId: payload.id || null,
       libraryFilePath: payload.path || null,
@@ -953,7 +982,10 @@ Page({
       scaleType: payload.scaleType || 'Kurd',
       noteCount: payload.noteCount || 10,
       difficulty: payload.difficulty || 1,
-      introduction: payload.introduction || ''
+      introduction: payload.introduction || '',
+      // 加载保存的音频映射（如果有）
+      savedAudioMappings: payload.savedAudioMappings || null,
+      saveAudioMappingToScore: !!payload.savedAudioMappings // 如果有保存的映射，默认勾选
     }, () => {
       this.saveTitles();
       this.saveGlobalTempo();
@@ -1164,6 +1196,8 @@ Page({
       });
       this.updateStorageDisplay(false);
       console.log('Using preloaded library info');
+      // 加载保存的音频映射
+      this.loadSavedAudioMappings();
       return;
     }
     
@@ -1175,6 +1209,8 @@ Page({
         libraryFileName: libraryInfo.fileName || null
       });
       this.updateStorageDisplay(false);
+      // 加载保存的音频映射
+      this.loadSavedAudioMappings();
     }
   },
 
@@ -1770,11 +1806,11 @@ Page({
       // 在第1小节填入示例
       measures[0] = {
         beats: [
-          { subdivisions: [ { rightHand: ['1', '3'], leftHand: ['', '9'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
           { subdivisions: [ { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
-          { subdivisions: [ { rightHand: ['', 's'], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
+          { subdivisions: [ { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
+          { subdivisions: [ { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] },
           // 如果是3/4则示例仅取前三拍
-          ...(beats === 4 ? [ { subdivisions: [ { rightHand: ['1', '3'], leftHand: ['', '9'] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] } ] : [])
+          ...(beats === 4 ? [ { subdivisions: [ { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] }, { rightHand: ['', ''], leftHand: ['', ''] } ] } ] : [])
         ]
       };
       if (beats === 3) {
@@ -2950,6 +2986,18 @@ Page({
     
     notations[idx] = notation;
     const withOffsets = this.updateMeasureOffsets(notations);
+    
+    // 【Bug修复】清除该模块的临时图片路径，强制重新渲染Canvas
+    // 同时更新Canvas高度（因为拍号变化可能影响布局）
+    const updatedNotation = withOffsets[idx];
+    if (updatedNotation) {
+      withOffsets[idx] = {
+        ...updatedNotation,
+        tempImagePath: null, // 清除缓存的静态图片
+        canvasHeight: this.calculateCanvasHeight(updatedNotation)
+      };
+    }
+    
     this.setNotations(withOffsets);
     
     // 更新模块设置弹窗中的显示
@@ -3099,13 +3147,23 @@ Page({
       );
       
       const withOffsets = this.updateMeasureOffsets(initial);
-      this.saveNotationsScopedWithKey(withOffsets, key);
+      
+      // 【Bug修复】清除所有临时图片并重新计算Canvas高度
+      const withClearedImages = withOffsets.map(notation => ({
+        ...notation,
+        tempImagePath: null,
+        canvasHeight: this.calculateCanvasHeight(notation)
+      }));
+      
+      this.saveNotationsScopedWithKey(withClearedImages, key);
       this.setData({ 
-        notations: withOffsets, 
         timeSignatureBeats: beatCount,
         currentTimeSignatureType: 'custom',
         measuresPerRowPortrait: portraitRow,
         measuresPerRow: portraitRow * factor
+      }, () => {
+        // 【Bug修复】使用setNotations触发Canvas重新初始化
+        this.setNotations(withClearedImages);
       });
     } else {
       // 现有数据存在，则将所有现有模块的所有行都转换为新的自定义拍号格式
@@ -3124,7 +3182,7 @@ Page({
           
           // 如果是第一个小节，填入示例数据
           if (i === 0 && measureCopy.beats.length > 0 && measureCopy.beats[0].subdivisions.length > 0) {
-            measureCopy.beats[0].subdivisions[0].rightHand = ['7', '8'];
+            measureCopy.beats[0].subdivisions[0].rightHand = ['', ''];
             measureCopy.beats[0].subdivisions[0].leftHand = ['', '8'];
           }
           
@@ -3143,13 +3201,23 @@ Page({
       });
       
       const withOffsets = this.updateMeasureOffsets(migrated);
-      this.saveNotationsScopedWithKey(withOffsets, key);
+      
+      // 【Bug修复】清除所有临时图片并重新计算Canvas高度
+      const withClearedImages = withOffsets.map(notation => ({
+        ...notation,
+        tempImagePath: null,
+        canvasHeight: this.calculateCanvasHeight(notation)
+      }));
+      
+      this.saveNotationsScopedWithKey(withClearedImages, key);
       this.setData({ 
-        notations: withOffsets, 
         timeSignatureBeats: beatCount,
         currentTimeSignatureType: 'custom',
         measuresPerRowPortrait: portraitRow,
         measuresPerRow: portraitRow * factor
+      }, () => {
+        // 【Bug修复】使用setNotations触发Canvas重新初始化
+        this.setNotations(withClearedImages);
       });
     }
 
@@ -4008,8 +4076,16 @@ Page({
       });
       
       const withOffsets = this.updateMeasureOffsets(migrated);
-      this.saveNotationsScoped(withOffsets);
-      this.setNotations(withOffsets);
+      
+      // 【Bug修复】清除所有模块的临时图片路径，强制重新渲染Canvas
+      const withClearedImages = withOffsets.map(notation => ({
+        ...notation,
+        tempImagePath: null,
+        canvasHeight: this.calculateCanvasHeight(notation)
+      }));
+      
+      this.saveNotationsScoped(withClearedImages);
+      this.setNotations(withClearedImages);
       wx.showToast({ title: `已切换为 ${beatsCount}/4，所有模块已更新`, icon: 'none' });
       return;
     }
@@ -4017,8 +4093,16 @@ Page({
     // 初始化该拍号的默认谱面
     const initial = [ this.createNotation('A-1', true, beatsCount), this.createNotation('A-2', false, beatsCount) ];
     const withOffsets = this.updateMeasureOffsets(initial);
-    this.saveNotationsScoped(withOffsets);
-    this.setNotations(withOffsets);
+    
+    // 【Bug修复】清除所有模块的临时图片路径，强制重新渲染Canvas
+    const withClearedImages = withOffsets.map(notation => ({
+      ...notation,
+      tempImagePath: null,
+      canvasHeight: this.calculateCanvasHeight(notation)
+    }));
+    
+    this.saveNotationsScoped(withClearedImages);
+    this.setNotations(withClearedImages);
   },
 
   // 初始化屏幕方向监听
@@ -4139,25 +4223,67 @@ Page({
       }
     });
 
-    // 更新Canvas高度
+    // 【Bug修复】更新Canvas高度 - 所有模块都需要更新，不仅仅是collapsed
+    // 因为切换排版时measuresPerRow变化会影响canvas高度计算
+    // 同时清除tempImagePath，确保重新渲染（阅读模式下尤其重要）
     updatedNotations.forEach((n, idx) => {
-      if (n.collapsed) {
-        updatedNotations[idx] = {
-          ...n,
-          canvasHeight: this.calculateCanvasHeight(n)
-        };
-      }
+      updatedNotations[idx] = {
+        ...n,
+        // 使用新的orientation进行高度计算
+        canvasHeight: this.calculateCanvasHeight(n, newOrientation),
+        // 【Bug修复】清除缓存的静态图片，确保用新布局重新渲染
+        tempImagePath: null
+      };
     });
 
     this.setData({
       orientation: newOrientation,
       notations: updatedNotations
     }, () => {
-      // 刷新所有Canvas渲染器
-      this.refreshAllCanvasRenderers();
+      // 【Bug修复】切换排版时需要完全重新初始化Canvas渲染器
+      // 因为Canvas尺寸和布局都发生了变化
+      this.reinitAllCanvasRenderers();
     });
     
     this.calculatePages();
+  },
+  
+  /**
+   * 【Bug修复】切换排版时重新初始化所有Canvas渲染器
+   * 与refreshAllCanvasRenderers不同，此方法会销毁并重建所有渲染器
+   */
+  reinitAllCanvasRenderers() {
+    // 确保 _canvasRenderers 存在
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    const { notations, currentPageModules, orientation, rightHandColor, leftHandColor } = this.data;
+    
+    // 获取当前页面可见的modules
+    const visibleModules = currentPageModules || notations.map((n, i) => ({ id: n.id, index: i }));
+    
+    console.log('[Canvas] 重新初始化所有Canvas渲染器，模块数量:', visibleModules.length);
+    
+    // 延迟执行，确保WXML已更新
+    setTimeout(() => {
+      visibleModules.forEach(({ id, index }, idx) => {
+        const notation = notations[index];
+        if (!notation) return;
+        
+        // 延迟初始化，避免同时初始化太多Canvas导致卡顿
+        setTimeout(() => {
+          // 销毁旧渲染器
+          if (this._canvasRenderers[notation.id]) {
+            this._canvasRenderers[notation.id].destroy();
+            delete this._canvasRenderers[notation.id];
+          }
+          
+          // 【Bug修复】使用带重试机制的方法重新初始化
+          this.initCanvasRendererForModuleWithRetry(notation.id, index, 5);
+        }, idx * 50);
+      });
+    }, 150);
   },
 
   // 请求横屏（调用系统方向锁定）
@@ -4628,7 +4754,9 @@ Page({
     }
   },
 
-  // 收起单个谱面的图标行（切换到Canvas渲染模式）
+  // 【Canvas模式迁移】收起/展开单个谱面的操作按钮行
+  // collapsed=true: 隐藏操作按钮，将Canvas转为图片（节省性能）
+  // collapsed=false: 显示操作按钮，直接显示Canvas编辑模式
   toggleNotationCollapse(e) {
     // 确保 _canvasRenderers 已初始化
     if (!this._canvasRenderers) {
@@ -4660,39 +4788,58 @@ Page({
     const updateData = { [updatePath]: newCollapsed };
     
     if (newCollapsed) {
-      // 切换到Canvas模式：需要计算Canvas高度并延迟初始化渲染
-      const canvasHeight = this.calculateCanvasHeight(notation);
-      updateData[`notations[${notationIndex}].canvasHeight`] = canvasHeight;
-      // 清除旧的临时图片路径
+      // 收起模式：隐藏操作按钮，将Canvas转为图片以节省性能
+      // 清除旧的临时图片路径（会触发重新转换）
       updateData[`notations[${notationIndex}].tempImagePath`] = null;
       updateData[`notations[${notationIndex}].isCanvasEditing`] = false;
-    } else {
-      // 切换回View模式：清理Canvas渲染器
-      this.destroyCanvasRenderer(notationId);
-      // 清除Canvas编辑状态
+      
+      // 清除编辑状态
       if (this.data.canvasEditing && this.data.canvasEditing.notationId === notationId) {
         updateData.canvasEditing = null;
         updateData.canvasEditingValue = '';
       }
-      // 清除临时图片和编辑状态
+    } else {
+      // 展开模式：显示操作按钮，直接显示Canvas编辑模式（不需要图片）
       updateData[`notations[${notationIndex}].tempImagePath`] = null;
-      updateData[`notations[${notationIndex}].isCanvasEditing`] = false;
+      updateData[`notations[${notationIndex}].isCanvasEditing`] = true; // 直接进入编辑模式
     }
     
     this.setData(updateData, () => {
       if (newCollapsed) {
-        // Canvas节点就绪后初始化渲染
+        // 收起模式：确保Canvas渲染器存在，然后转为图片
         setTimeout(() => {
-          this.initCanvasRenderer(notationId, notationIndex);
+          const renderer = this._canvasRenderers[notationId];
+          if (renderer) {
+            // 渲染器已存在，直接转图片
+            this.convertCanvasToImage(notationId, notationIndex);
+          } else {
+            // 渲染器不存在，先初始化再转图片
+            this.initCanvasRenderer(notationId, notationIndex);
+          }
         }, 50);
+      } else {
+        // 【Bug修复】展开模式：由于WXML中Canvas元素是条件渲染的，
+        // 从collapsed=true切换到collapsed=false时，旧的Canvas DOM节点已被销毁，
+        // 新的Canvas节点被创建，因此必须销毁旧渲染器并重新初始化
+        setTimeout(() => {
+          // 销毁旧渲染器（如果存在）
+          if (this._canvasRenderers[notationId]) {
+            this._canvasRenderers[notationId].destroy();
+            delete this._canvasRenderers[notationId];
+          }
+          // 【Bug修复】使用带重试机制的方法重新初始化Canvas渲染器
+          this.initCanvasRendererForModuleWithRetry(notationId, notationIndex, 5);
+        }, 100); // 增加延迟确保新Canvas节点已渲染
       }
     });
   },
   
   /**
    * 计算Canvas所需高度（px）
+   * @param {Object} notation - 谱面数据
+   * @param {string} overrideOrientation - 可选，覆盖当前orientation（用于切换排版时的预计算）
    */
-  calculateCanvasHeight(notation) {
+  calculateCanvasHeight(notation, overrideOrientation) {
     if (!notation || !notation.measures) return 300;
     
     // 导入配置参数
@@ -4701,7 +4848,8 @@ Page({
     const measuresPerRow = notation.measuresPerRow || this.data.measuresPerRow || 1;
     const style = notation.style || {};
     const isMultiMeasure = measuresPerRow > 1;
-    const orientation = this.data.orientation;
+    // 【Bug修复】支持覆盖orientation，用于切换排版时的预计算
+    const orientation = overrideOrientation || this.data.orientation;
     
     // 获取小节高度（rpx）- 使用配置参数
     let measureHeight = isMultiMeasure ? BASE_SETTINGS.measureHeightMulti : BASE_SETTINGS.measureHeightDefault;
@@ -4834,6 +4982,133 @@ Page({
     
     // 切换到Canvas编辑模式
     this.enterCanvasEditMode(notationId, parseInt(notationIndex), e);
+  },
+  
+  /**
+   * 【Bug修复】长按静态图片进入选中模式
+   * 当collapsed状态显示静态图片时，长按需要先切换到Canvas模式再进入选中模式
+   * 【重要修复】从静态图片切换时，Canvas节点是新创建的，必须重新初始化渲染器
+   */
+  onStaticImageLongPress(e) {
+    const { id: notationId, index: notationIndex } = e.currentTarget.dataset;
+    const idx = parseInt(notationIndex);
+    
+    // 播放模式和阅读模式下不处理
+    if (this.data.isPlaybackMode || this.data.readingMode) return;
+    
+    // 震动反馈
+    wx.vibrateShort({ type: 'medium' });
+    
+    // 保存长按位置信息，用于后续进入选中模式
+    const touch = e.touches ? e.touches[0] : e.detail;
+    const touchX = touch.clientX || touch.x;
+    const touchY = touch.clientY || touch.y;
+    
+    // 获取图片元素的位置用于计算相对坐标
+    const query = wx.createSelectorQuery();
+    query.select(`#notation-container-${notationId}`).boundingClientRect().exec((res) => {
+      if (!res || !res[0]) {
+        // 如果获取不到位置，直接进入编辑模式让用户重新长按
+        this.enterCanvasEditMode(notationId, idx, e);
+        return;
+      }
+      
+      const containerRect = res[0];
+      const relativeX = touchX - containerRect.left;
+      const relativeY = touchY - containerRect.top;
+      
+      // 先切换到Canvas编辑模式，然后在回调中进入选中模式
+      // 清除tempImagePath让Canvas显示
+      const updateData = {};
+      updateData[`notations[${idx}].tempImagePath`] = null;
+      updateData[`notations[${idx}].isCanvasEditing`] = true;
+      
+      this.setData(updateData, () => {
+        // 等待Canvas节点创建完成（从静态图片切换时Canvas是新创建的）
+        setTimeout(() => {
+          // 【关键修复】从静态图片切换时，Canvas节点是新创建的，
+          // 旧的渲染器指向已销毁的Canvas context，必须重新初始化
+          // 始终重新初始化渲染器以确保绑定到正确的Canvas节点
+          this._initRendererAndEnterSelectionMode(notationId, idx, relativeX, relativeY, touchX, touchY);
+        }, 150);
+      });
+    });
+  },
+  
+  /**
+   * 从静态图片长按进入选中模式（渲染器已存在）
+   */
+  _enterSelectionModeFromStaticImage(renderer, notationId, notationIndex, relativeX, relativeY, touchX, touchY) {
+    // 使用渲染器进行hitTest
+    const hitResult = renderer.hitTest(relativeX, relativeY);
+    
+    if (hitResult) {
+      const { measureIndex, beatIndex } = hitResult;
+      // 调用Canvas模式长按处理进入选中模式
+      this.onCanvasBeatLongPress(notationId, notationIndex, measureIndex, beatIndex, touchX, touchY);
+    } else {
+      // 如果没有命中任何拍位，提示用户
+      wx.showToast({ title: '请长按谱面区域', icon: 'none' });
+    }
+  },
+  
+  /**
+   * 初始化渲染器后进入选中模式
+   */
+  _initRendererAndEnterSelectionMode(notationId, notationIndex, relativeX, relativeY, touchX, touchY) {
+    const notation = this.data.notations[notationIndex];
+    if (!notation) return;
+    
+    const canvasId = `notation-canvas-${notationId}`;
+    
+    const query = wx.createSelectorQuery();
+    query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((res) => {
+      if (!res || !res[0] || !res[0].node) {
+        console.warn('[Canvas] 长按时未找到Canvas节点');
+        // 退出编辑状态
+        this.setData({
+          [`notations[${notationIndex}].isCanvasEditing`]: false
+        });
+        return;
+      }
+      
+      const canvas = res[0].node;
+      const width = res[0].width;
+      const height = res[0].height;
+      
+      if (width === 0 || height === 0) {
+        console.warn('[Canvas] 长按时Canvas尺寸为0');
+        return;
+      }
+      
+      // 初始化渲染器
+      if (!this._canvasRenderers) {
+        this._canvasRenderers = {};
+      }
+      
+      // 如果已有渲染器，先销毁
+      if (this._canvasRenderers[notationId]) {
+        this._canvasRenderers[notationId].destroy();
+      }
+      
+      // 创建并初始化渲染器
+      const CanvasNotationRenderer = require('../../utils/canvasRenderer').CanvasNotationRenderer;
+      const renderer = new CanvasNotationRenderer({
+        colors: {
+          rightHand: this.data.rightHandColor,
+          leftHand: this.data.leftHandColor
+        }
+      });
+      
+      renderer.init(canvas, width, height);
+      renderer.setData(notation, this.data.orientation, notation.measuresPerRow || this.data.measuresPerRow);
+      renderer.render();
+      
+      this._canvasRenderers[notationId] = renderer;
+      
+      // 进入选中模式
+      this._enterSelectionModeFromStaticImage(renderer, notationId, notationIndex, relativeX, relativeY, touchX, touchY);
+    });
   },
   
   /**
@@ -5431,6 +5706,7 @@ Page({
         focus: true
       },
       canvasEditingValue: noteValue,
+      canvasUseNativeInput: false, // 打开虚拟键盘时关闭原生输入
       // 同时更新虚拟键盘状态
       showVirtualKeyboard: true,
       virtualKeyboardDisplay: noteValue,
@@ -5516,6 +5792,20 @@ Page({
         this.commitCanvasEdit();
       }
     }, 100);
+  },
+
+  /**
+   * 主乐谱「切换键盘」后使用的设备原生输入：输入时同步到 canvasEditingValue 并重绘
+   */
+  onCanvasNativeInput(e) {
+    this.updateEditingValue(e.detail.value);
+  },
+
+  /**
+   * 主乐谱原生输入失焦：仅关闭「使用原生输入」状态，保持音符格选中，用户可再点格子唤起虚拟键盘
+   */
+  onCanvasNativeInputBlur() {
+    this.setData({ canvasUseNativeInput: false });
   },
   
   /**
@@ -5649,14 +5939,14 @@ Page({
     
     const { notations, orientation, measuresPerRow, rightHandColor, leftHandColor } = this.data;
     
+    // 【Bug修复】刷新所有模块的Canvas渲染器，不仅仅是collapsed模块
+    // 因为全面使用Canvas2D模式后，所有模块都使用Canvas渲染
     notations.forEach((notation, index) => {
-      if (notation.collapsed) {
-        const renderer = this._canvasRenderers[notation.id];
-        if (renderer) {
-          renderer.updateColors(rightHandColor, leftHandColor);
-          renderer.setData(notation, orientation, measuresPerRow);
-          renderer.render();
-        }
+      const renderer = this._canvasRenderers[notation.id];
+      if (renderer) {
+        renderer.updateColors(rightHandColor, leftHandColor);
+        renderer.setData(notation, orientation, notation.measuresPerRow || measuresPerRow);
+        renderer.render();
       }
     });
   },
@@ -5791,7 +6081,8 @@ Page({
       ...notation,
       collapsed: false,
       tempImagePath: null, // 清除临时图片路径
-      isCanvasEditing: false
+      isCanvasEditing: true, // 【Bug修复】展开时直接进入编辑模式
+      canvasHeight: this.calculateCanvasHeight(notation) // 确保有正确的高度
     }));
     
     // 清除Canvas编辑状态
@@ -5799,6 +6090,48 @@ Page({
       notations,
       canvasEditing: null,
       canvasEditingValue: ''
+    }, () => {
+      // 【Bug修复】展开后需要重新初始化所有Canvas渲染器
+      // 因为collapsed状态变化导致WXML中的Canvas元素被重新创建
+      setTimeout(() => {
+        this.initAllCanvasRenderersForCurrentPage();
+      }, 150);
+    });
+  },
+  
+  /**
+   * 【Bug修复】为当前页面的所有模块初始化Canvas渲染器
+   * 用于阅读模式切换回编辑模式时重新初始化Canvas
+   */
+  initAllCanvasRenderersForCurrentPage() {
+    // 确保 _canvasRenderers 存在
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    const { notations, currentPageModules } = this.data;
+    
+    // 获取当前页面可见的modules
+    const visibleModules = currentPageModules && currentPageModules.length > 0
+      ? currentPageModules
+      : notations.map((n, i) => ({ id: n.id, index: i }));
+    
+    console.log('[Canvas] 初始化当前页Canvas渲染器，模块数量:', visibleModules.length);
+    
+    visibleModules.forEach(({ id, index }, idx) => {
+      const notation = notations[index];
+      if (!notation) return;
+      
+      // 延迟初始化，避免同时初始化太多Canvas导致卡顿
+      setTimeout(() => {
+        // 销毁旧渲染器（如果存在）
+        if (this._canvasRenderers[notation.id]) {
+          this._canvasRenderers[notation.id].destroy();
+          delete this._canvasRenderers[notation.id];
+        }
+        // 重新初始化
+        this.initCanvasRendererForModule(notation.id, index);
+      }, idx * 50);
     });
   },
 
@@ -6123,6 +6456,7 @@ Page({
       this.setData({
         canvasEditing: null,
         canvasEditingValue: '',
+        canvasUseNativeInput: false,
         showVirtualKeyboard: false,
         superscriptMode: null,
         superscriptContent: ''
@@ -9582,9 +9916,9 @@ Page({
       [field]: value
     };
     
-    // 如果编辑的是simplified字段，需要重新计算SPN
+    // 如果编辑的是simplified字段，需要重新计算SPN（使用新建表的独立首调）
     if (field === 'simplified') {
-      updatedData[index].spn = this.simplifiedToSPN(value);
+      updatedData[index].spn = this.calculateSpnFromSimplifiedWithRoot(value, this.data.newTableRootNote);
     }
     
     this.setData({
@@ -9648,12 +9982,41 @@ Page({
   
   /**
    * 确认首调选择
+   * 根据当前打开的弹窗类型，更新对应的首调设置和SPN值
    */
   confirmConversionRootPicker() {
     const newRoot = this.data.tempConversionRootNote;
+    const { isNewTableRootPicker, showNewConversionTableModal, showNewAudioMappingTableModal } = this.data;
+    
+    // 情况1: 谱式转换弹窗中的新建转换表
+    if (isNewTableRootPicker && showNewConversionTableModal) {
+      this.setData({
+        newTableRootNote: newRoot,
+        showConversionRootPicker: false,
+        isNewTableRootPicker: false
+      });
+      // 重新计算新建表的SPN
+      this.recalculateNewConversionTableSPN(newRoot);
+      return;
+    }
+    
+    // 情况2: 音频映射弹窗中的新建转换表
+    if (isNewTableRootPicker && showNewAudioMappingTableModal) {
+      this.setData({
+        newAudioTableRootNote: newRoot,
+        showConversionRootPicker: false,
+        isNewTableRootPicker: false
+      });
+      // 重新计算新建音频表的SPN
+      this.recalculateNewAudioTableSPN(newRoot);
+      return;
+    }
+    
+    // 情况3: 主弹窗的首调设置（影响谱式转换和音频映射两个弹窗）
     this.setData({
       conversionRootNote: newRoot,
-      showConversionRootPicker: false
+      showConversionRootPicker: false,
+      isNewTableRootPicker: false
     });
     
     // 重新计算所有SPN
@@ -9664,18 +10027,66 @@ Page({
    * 关闭首调选择器
    */
   closeConversionRootPicker() {
-    this.setData({ showConversionRootPicker: false });
+    this.setData({ 
+      showConversionRootPicker: false,
+      isNewTableRootPicker: false
+    });
   },
   
   /**
-   * 重新计算所有SPN值
+   * 重新计算所有SPN值（谱式转换和音频映射弹窗共用同一首调）
    */
   recalculateAllSPN() {
-    const mappings = this.data.conversionMappings.map(m => {
+    // 重新计算谱式转换弹窗的SPN
+    const conversionMappings = this.data.conversionMappings.map(m => {
       const newSpn = this.simplifiedToSPN(m.simplified);
       return { ...m, spn: newSpn };
     });
-    this.setData({ conversionMappings: mappings });
+    
+    // 重新计算音频映射弹窗的SPN（如果已加载）
+    const availableAudio = new Set(this.data.availableAudioFiles);
+    const audioMappings = this.data.audioMappings.map(m => {
+      const newSpn = this.calculateSpnFromSimplified(m.simplified);
+      return { 
+        ...m, 
+        spn: newSpn,
+        hasAudio: newSpn ? availableAudio.has(newSpn) : false
+      };
+    });
+    
+    this.setData({ 
+      conversionMappings: conversionMappings,
+      audioMappings: audioMappings
+    });
+  },
+  
+  /**
+   * 重新计算新建谱式转换表的SPN值
+   * @param {string} rootNote - 新的首调设置
+   */
+  recalculateNewConversionTableSPN(rootNote) {
+    const updatedData = this.data.newConversionTableData.map(item => {
+      const newSpn = this.calculateSpnFromSimplifiedWithRoot(item.simplified, rootNote);
+      return { ...item, spn: newSpn };
+    });
+    this.setData({ newConversionTableData: updatedData });
+  },
+  
+  /**
+   * 重新计算新建音频映射表的SPN值
+   * @param {string} rootNote - 新的首调设置
+   */
+  recalculateNewAudioTableSPN(rootNote) {
+    const availableAudio = new Set(this.data.availableAudioFiles);
+    const updatedData = this.data.newAudioMappingTableData.map(item => {
+      const newSpn = this.calculateSpnFromSimplifiedWithRoot(item.simplified, rootNote);
+      return { 
+        ...item, 
+        spn: newSpn,
+        hasAudio: newSpn ? availableAudio.has(newSpn) : false
+      };
+    });
+    this.setData({ newAudioMappingTableData: updatedData });
   },
   
   /**
@@ -10259,8 +10670,347 @@ Page({
     const orientation = this.data.orientation;
     const withStyles = this.precomputeStyles(withOffsets, orientation);
     
-    this.setData({ notations: withStyles });
+    // 【Canvas模式迁移】为每个notation预计算Canvas高度
+    const withCanvasHeight = withStyles.map(notation => ({
+      ...notation,
+      canvasHeight: this.calculateCanvasHeight(notation)
+    }));
+    
+    this.setData({ notations: withCanvasHeight });
     this.calculatePages();
+    
+    // 【Canvas模式迁移】延迟初始化所有Canvas渲染器
+    // 使用较长延迟确保DOM完全渲染（拍号切换等场景需要更长时间）
+    setTimeout(() => {
+      this.initAllCanvasRenderers();
+    }, 300);
+  },
+  
+  /**
+   * 【Canvas模式迁移】初始化当前页面所有notation的Canvas渲染器
+   * 这是全面使用Canvas2D模式的核心方法
+   */
+  initAllCanvasRenderers() {
+    const { notations, currentPageModules } = this.data;
+    if (!notations || notations.length === 0) return;
+    
+    // 确保 _canvasRenderers 存在
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    // 获取当前页面可见的modules
+    const visibleModules = currentPageModules || notations.map((n, i) => ({ id: n.id, index: i }));
+    
+    console.log('[Canvas] 初始化所有Canvas渲染器，模块数量:', visibleModules.length);
+    
+    // 依次初始化每个可见module的Canvas
+    visibleModules.forEach(({ id, index }, idx) => {
+      const notation = notations[index];
+      if (!notation) return;
+      
+      const existingRenderer = this._canvasRenderers[notation.id];
+      
+      // 【Bug修复】检查是否需要重新初始化渲染器
+      // 情况1: Canvas高度发生变化（如拍号改变、插入行等）
+      // 情况2: collapsed状态且tempImagePath被清除（Canvas元素可能被WXML重新创建）
+      const expectedHeight = notation.canvasHeight || this.calculateCanvasHeight(notation);
+      const needsReinit = existingRenderer && (
+        // 高度变化超过阈值
+        (existingRenderer.height && Math.abs(existingRenderer.height - expectedHeight) > 5) ||
+        // 【关键修复】collapsed状态且无图片时，Canvas元素可能是新创建的，需要重新获取节点
+        (notation.collapsed && !notation.tempImagePath)
+      );
+      
+      if (needsReinit) {
+        console.log('[Canvas] 需要重新初始化渲染器:', notation.id, 
+          'collapsed:', notation.collapsed, 'tempImagePath:', !!notation.tempImagePath,
+          'heightChange:', existingRenderer?.height, '->', expectedHeight);
+        // 销毁旧渲染器
+        if (existingRenderer) {
+          existingRenderer.destroy();
+          delete this._canvasRenderers[notation.id];
+        }
+        // 延迟重新初始化（确保新的Canvas节点已渲染）
+        // 使用带重试机制的方法，因为Canvas节点可能需要时间才能准备好
+        setTimeout(() => {
+          this.initCanvasRendererForModuleWithRetry(notation.id, index, 5);
+        }, idx * 30 + 100);
+        return;
+      }
+      
+      if (existingRenderer) {
+        // 渲染器存在且不需要重新初始化，只更新数据并重新渲染
+        existingRenderer.setData(notation, this.data.orientation, notation.measuresPerRow || this.data.measuresPerRow);
+        existingRenderer.render();
+        return;
+      }
+      
+      // 【Bug修复】延迟初始化，使用带重试机制的方法
+      // 避免同时初始化太多Canvas导致卡顿，且处理Canvas节点未就绪的情况
+      setTimeout(() => {
+        this.initCanvasRendererForModuleWithRetry(notation.id, index, 5);
+      }, idx * 30); // 每个间隔30ms
+    });
+  },
+  
+  /**
+   * 【Canvas模式迁移】为单个module初始化Canvas渲染器
+   * @param {string} notationId - notation ID
+   * @param {number} notationIndex - notation 在数组中的索引
+   */
+  initCanvasRendererForModule(notationId, notationIndex) {
+    const notation = this.data.notations[notationIndex];
+    if (!notation) return;
+    
+    const canvasId = `notation-canvas-${notationId}`;
+    
+    // 获取Canvas节点
+    const query = wx.createSelectorQuery();
+    query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((res) => {
+      if (!res || !res[0] || !res[0].node) {
+        // Canvas节点可能还未渲染，稍后重试
+        console.log('[Canvas] 等待Canvas节点就绪:', canvasId);
+        return;
+      }
+      
+      const canvas = res[0].node;
+      const width = res[0].width;
+      const height = res[0].height;
+      
+      if (width === 0 || height === 0) {
+        console.log('[Canvas] Canvas尺寸为0，跳过初始化:', canvasId);
+        return;
+      }
+      
+      // 如果已有渲染器，先销毁
+      if (this._canvasRenderers[notationId]) {
+        this._canvasRenderers[notationId].destroy();
+      }
+      
+      // 创建渲染器实例
+      const renderer = new CanvasNotationRenderer({
+        colors: {
+          rightHand: this.data.rightHandColor,
+          leftHand: this.data.leftHandColor
+        }
+      });
+      
+      // 初始化Canvas
+      renderer.init(canvas, width, height);
+      
+      // 【Bug修复】设置数据（使用notation自己的measuresPerRow，如果没有则使用全局值）
+      renderer.setData(notation, this.data.orientation, notation.measuresPerRow || this.data.measuresPerRow);
+      
+      // 渲染
+      renderer.render();
+      
+      // 保存渲染器实例
+      this._canvasRenderers[notationId] = renderer;
+      
+      // 预计算并缓存列坐标（用于播放光标）
+      const columnRects = renderer.getAllColumnRects();
+      this._columnRectsCache = this._columnRectsCache || {};
+      this._columnRectsCache[notationId] = columnRects;
+      
+      console.log('[Canvas] 模块Canvas初始化完成:', notationId, 'size:', width, 'x', height);
+      
+      // 【重要】如果是collapsed状态且没有tempImagePath，转换为图片（保持原有行为）
+      if (notation.collapsed && !notation.tempImagePath) {
+        setTimeout(() => {
+          this.convertCanvasToImage(notationId, notationIndex);
+        }, 100);
+      }
+    });
+  },
+  
+  /**
+   * 【Bug修复】带重试机制的Canvas渲染器初始化
+   * 用于拍号切换等场景，Canvas节点可能需要时间才能准备好
+   * @param {string} notationId - 谱面ID
+   * @param {number} notationIndex - 谱面索引
+   * @param {number} retries - 剩余重试次数
+   */
+  initCanvasRendererForModuleWithRetry(notationId, notationIndex, retries) {
+    // 【Bug修复】重新获取最新的notation数据，避免使用过时数据
+    const notation = this.data.notations[notationIndex];
+    if (!notation) return;
+    
+    const canvasId = `notation-canvas-${notationId}`;
+    
+    // 获取Canvas节点
+    const query = wx.createSelectorQuery();
+    query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((res) => {
+      if (!res || !res[0] || !res[0].node) {
+        // Canvas节点未找到，如果还有重试次数，延迟后重试
+        if (retries > 0) {
+          console.log(`[Canvas] 节点未就绪，${retries}次重试后重新初始化:`, canvasId);
+          setTimeout(() => {
+            this.initCanvasRendererForModuleWithRetry(notationId, notationIndex, retries - 1);
+          }, 150);
+        } else {
+          console.warn('[Canvas] 多次重试后仍未找到Canvas节点:', canvasId);
+        }
+        return;
+      }
+      
+      const canvas = res[0].node;
+      const width = res[0].width;
+      const height = res[0].height;
+      
+      if (width === 0 || height === 0) {
+        // 尺寸为0，可能Canvas还没完全渲染，重试
+        if (retries > 0) {
+          console.log(`[Canvas] 尺寸为0，${retries}次重试:`, canvasId);
+          setTimeout(() => {
+            this.initCanvasRendererForModuleWithRetry(notationId, notationIndex, retries - 1);
+          }, 150);
+        }
+        return;
+      }
+      
+      // 【Bug修复】找到节点且尺寸有效，直接在这里初始化渲染器（避免再次查询导致的时序问题）
+      // 重新获取最新的notation数据
+      const currentNotation = this.data.notations[notationIndex];
+      if (!currentNotation) return;
+      
+      // 确保 _canvasRenderers 存在
+      if (!this._canvasRenderers) {
+        this._canvasRenderers = {};
+      }
+      
+      // 如果已有渲染器，先销毁
+      if (this._canvasRenderers[notationId]) {
+        this._canvasRenderers[notationId].destroy();
+        delete this._canvasRenderers[notationId];
+      }
+      
+      // 创建渲染器实例
+      const CanvasNotationRenderer = require('../../utils/canvasRenderer').CanvasNotationRenderer;
+      const renderer = new CanvasNotationRenderer({
+        colors: {
+          rightHand: this.data.rightHandColor,
+          leftHand: this.data.leftHandColor
+        }
+      });
+      
+      // 初始化Canvas
+      renderer.init(canvas, width, height);
+      
+      // 设置数据
+      renderer.setData(currentNotation, this.data.orientation, currentNotation.measuresPerRow || this.data.measuresPerRow);
+      
+      // 渲染
+      renderer.render();
+      
+      // 保存渲染器实例
+      this._canvasRenderers[notationId] = renderer;
+      
+      // 预计算并缓存列坐标（用于播放光标）
+      const columnRects = renderer.getAllColumnRects();
+      this._columnRectsCache = this._columnRectsCache || {};
+      this._columnRectsCache[notationId] = columnRects;
+      
+      console.log('[Canvas] 模块Canvas初始化完成(带重试):', notationId, 'size:', width, 'x', height);
+      
+      // 【重要】如果是collapsed状态且没有tempImagePath，转换为图片
+      // 【Bug修复】延长等待时间，确保渲染完成后再转换图片（拍号切换等场景需要更长时间）
+      const latestNotation = this.data.notations[notationIndex];
+      if (latestNotation && latestNotation.collapsed && !latestNotation.tempImagePath) {
+        setTimeout(() => {
+          this.convertCanvasToImage(notationId, notationIndex);
+        }, 200); // 增加延迟从100ms到200ms
+      }
+    });
+  },
+  
+  /**
+   * 验证并修复失效的 tempImagePath
+   * 小程序重新进入后，之前生成的临时图片文件可能已被系统清除
+   * 检测到失效路径后，清除该路径并触发 Canvas 重新渲染
+   */
+  validateAndFixTempImages() {
+    const { notations, readingMode } = this.data;
+    if (!notations || notations.length === 0) return;
+    
+    // 确保 _canvasRenderers 存在
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    // 收集需要验证的 notations（有 tempImagePath 的）
+    const toValidate = notations.filter(n => n.tempImagePath && n.collapsed);
+    if (toValidate.length === 0) return;
+    
+    console.log('[Canvas] 验证临时图片有效性，数量:', toValidate.length);
+    
+    // 使用 FileSystemManager 检查文件是否存在
+    const fs = wx.getFileSystemManager();
+    const invalidPaths = [];
+    let checkedCount = 0;
+    
+    toValidate.forEach((notation, idx) => {
+      try {
+        fs.access({
+          path: notation.tempImagePath,
+          success: () => {
+            // 文件存在，无需处理
+            checkedCount++;
+            if (checkedCount === toValidate.length) {
+              this._fixInvalidTempImages(invalidPaths);
+            }
+          },
+          fail: () => {
+            // 文件不存在，需要重新渲染
+            console.log('[Canvas] 临时图片失效:', notation.id);
+            const notationIndex = notations.findIndex(n => n.id === notation.id);
+            if (notationIndex >= 0) {
+              invalidPaths.push({ id: notation.id, index: notationIndex });
+            }
+            checkedCount++;
+            if (checkedCount === toValidate.length) {
+              this._fixInvalidTempImages(invalidPaths);
+            }
+          }
+        });
+      } catch (e) {
+        // access 调用异常，视为文件无效
+        const notationIndex = notations.findIndex(n => n.id === notation.id);
+        if (notationIndex >= 0) {
+          invalidPaths.push({ id: notation.id, index: notationIndex });
+        }
+        checkedCount++;
+        if (checkedCount === toValidate.length) {
+          this._fixInvalidTempImages(invalidPaths);
+        }
+      }
+    });
+  },
+  
+  /**
+   * 修复失效的临时图片路径
+   * @private
+   */
+  _fixInvalidTempImages(invalidPaths) {
+    if (!invalidPaths || invalidPaths.length === 0) return;
+    
+    console.log('[Canvas] 需要重新渲染的模块数量:', invalidPaths.length);
+    
+    // 批量清除失效的 tempImagePath
+    const updateData = {};
+    invalidPaths.forEach(({ id, index }) => {
+      updateData[`notations[${index}].tempImagePath`] = null;
+      updateData[`notations[${index}].canvasHeight`] = this.calculateCanvasHeight(this.data.notations[index]);
+    });
+    
+    this.setData(updateData, () => {
+      // 延迟触发重新渲染
+      setTimeout(() => {
+        invalidPaths.forEach(({ id, index }) => {
+          this.initCanvasRendererWithRetry(id, index, 3);
+        });
+      }, 100);
+    });
   },
 
   // Quick Win: 预计算每个notation的样式值（避免WXML中重复计算）
@@ -10537,10 +11287,9 @@ Page({
             pageTransitioning: false
           });
 
-          // 如果是阅读模式，初始化新页面的Canvas渲染器
-          if (this.data.readingMode) {
-            this.initCanvasRenderersForPage(newPage);
-          }
+          // 【Bug修复】切页后初始化新页面所有模块的Canvas渲染器
+          // 无论是否在阅读模式，都需要初始化新页面的Canvas
+          this.initCanvasRenderersForPageAll(newPage);
 
           // 再等待一帧，关闭加载遮罩与节拍器
           setTimeout(() => {
@@ -10549,6 +11298,48 @@ Page({
         }, 50);
       }, 250);  // 淡出动画时长
     });
+  },
+  
+  /**
+   * 【Bug修复】为指定页面的所有模块初始化Canvas渲染器
+   * 不同于 initCanvasRenderersForPage，此方法处理所有模块（包括非collapsed）
+   * @param {number} pageIndex - 页面索引
+   */
+  initCanvasRenderersForPageAll(pageIndex) {
+    // 确保 _canvasRenderers 存在
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    const { pages, notations } = this.data;
+    
+    if (!pages || !pages[pageIndex]) {
+      return;
+    }
+    
+    const pageModules = pages[pageIndex].modules || [];
+    
+    console.log('[Canvas] 初始化页面Canvas, pageIndex:', pageIndex, 'modules:', pageModules.length);
+    
+    // 为该页面的每个module初始化Canvas渲染器
+    setTimeout(() => {
+      pageModules.forEach((pm, idx) => {
+        const notation = notations[pm.index];
+        if (!notation) return;
+        
+        // 延迟初始化，避免同时初始化太多Canvas导致卡顿
+        setTimeout(() => {
+          // 销毁旧渲染器（如果存在），确保使用新的Canvas节点
+          if (this._canvasRenderers[notation.id]) {
+            this._canvasRenderers[notation.id].destroy();
+            delete this._canvasRenderers[notation.id];
+          }
+          
+          // 初始化新的渲染器
+          this.initCanvasRendererForModule(notation.id, pm.index);
+        }, idx * 30);
+      });
+    }, 100); // 增加延迟以确保WXML渲染完成
   },
 
   stopPropagation() {
@@ -10927,13 +11718,14 @@ Page({
       return;
     }
     
-    // 如果要关闭键盘，且有Canvas编辑状态，先提交
+    // 如果在主乐谱 Canvas 编辑状态下点击「切换键盘」：收起虚拟键盘、保持当前音符格选中，并唤起设备原生键盘输入
     if (!newState && this.data.canvasEditing) {
-      this.commitCanvasEdit();
       this.setData({
-        canvasEditing: null,
-        canvasEditingValue: ''
+        showVirtualKeyboard: false,
+        canvasUseNativeInput: true
       });
+      wx.showTabBar({ animation: true });
+      return;
     }
     
     this.setData({
@@ -10962,7 +11754,8 @@ Page({
       superscriptMode: null,
       superscriptContent: '',
       canvasEditing: null,
-      canvasEditingValue: ''
+      canvasEditingValue: '',
+      canvasUseNativeInput: false
     });
     // 显示tabBar
     wx.showTabBar({ animation: true });
@@ -11074,6 +11867,132 @@ Page({
   // 切换说明显示
   toggleKeyboardHelp() {
     this.setData({ showKeyboardHelp: !this.data.showKeyboardHelp });
+  },
+  
+  // ========== 更多设置界面相关函数 ==========
+  
+  // 打开更多设置界面
+  openKeyboardSettings() {
+    this.setData({ showKeyboardSettings: true });
+  },
+  
+  // 关闭更多设置界面
+  closeKeyboardSettings() {
+    this.setData({ showKeyboardSettings: false });
+  },
+  
+  // 设置插入方向
+  setInsertDirection(e) {
+    const direction = e.currentTarget.dataset.direction;
+    this.setData({ insertDirection: direction });
+    // 保存到本地存储
+    wx.setStorageSync('keyboard_insert_direction', direction);
+  },
+  
+  // 设置是否显示帮助按钮
+  setShowHelpBtn(e) {
+    const show = e.currentTarget.dataset.show === 'true';
+    this.setData({ 
+      showHelpBtnSetting: show,
+      // 如果关闭帮助按钮，同时关闭帮助显示
+      showKeyboardHelp: show ? this.data.showKeyboardHelp : false
+    });
+    // 保存到本地存储
+    wx.setStorageSync('keyboard_show_help_btn', show);
+  },
+  
+  // 从更多设置界面插入注记
+  insertNoteAnnotationFromSettings() {
+    this.closeKeyboardSettings();
+    this.insertNoteAnnotation();
+  },
+  
+  // ========== 自定义键盘功能 ==========
+  
+  // 开始自定义键盘
+  startCustomizeKeyboard() {
+    // 关闭设置界面，切换到符号键盘，进入自定义模式
+    this.setData({
+      showKeyboardSettings: false,
+      virtualKeyboardMode: 'symbol',
+      isCustomizingKeyboard: true,
+      customKeyEditingIndex: null
+    });
+    wx.showToast({ title: '点击按键可编辑', icon: 'none', duration: 2000 });
+  },
+  
+  // 开始编辑某个自定义键
+  startEditCustomKey(e) {
+    const keyIndex = e.currentTarget.dataset.keyIndex;
+    this.setData({ customKeyEditingIndex: keyIndex });
+  },
+  
+  // 自定义键输入
+  onCustomKeyInput(e) {
+    const keyIndex = e.currentTarget.dataset.keyIndex;
+    const value = e.detail.value.trim();
+    // 限制为单字符或双字符
+    const validValue = value.slice(0, 2);
+    const customSymbolKeys = { ...this.data.customSymbolKeys };
+    customSymbolKeys[keyIndex] = validValue;
+    this.setData({ customSymbolKeys });
+  },
+  
+  // 完成自定义键盘设置
+  finishCustomizeKeyboard() {
+    const { customSymbolKeys } = this.data;
+    // 验证是否有空值
+    const hasEmpty = Object.values(customSymbolKeys).some(v => !v || v.trim() === '');
+    if (hasEmpty) {
+      wx.showToast({ title: '键位不能为空', icon: 'none' });
+      return;
+    }
+    
+    this.setData({
+      isCustomizingKeyboard: false,
+      customKeyEditingIndex: null
+    });
+    
+    // 保存自定义键盘设置到本地存储
+    wx.setStorageSync('custom_symbol_keys', customSymbolKeys);
+    wx.showToast({ title: '设置已保存', icon: 'success' });
+  },
+  
+  // 恢复默认符号键
+  resetCustomSymbolKeys() {
+    wx.showModal({
+      title: '恢复默认',
+      content: '确定要恢复符号键盘为默认设置吗？',
+      success: (res) => {
+        if (res.confirm) {
+          const defaultKeys = { ...this.data.defaultSymbolKeys };
+          this.setData({ customSymbolKeys: defaultKeys });
+          wx.removeStorageSync('custom_symbol_keys');
+          wx.showToast({ title: '已恢复默认', icon: 'success' });
+        }
+      }
+    });
+  },
+  
+  // 加载键盘设置
+  loadKeyboardSettings() {
+    // 加载插入方向设置
+    const savedDirection = wx.getStorageSync('keyboard_insert_direction');
+    if (savedDirection) {
+      this.setData({ insertDirection: savedDirection });
+    }
+    
+    // 加载帮助按钮显示设置
+    const savedShowHelpBtn = wx.getStorageSync('keyboard_show_help_btn');
+    if (savedShowHelpBtn !== '' && savedShowHelpBtn !== undefined) {
+      this.setData({ showHelpBtnSetting: savedShowHelpBtn });
+    }
+    
+    // 加载自定义符号键设置
+    const savedCustomKeys = wx.getStorageSync('custom_symbol_keys');
+    if (savedCustomKeys && typeof savedCustomKeys === 'object') {
+      this.setData({ customSymbolKeys: savedCustomKeys });
+    }
   },
 
   // 映射数字键盘到简谱音符
@@ -11190,9 +12109,9 @@ Page({
       [newTableEditingField]: newValue
     };
     
-    // 如果编辑的是simplified字段，需要重新计算SPN
+    // 如果编辑的是simplified字段，需要重新计算SPN（使用新建表的独立首调）
     if (newTableEditingField === 'simplified') {
-      updatedData[newTableEditingIndex].spn = this.simplifiedToSPN(newValue);
+      updatedData[newTableEditingIndex].spn = this.calculateSpnFromSimplifiedWithRoot(newValue, this.data.newTableRootNote);
     }
     
     this.setData({
@@ -11259,9 +12178,9 @@ Page({
       [newTableEditingField]: newValue
     };
     
-    // 如果编辑的是simplified字段，需要重新计算SPN
+    // 如果编辑的是simplified字段，需要重新计算SPN（使用新建表的独立首调）
     if (newTableEditingField === 'simplified') {
-      updatedData[newTableEditingIndex].spn = this.simplifiedToSPN(newValue);
+      updatedData[newTableEditingIndex].spn = this.calculateSpnFromSimplifiedWithRoot(newValue, this.data.newTableRootNote);
     }
     
     this.setData({
@@ -11486,14 +12405,22 @@ Page({
     this.updatePitchLevelFromNote(value);
   },
   
-  // 加格操作：在当前选中格子右侧新增一个音符位
+  // 加格操作：根据 insertDirection 设置，在当前选中格子左侧或右侧新增一个音符位
   addGrid() {
-    const { editing, canvasEditing, notations } = this.data;
+    const { editing, canvasEditing, insertDirection } = this.data;
     const currentEditing = editing || canvasEditing;
     if (!currentEditing) {
       wx.showToast({ title: '请先选中一个音符位', icon: 'none' });
       return;
     }
+
+    // 【修复】先提交任何未保存的编辑，确保数据一致性
+    if (canvasEditing) {
+      this.commitCanvasEditDataOnly();
+    }
+    
+    // 重新获取 notations（提交后可能已更新）
+    const notations = this.data.notations;
 
     // 统一获取编辑位置信息 - 使用 ?? 避免 0 被误判为 falsy
     const sheetId = currentEditing.sheet ?? currentEditing.notationId;
@@ -11522,12 +12449,19 @@ Page({
       return;
     }
 
-    // 在当前subdivision后面插入一个空的subdivision
+    // 根据插入方向决定插入位置
     const newSubdivision = {
       rightHand: ['', ''],
       leftHand: ['', '']
     };
-    beatData.subdivisions.splice(subIdx + 1, 0, newSubdivision);
+    
+    if (insertDirection === 'left') {
+      // 向左插入：在当前位置前面插入
+      beatData.subdivisions.splice(subIdx, 0, newSubdivision);
+    } else {
+      // 向右插入（默认）：在当前位置后面插入
+      beatData.subdivisions.splice(subIdx + 1, 0, newSubdivision);
+    }
 
     // 更新notations
     const updatedNotations = [...notations];
@@ -11540,27 +12474,45 @@ Page({
     // 如果是Canvas模式，需要重新渲染
     if (isCollapsed) {
       setTimeout(() => {
-        this.initCanvasRenderer(sheetId, notationIndex);
+        // 【优化】如果正在Canvas编辑模式，使用编辑模式渲染器保持编辑状态
+        if (canvasEditing) {
+          this.initCanvasRendererForEdit(sheetId, notationIndex, null);
+        } else {
+          this.initCanvasRenderer(sheetId, notationIndex);
+        }
       }, 50);
     }
     
-    wx.showToast({ title: '已添加音符位', icon: 'success' });
+    const directionText = insertDirection === 'left' ? '已向左添加音符位' : '已添加音符位';
+    wx.showToast({ title: directionText, icon: 'success' });
   },
   
   // 删除格操作：删除当前选中的音符列
   deleteGrid() {
-    const { editing, canvasEditing, notations } = this.data;
+    const { editing, canvasEditing } = this.data;
     const currentEditing = editing || canvasEditing;
     if (!currentEditing) {
       wx.showToast({ title: '请先选中一个音符位', icon: 'none' });
       return;
     }
 
+    // 【修复】先提交任何未保存的编辑，确保数据一致性
+    // 这样可以避免删除时丢失未提交的更改，也避免影响相邻音符
+    if (canvasEditing) {
+      this.commitCanvasEditDataOnly();
+    }
+    
+    // 重新获取 notations（提交后可能已更新）
+    const notations = this.data.notations;
+
     // 统一获取编辑位置信息 - 使用 ?? 避免 0 被误判为 falsy
     const sheetId = currentEditing.sheet ?? currentEditing.notationId;
     const measureIdx = currentEditing.measure ?? currentEditing.measureIndex;
     const beatIdx = currentEditing.beat ?? currentEditing.beatIndex;
     const subIdx = currentEditing.subdivision ?? currentEditing.subIndex ?? 0;
+    // 【修复】获取当前编辑的 hand 和 index，用于后续读取正确的槽位值
+    const currentHand = currentEditing.hand || 'right';
+    const currentIndex = currentEditing.index ?? 1; // 默认内侧槽位
     
     const notationIndex = notations.findIndex(n => n.id === sheetId);
     if (notationIndex === -1) {
@@ -11626,9 +12578,11 @@ Page({
     }
     if (newSubIdx < 0) newSubIdx = 0;
     
-    // 获取新选中位置的音符值
+    // 【修复】获取新选中位置的音符值 - 根据当前编辑的 hand/index 读取正确的槽位
     const newSubdivision = newSubdivisions[newSubIdx];
-    const newNoteValue = newSubdivision?.rightHand?.[1] || '';
+    const handKey = currentHand === 'right' ? 'rightHand' : 'leftHand';
+    const slotArray = newSubdivision?.[handKey];
+    const newNoteValue = Array.isArray(slotArray) ? (slotArray[currentIndex] || '') : '';
     
     if (canvasEditing) {
       // Canvas模式：更新编辑位置到新的subdivision
@@ -11645,7 +12599,8 @@ Page({
       // 如果是Canvas模式，需要重新渲染
       if (isCollapsed) {
         setTimeout(() => {
-          this.initCanvasRenderer(sheetId, notationIndex);
+          // 【优化】使用编辑模式渲染器保持编辑状态
+          this.initCanvasRendererForEdit(sheetId, notationIndex, null);
         }, 50);
       }
     } else {
@@ -11767,11 +12722,14 @@ Page({
     // 如果是Canvas模式，重新渲染
     if (isCollapsed && sheetId) {
       const newHeight = this.calculateCanvasHeight(notation);
+      // 【优化】保持Canvas编辑模式不变，用户可以立即点击其他位置继续编辑
       this.setData({
-        [`notations[${notationIndex}].canvasHeight`]: newHeight
+        [`notations[${notationIndex}].canvasHeight`]: newHeight,
+        [`notations[${notationIndex}].isCanvasEditing`]: true
       }, () => {
         setTimeout(() => {
-          this.initCanvasRenderer(sheetId, notationIndex);
+          // 使用编辑模式渲染器，保持Canvas交互状态
+          this.initCanvasRendererForEdit(sheetId, notationIndex, null);
         }, 50);
       });
     }
@@ -12275,6 +13233,7 @@ Page({
   },
   
   // 【任务2】在指定拍位上方显示气泡（气泡已移到拍位元素内部，使用绝对定位）
+  // 【Bug修复】无论collapsed状态都使用Canvas渲染器计算位置，确保气泡正确显示在尾拍上方
   showCopyPasteBubbleAtBeat(notationId, measureIndex, beatIndex, touchX, touchY) {
     const { notations } = this.data;
     const notationIndex = notations.findIndex(n => n.id === notationId);
@@ -12284,54 +13243,46 @@ Page({
       return;
     }
     
-    const notation = notations[notationIndex];
-    
-    // Canvas模式：需要计算位置
-    if (notation.collapsed) {
-      const renderer = this._canvasRenderers[notationId];
-      if (renderer) {
-        // 获取选中尾拍第一个细分的位置（作为拍位位置）
-        const columnRect = renderer.getColumnRect(measureIndex, beatIndex, 0);
-        if (columnRect) {
-          const bubbleWidth = 180;
-          const bubbleHeight = 60;
-          // 计算拍位的宽度（假设每个拍有4个细分）
-          const beatWidth = columnRect.width * 4;
-          // 气泡显示在拍位上方居中
-          const bubbleX = columnRect.x + beatWidth / 2 - bubbleWidth / 2;
-          const bubbleY = columnRect.y - bubbleHeight - 20;
-          
-          this.setData({
-            showBeatSelectionBubble: true,
-            beatBubbleCanvasPosition: { x: Math.max(10, bubbleX), y: Math.max(10, bubbleY) }
-          });
-          return;
-        }
+    // 【统一处理】全面Canvas2D模式下，无论collapsed状态都需要通过渲染器计算位置
+    const renderer = this._canvasRenderers[notationId];
+    if (renderer) {
+      // 获取选中尾拍第一个细分的位置（作为拍位位置）
+      const columnRect = renderer.getColumnRect(measureIndex, beatIndex, 0);
+      if (columnRect) {
+        const bubbleWidth = 180;
+        const bubbleHeight = 60;
+        // 计算拍位的宽度（假设每个拍有4个细分）
+        const beatWidth = columnRect.width * 4;
+        // 气泡显示在拍位上方居中
+        const bubbleX = columnRect.x + beatWidth / 2 - bubbleWidth / 2;
+        const bubbleY = columnRect.y - bubbleHeight - 20;
+        
+        this.setData({
+          showBeatSelectionBubble: true,
+          beatBubbleCanvasPosition: { x: Math.max(10, bubbleX), y: Math.max(10, bubbleY) }
+        });
+        return;
       }
-      // 如果无法获取拍位位置，使用触摸坐标
-      const bubbleWidth = 180;
-      const bubbleHeight = 60;
-      const query = wx.createSelectorQuery().in(this);
-      query.select(`#notation-container-${notationId}`).boundingClientRect().exec((res) => {
-        if (res && res[0]) {
-          const containerRect = res[0];
-          const bubbleX = (touchX || containerRect.width / 2) - containerRect.left - bubbleWidth / 2;
-          const bubbleY = (touchY || 50) - containerRect.top - bubbleHeight - 20;
-          
-          this.setData({
-            showBeatSelectionBubble: true,
-            beatBubbleCanvasPosition: { x: Math.max(10, bubbleX), y: Math.max(10, bubbleY) }
-          });
-        } else {
-          this.setData({ showBeatSelectionBubble: true });
-        }
-      });
-    } else {
-      // View模式：气泡直接显示在选中尾拍元素内部，位置由CSS控制
-      this.setData({
-        showBeatSelectionBubble: true
-      });
     }
+    
+    // 如果渲染器不可用或无法获取拍位位置，使用触摸坐标作为备用方案
+    const bubbleWidth = 180;
+    const bubbleHeight = 60;
+    const query = wx.createSelectorQuery().in(this);
+    query.select(`#notation-container-${notationId}`).boundingClientRect().exec((res) => {
+      if (res && res[0]) {
+        const containerRect = res[0];
+        const bubbleX = (touchX || containerRect.width / 2) - containerRect.left - bubbleWidth / 2;
+        const bubbleY = (touchY || 50) - containerRect.top - bubbleHeight - 20;
+        
+        this.setData({
+          showBeatSelectionBubble: true,
+          beatBubbleCanvasPosition: { x: Math.max(10, bubbleX), y: Math.max(10, bubbleY) }
+        });
+      } else {
+        this.setData({ showBeatSelectionBubble: true });
+      }
+    });
   },
   
   // 【任务2】显示复制/粘贴气泡弹窗（保留旧接口兼容）
@@ -12343,17 +13294,14 @@ Page({
   closeBeatSelectionBubble() {
     const { isSelectingBeats, notations, beatSelectionStart } = this.data;
     
-    // 如果在Canvas模式下，需要清除选中高亮
+    // 【Bug修复】全面Canvas2D模式下，无论collapsed状态都需要清除选中高亮
     if (isSelectingBeats && beatSelectionStart) {
       const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
       if (notationIndex !== -1) {
-        const notation = notations[notationIndex];
-        if (notation.collapsed) {
-          const renderer = this._canvasRenderers[beatSelectionStart.notationId];
-          if (renderer) {
-            renderer.setSelectionInfo({});
-            renderer.render();
-          }
+        const renderer = this._canvasRenderers[beatSelectionStart.notationId];
+        if (renderer) {
+          renderer.setSelectionInfo({});
+          renderer.render();
         }
       }
     }
@@ -12373,17 +13321,14 @@ Page({
   exitSelectionMode() {
     const { notations, beatSelectionStart } = this.data;
     
-    // 清除Canvas选中高亮
+    // 【Bug修复】全面Canvas2D模式下，无论collapsed状态都需要清除选中高亮
     if (beatSelectionStart) {
       const notationIndex = notations.findIndex(n => n.id === beatSelectionStart.notationId);
       if (notationIndex !== -1) {
-        const notation = notations[notationIndex];
-        if (notation.collapsed) {
-          const renderer = this._canvasRenderers[beatSelectionStart.notationId];
-          if (renderer) {
-            renderer.setSelectionInfo({});
-            renderer.render();
-          }
+        const renderer = this._canvasRenderers[beatSelectionStart.notationId];
+        if (renderer) {
+          renderer.setSelectionInfo({});
+          renderer.render();
         }
       }
     }
@@ -12832,21 +13777,46 @@ Page({
     const updatedNotations = [...notations];
     updatedNotations[notationIndex] = notation;
     const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    
+    // 【Bug修复】插入行后需要重新计算Canvas高度（无论是否collapsed）
+    const newHeight = this.calculateCanvasHeight(notation);
+    withOffsets[notationIndex] = {
+      ...withOffsets[notationIndex],
+      canvasHeight: newHeight,
+      tempImagePath: null // 清除缓存的图片，强制重绘
+    };
+    
     this.saveNotationsScoped(withOffsets);
-    this.setNotations(withOffsets);
     this.markNotationChanged(); // 标记为有更改
     
-    // 如果是Canvas折叠模式，需要重新计算高度并渲染
-    if (isCollapsed) {
-      const newHeight = this.calculateCanvasHeight(notation);
-      this.setData({
-        [`notations[${notationIndex}].canvasHeight`]: newHeight
-      }, () => {
-        setTimeout(() => {
+    // 【Bug修复】Canvas模式下：需要销毁旧渲染器并重新初始化（因为Canvas尺寸变化）
+    // 先更新data以改变Canvas容器尺寸，再重新初始化渲染器
+    this.setData({
+      notations: withOffsets
+    }, () => {
+      this.calculatePages();
+      
+      // 延迟重新初始化Canvas渲染器（等待WXML更新Canvas尺寸）
+      setTimeout(() => {
+        // 销毁旧渲染器
+        if (this._canvasRenderers && this._canvasRenderers[sheetId]) {
+          this._canvasRenderers[sheetId].destroy();
+          delete this._canvasRenderers[sheetId];
+        }
+        
+        // 重新初始化渲染器
+        if (canvasEditing) {
+          // 如果正在Canvas编辑模式，使用编辑模式渲染器保持编辑状态
+          this.initCanvasRendererForEdit(sheetId, notationIndex, null);
+        } else if (isCollapsed) {
+          // collapsed模式
           this.initCanvasRenderer(sheetId, notationIndex);
-        }, 50);
-      });
-    }
+        } else {
+          // 非collapsed模式（Canvas常驻）
+          this.initCanvasRendererForModule(sheetId, notationIndex);
+        }
+      }, 100);
+    });
     
     wx.showToast({ title: '已插入空行', icon: 'success' });
   },
@@ -12932,32 +13902,50 @@ Page({
     const updatedNotations = [...notations];
     updatedNotations[notationIndex] = notation;
     const withOffsets = this.updateMeasureOffsets(updatedNotations);
+    
+    // 【Bug修复】删除行后需要重新计算Canvas高度（无论是否collapsed）
+    const newHeight = this.calculateCanvasHeight(notation);
+    withOffsets[notationIndex] = {
+      ...withOffsets[notationIndex],
+      canvasHeight: newHeight,
+      tempImagePath: null // 清除缓存的图片，强制重绘
+    };
+    
     this.saveNotationsScoped(withOffsets);
-    this.setNotations(withOffsets);
     this.markNotationChanged(); // 标记为有更改
     
     // 清除编辑状态和关闭弹窗
     this.setData({
+      notations: withOffsets,
       editing: null,
       editingValue: '',
       canvasEditing: null,
       canvasEditingValue: '',
+      canvasUseNativeInput: false,
       showVirtualKeyboard: false,
       showDeleteRowModal: false,
       pendingDeleteRowInfo: null
-    });
-    
-    // 如果是Canvas折叠模式，需要重新计算高度并渲染
-    if (isCollapsed && sheetId) {
-      const newHeight = this.calculateCanvasHeight(notation);
-      this.setData({
-        [`notations[${notationIndex}].canvasHeight`]: newHeight
-      }, () => {
-        setTimeout(() => {
+    }, () => {
+      this.calculatePages();
+      
+      // 【Bug修复】Canvas模式下：需要销毁旧渲染器并重新初始化（因为Canvas尺寸变化）
+      setTimeout(() => {
+        // 销毁旧渲染器
+        if (this._canvasRenderers && this._canvasRenderers[sheetId]) {
+          this._canvasRenderers[sheetId].destroy();
+          delete this._canvasRenderers[sheetId];
+        }
+        
+        // 重新初始化渲染器
+        if (isCollapsed) {
+          // collapsed模式
           this.initCanvasRenderer(sheetId, notationIndex);
-        }, 50);
-      });
-    }
+        } else {
+          // 非collapsed模式（Canvas常驻）
+          this.initCanvasRendererForModule(sheetId, notationIndex);
+        }
+      }, 100);
+    });
     
     wx.showToast({ title: '已删除行', icon: 'success' });
   },
@@ -13224,9 +14212,9 @@ Page({
         [newTableEditingField]: newValue
       };
       
-      // 如果编辑的是simplified字段，需要重新计算SPN
+      // 如果编辑的是simplified字段，需要重新计算SPN（使用新建表的独立首调）
       if (newTableEditingField === 'simplified') {
-        updatedData[newTableEditingIndex].spn = this.simplifiedToSPN(newValue);
+        updatedData[newTableEditingIndex].spn = this.calculateSpnFromSimplifiedWithRoot(newValue, this.data.newTableRootNote);
       }
       
       this.setData({
@@ -13819,7 +14807,12 @@ Page({
         // 如果是 Canvas 模式，需要重新渲染
         if (isCanvas && notationIndex !== null && notationIndex !== undefined) {
           setTimeout(() => {
-            this.initCanvasRenderer(sheetId, notationIndex);
+            // 【优化】如果正在Canvas编辑模式，使用编辑模式渲染器保持编辑状态
+            if (this.data.canvasEditing) {
+              this.initCanvasRendererForEdit(sheetId, notationIndex, null);
+            } else {
+              this.initCanvasRenderer(sheetId, notationIndex);
+            }
           }, 50);
         }
         
@@ -14543,7 +15536,7 @@ Page({
 
   /**
    * 切换播放状态
-   * 修改：首次点击时打开音频映射弹窗
+   * 修改：首次点击时打开音频映射弹窗，如果已保存映射且覆盖所有音符则跳过弹窗
    */
   togglePlayback() {
     if (this.data.isPlaybackMode) {
@@ -14556,16 +15549,98 @@ Page({
         this.exitPlaybackMode();
       }
     } else {
-      // 打开音频映射弹窗
-      this.openAudioMappingModal();
+      // 检查是否可以跳过音频映射弹窗
+      this.checkAndStartPlayback();
     }
+  },
+  
+  /**
+   * 检查保存的映射并决定是否跳过弹窗
+   */
+  async checkAndStartPlayback() {
+    // 获取保存的映射（从当前曲谱文件数据中）
+    const savedMappings = this.data.savedAudioMappings;
+    
+    if (savedMappings && Array.isArray(savedMappings) && savedMappings.length > 0) {
+      // 分析当前谱面使用的音符
+      const usedNotes = this.analyzeUsedNotes();
+      const savedNoteKeys = new Set(savedMappings.map(m => m.key));
+      
+      // 检查当前使用的音符是否都在保存的映射中
+      let allNotesCovered = true;
+      let newNotes = [];
+      
+      for (const note of usedNotes) {
+        if (!savedNoteKeys.has(note)) {
+          // 检查是否是特殊标记（不需要映射的）
+          const specialMarks = new Set(['s', 'H', 'B', 'O', 'M', '-', '']);
+          if (!specialMarks.has(note)) {
+            allNotesCovered = false;
+            newNotes.push(note);
+          }
+        }
+      }
+      
+      if (allNotesCovered) {
+        // 所有音符都已映射，直接进入播放模式
+        console.log('[Playback] 使用保存的音频映射，跳过弹窗');
+        try {
+          const playbackMgr = await getSheetPlaybackManager();
+          // 同步首调设置
+          playbackMgr.setConversionRootNote(this.data.conversionRootNote);
+          playbackMgr.setCustomAudioMappings(savedMappings);
+          this.enterPlaybackMode();
+        } catch (e) {
+          console.error('[Playback] 应用保存的映射失败:', e);
+          this.openAudioMappingModal();
+        }
+        return;
+      } else {
+        // 有新音符，需要显示弹窗并提示
+        console.log('[Playback] 检测到新音符类型:', newNotes);
+        this.setData({
+          audioMappingNewNotesHint: `谱面出现新音符类型: ${newNotes.join(', ')}，请确认映射`
+        });
+      }
+    }
+    
+    // 打开音频映射弹窗
+    this.openAudioMappingModal();
+  },
+  
+  /**
+   * 切换保存映射到曲谱的开关
+   */
+  toggleSaveAudioMapping() {
+    this.setData({
+      saveAudioMappingToScore: !this.data.saveAudioMappingToScore
+    });
+  },
+  
+  /**
+   * 从播放器设置打开音频映射弹窗
+   */
+  async openAudioMappingFromSettings() {
+    // 停止当前播放
+    if (this.data.isPlaying) {
+      this.stopPlayback();
+    }
+    
+    // 关闭设置面板
+    this.setData({ showPlaybackSettings: false });
+    
+    // 延迟打开映射弹窗
+    setTimeout(() => {
+      this.openAudioMappingModal(true); // 传入 true 表示从设置打开
+    }, 200);
   },
 
   /**
    * 打开音频映射弹窗
    * 加载可用音频文件列表，并根据当前谱式初始化映射表
+   * @param {boolean} fromSettings - 是否从播放器设置打开（用于恢复保存状态）
    */
-  async openAudioMappingModal() {
+  async openAudioMappingModal(fromSettings = false) {
     // 显示加载状态
     wx.showLoading({ title: '加载音频...' });
     
@@ -14580,12 +15655,37 @@ Page({
       }
       
       // 根据当前谱式初始化映射表
-      const mappings = this.initializeAudioMappings();
+      let mappings = this.initializeAudioMappings();
       
-      this.setData({
+      // 如果有保存的映射，合并使用保存的 SPN 值
+      const savedMappings = this.data.savedAudioMappings;
+      if (savedMappings && Array.isArray(savedMappings)) {
+        const savedMap = new Map(savedMappings.map(m => [m.key, m]));
+        mappings = mappings.map(m => {
+          const saved = savedMap.get(m.key);
+          if (saved && saved.spn) {
+            return {
+              ...m,
+              spn: saved.spn,
+              hasAudio: this.data.availableAudioFiles.includes(saved.spn)
+            };
+          }
+          return m;
+        });
+      }
+      
+      // 如果从设置打开，保持之前的保存状态；否则重置
+      const updateData = {
         showAudioMappingModal: true,
         audioMappings: mappings
-      });
+      };
+      
+      if (!fromSettings) {
+        // 清除新音符提示（如果之前有的话，在 checkAndStartPlayback 中设置的）
+        // updateData.audioMappingNewNotesHint = ''; // 保留提示让用户看到
+      }
+      
+      this.setData(updateData);
       
       // 后台预加载音频资源（利用弹窗打开的时间）
       this.preloadAudioInBackground(mappings);
@@ -14632,69 +15732,167 @@ Page({
     // 注意：d, T, K, P, x, F, · 这些特殊音符需要显示在映射表中，因为它们有实际的音频文件
     const specialNotes = new Set(['s', 'H', 'B', 'O', 'M']);
     
-    // 根据默认转换表构建映射，只保留曲谱中用到的音符
-    Object.keys(defaultTable).forEach(key => {
-      const [simplified, defaultSpn] = defaultTable[key];
-      
-      // 检查这个音符是否在曲谱中使用
-      const isUsedInDigital = usedNotes.has(key);
-      const isUsedInSimplified = usedNotes.has(simplified);
-      const isUsed = notationType === 'digital' ? isUsedInDigital : isUsedInSimplified;
-      
-      // 只显示曲谱中用到的非特殊音符
-      // 但保留d、T、K、D这些低音/特殊音（它们有实际的音频映射需求）
-      if (!isUsed) return;
-      
-      // 跳过重音符/特殊技法标记
-      if (specialNotes.has(key)) return;
-      
-      // 计算实际SPN（基于当前首调设置）
-      let spn = defaultSpn || '';
-      
-      // 处理特殊音符的默认映射（d、T、K、P、x、F、·）
-      if (!spn || spn === '') {
-        if (key === 'd') {
-          spn = availableAudio.has('d') ? 'd' : (availableAudio.has('T') ? 'T' : (availableAudio.has('K') ? 'K' : 'D3'));
-        } else if (key === 'T') {
-          spn = availableAudio.has('T') ? 'T' : (availableAudio.has('d') ? 'd' : (availableAudio.has('K') ? 'K' : 'D3'));
-        } else if (key === 'K') {
-          spn = availableAudio.has('K') ? 'K' : (availableAudio.has('T') ? 'T' : (availableAudio.has('d') ? 'd' : 'D3'));
-        } else if (key === 'P') {
-          spn = availableAudio.has('P') ? 'P' : 'x';
-        } else if (key === 'x') {
-          spn = availableAudio.has('x') ? 'x' : 'D3';
-        } else if (key === 'F') {
-          spn = availableAudio.has('x') ? 'x' : 'D3';
-        } else if (key === '·') {
-          spn = availableAudio.has('x') ? 'x' : 'D3';
-        }
+    // 特殊音符处理函数
+    const getSpecialNoteSpn = (note) => {
+      if (note === 'd') {
+        return availableAudio.has('d') ? 'd' : (availableAudio.has('T') ? 'T' : (availableAudio.has('K') ? 'K' : 'D3'));
+      } else if (note === 'T') {
+        return availableAudio.has('T') ? 'T' : (availableAudio.has('d') ? 'd' : (availableAudio.has('K') ? 'K' : 'D3'));
+      } else if (note === 'K') {
+        return availableAudio.has('K') ? 'K' : (availableAudio.has('T') ? 'T' : (availableAudio.has('d') ? 'd' : 'D3'));
+      } else if (note === 'P') {
+        return availableAudio.has('P') ? 'P' : 'x';
+      } else if (note === 'x') {
+        return availableAudio.has('x') ? 'x' : 'D3';
+      } else if (note === 'F') {
+        return availableAudio.has('x') ? 'x' : 'D3';
+      } else if (note === '·') {
+        return availableAudio.has('x') ? 'x' : 'D3';
+      } else if (note === 'D') {
+        return 'D3';
       }
+      return '';
+    };
+    
+    // 判断是否为特殊音符（需要特殊处理SPN的）
+    const isSpecialMappingNote = (note) => {
+      const baseNote = note.replace(/[',_]/g, '');
+      return ['d', 'T', 'K', 'P', 'x', 'F', '·', 'D'].includes(baseNote);
+    };
+    
+    if (notationType === 'simplified') {
+      // ===== 简谱模式：直接从谱面中使用的简谱音符构建映射表 =====
+      // 已处理的音符集合，避免重复
+      const processedNotes = new Set();
       
-      mappings.push({
-        key: key,
-        simplified: simplified,
-        spn: spn,
-        hasAudio: spn ? availableAudio.has(spn) : false,
-        isUsed: true
+      // 遍历所有使用的音符
+      usedNotes.forEach(note => {
+        if (processedNotes.has(note)) return;
+        
+        // 获取基础音符（去掉八度标记）
+        const baseNote = note.replace(/[',_]/g, '');
+        
+        // 跳过重音符/特殊技法标记
+        if (specialNotes.has(baseNote)) return;
+        
+        // 跳过空音符和占位符
+        if (!baseNote || baseNote === '-' || baseNote === '+' || baseNote === '0') return;
+        
+        processedNotes.add(note);
+        
+        let spn = '';
+        
+        // 处理特殊音符的映射
+        if (isSpecialMappingNote(note)) {
+          spn = getSpecialNoteSpn(baseNote);
+        } else {
+          // 普通简谱音符：使用 calculateSpnFromSimplified 计算正确的 SPN
+          spn = this.calculateSpnFromSimplified(note);
+        }
+        
+        mappings.push({
+          key: note, // 简谱模式下 key 和 simplified 相同
+          simplified: note,
+          spn: spn,
+          hasAudio: spn ? availableAudio.has(spn) : false,
+          isUsed: true
+        });
       });
-    });
+      
+      // 按照音高排序：先按基础音符数字排序，再按八度标记排序
+      mappings.sort((a, b) => {
+        const aBase = a.simplified.replace(/[',_]/g, '');
+        const bBase = b.simplified.replace(/[',_]/g, '');
+        
+        // 特殊音符放在最后
+        const aIsSpecial = isSpecialMappingNote(a.simplified);
+        const bIsSpecial = isSpecialMappingNote(b.simplified);
+        if (aIsSpecial && !bIsSpecial) return 1;
+        if (!aIsSpecial && bIsSpecial) return -1;
+        if (aIsSpecial && bIsSpecial) return aBase.localeCompare(bBase);
+        
+        // 数字音符按音高排序
+        const aNum = parseInt(aBase) || 99;
+        const bNum = parseInt(bBase) || 99;
+        
+        // 计算八度偏移
+        const aOctaveUp = (a.simplified.match(/'/g) || []).length;
+        const aOctaveDown = (a.simplified.match(/,/g) || []).length;
+        const bOctaveUp = (b.simplified.match(/'/g) || []).length;
+        const bOctaveDown = (b.simplified.match(/,/g) || []).length;
+        
+        const aOctave = aOctaveUp - aOctaveDown;
+        const bOctave = bOctaveUp - bOctaveDown;
+        
+        // 先按八度排序，再按音符数字排序
+        if (aOctave !== bOctave) return aOctave - bOctave;
+        return aNum - bNum;
+      });
+      
+    } else {
+      // ===== 数字谱模式：保持原有逻辑 =====
+      // 根据默认转换表构建映射，只保留曲谱中用到的音符
+      Object.keys(defaultTable).forEach(key => {
+        const [simplified, defaultSpn] = defaultTable[key];
+        
+        // 检查这个音符是否在曲谱中使用
+        const isUsed = usedNotes.has(key);
+        
+        // 只显示曲谱中用到的非特殊音符
+        if (!isUsed) return;
+        
+        // 跳过重音符/特殊技法标记
+        if (specialNotes.has(key)) return;
+        
+        // 计算实际SPN（基于当前首调设置）
+        let spn = defaultSpn || '';
+        
+        // 处理特殊音符的默认映射
+        if (!spn || spn === '') {
+          spn = getSpecialNoteSpn(key);
+        }
+        
+        mappings.push({
+          key: key,
+          simplified: simplified,
+          spn: spn,
+          hasAudio: spn ? availableAudio.has(spn) : false,
+          isUsed: true
+        });
+      });
+    }
     
     // 如果没有找到任何用到的音符，显示默认的常用音符作为示例
     if (mappings.length === 0) {
-      // 显示默认的常用音符
-      const defaultKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-      defaultKeys.forEach(key => {
-        if (defaultTable[key]) {
-          const [simplified, spn] = defaultTable[key];
+      if (notationType === 'simplified') {
+        // 简谱模式：显示简谱常用音符
+        const defaultSimplified = ['1', '2', '3', '4', '5', '6', '7', "1'", "2'"];
+        defaultSimplified.forEach(note => {
+          const spn = this.calculateSpnFromSimplified(note);
           mappings.push({
-            key: key,
-            simplified: simplified,
+            key: note,
+            simplified: note,
             spn: spn || '',
             hasAudio: spn ? availableAudio.has(spn) : false,
             isUsed: false
           });
-        }
-      });
+        });
+      } else {
+        // 数字谱模式：显示数字谱常用音符
+        const defaultKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        defaultKeys.forEach(key => {
+          if (defaultTable[key]) {
+            const [simplified, spn] = defaultTable[key];
+            mappings.push({
+              key: key,
+              simplified: simplified,
+              spn: spn || '',
+              hasAudio: spn ? availableAudio.has(spn) : false,
+              isUsed: false
+            });
+          }
+        });
+      }
     }
     
     return mappings;
@@ -14777,7 +15975,10 @@ Page({
    * 关闭音频映射弹窗
    */
   closeAudioMappingModal() {
-    this.setData({ showAudioMappingModal: false });
+    this.setData({ 
+      showAudioMappingModal: false,
+      audioMappingNewNotesHint: '' // 清除新音符提示
+    });
   },
 
   /**
@@ -15351,16 +16552,104 @@ Page({
     // 将映射设置到播放管理器
     try {
       const playbackMgr = await getSheetPlaybackManager();
+      // 同步首调设置
+      playbackMgr.setConversionRootNote(this.data.conversionRootNote);
       playbackMgr.setCustomAudioMappings(this.data.audioMappings);
       
-      // 关闭弹窗
-      this.setData({ showAudioMappingModal: false });
+      // 如果用户选择保存映射到曲谱
+      if (this.data.saveAudioMappingToScore) {
+        await this.saveAudioMappingsToScore(this.data.audioMappings);
+      }
+      
+      // 关闭弹窗，清除提示
+      this.setData({ 
+        showAudioMappingModal: false,
+        audioMappingNewNotesHint: ''
+      });
       
       // 进入播放模式
       this.enterPlaybackMode();
     } catch (e) {
       console.error('[Notation] 设置音频映射失败:', e);
       wx.showToast({ title: '启动失败', icon: 'none' });
+    }
+  },
+  
+  /**
+   * 保存音频映射到当前曲谱
+   * @param {Array} mappings - 音频映射数组
+   */
+  async saveAudioMappingsToScore(mappings) {
+    // 更新本地状态
+    this.setData({ savedAudioMappings: mappings });
+    
+    // 如果当前有关联的库文件，同步保存到库文件数据
+    const fileId = this.data.libraryFileId;
+    if (fileId) {
+      try {
+        const currentFile = libraryManager.getFileById(fileId);
+        if (currentFile) {
+          // 保存映射到文件数据
+          const updateData = {
+            ...currentFile,
+            savedAudioMappings: mappings.map(m => ({
+              key: m.key,
+              simplified: m.simplified,
+              spn: m.spn
+            }))
+          };
+          libraryManager.updateFile(fileId, updateData);
+          console.log('[Notation] 音频映射已保存到曲谱文件');
+        }
+      } catch (e) {
+        console.error('[Notation] 保存音频映射到文件失败:', e);
+      }
+    }
+    
+    // 同时保存到临时存储（用于未关联库文件的情况）
+    try {
+      wx.setStorageSync('temp_audio_mappings', mappings.map(m => ({
+        key: m.key,
+        simplified: m.simplified,
+        spn: m.spn
+      })));
+    } catch (e) {
+      console.warn('[Notation] 保存临时音频映射失败:', e);
+    }
+  },
+  
+  /**
+   * 从曲谱加载保存的音频映射
+   * 在打开曲谱或初始化时调用
+   */
+  loadSavedAudioMappings() {
+    // 首先尝试从库文件加载
+    const fileId = this.data.libraryFileId;
+    if (fileId) {
+      try {
+        const currentFile = libraryManager.getFileById(fileId);
+        if (currentFile && currentFile.savedAudioMappings) {
+          console.log('[Notation] 从曲谱文件加载保存的音频映射');
+          this.setData({ 
+            savedAudioMappings: currentFile.savedAudioMappings,
+            saveAudioMappingToScore: true // 如果有保存的映射，默认勾选
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('[Notation] 从文件加载音频映射失败:', e);
+      }
+    }
+    
+    // 如果没有关联库文件，尝试从临时存储加载
+    try {
+      const tempMappings = wx.getStorageSync('temp_audio_mappings');
+      if (tempMappings && Array.isArray(tempMappings) && tempMappings.length > 0) {
+        console.log('[Notation] 从临时存储加载音频映射');
+        this.setData({ savedAudioMappings: tempMappings });
+      }
+    } catch (e) {
+      console.warn('[Notation] 加载临时音频映射失败:', e);
     }
   },
 
@@ -15457,9 +16746,13 @@ Page({
         currentPage: this.data.currentPage
       };
       
+      // 【Bug 修复】同步播放模式到 sheetPlaybackManager
+      // 确保 playbackMode 与 loopEnabled 状态一致，避免"单曲"模式下仍然循环播放
+      playbackMgr.setLoopMode(this.data.playbackMode === 'loop');
+      
       // 生成时间线（但不开始播放）
       playbackMgr.generateTimeline(notations, tempo, startColumnId, pageInfo);
-      console.log('[Playback] 时间线预生成完成');
+      console.log('[Playback] 时间线预生成完成，循环模式:', this.data.playbackMode === 'loop');
     } catch (e) {
       console.warn('[Playback] 时间线预生成失败（播放时会重试）:', e.message);
     }

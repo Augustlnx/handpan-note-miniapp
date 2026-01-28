@@ -232,6 +232,14 @@ class CanvasNotationRenderer {
   }
   
   /**
+   * 【Bug修复】获取小节线宽度（紧凑模式使用更细的线条）
+   */
+  getBarLineWidth() {
+    const isMultiMeasure = this.measuresPerRow > 1;
+    return isMultiMeasure ? LINE_SETTINGS.barLineWidthMulti : LINE_SETTINGS.barLineWidth;
+  }
+  
+  /**
    * 获取八度点大小
    */
   getOctaveDotSize() {
@@ -507,24 +515,6 @@ class CanvasNotationRenderer {
     const measuresPerRow = this.measuresPerRow;
     const measureOffset = this.notation.measureOffset || 0;
     
-    // 绘制小节编号 - 放在小节左上角上方
-    const indexFontSize = this.rpx2px(
-      measuresPerRow > 1 ? FONT_SETTINGS.measureIndexFontSizeMulti : FONT_SETTINGS.measureIndexFontSizeSingle
-    );
-    ctx.fillStyle = this.colors.measureIndex;
-    ctx.font = `${FONT_SETTINGS.measureIndexFontWeight} ${indexFontSize}px ${FONT_SETTINGS.fontFamily}`;
-    ctx.textAlign = 'left'; // 左对齐，避免被遮挡
-    ctx.textBaseline = 'bottom';
-    const indexText = String(measureOffset + measureIndex + 1);
-    // 小节编号位于小节左侧上方
-    ctx.fillText(indexText, x + this.rpx2px(2), y - this.rpx2px(LAYOUT_SETTINGS.measureIndexOffsetY));
-    
-    // 绘制左侧小节线（仅每行第一个小节）
-    if (col === 0) {
-      ctx.fillStyle = this.colors.barLine;
-      ctx.fillRect(x, y, this.rpx2px(LINE_SETTINGS.barLineWidth), height);
-    }
-    
     // 计算每拍和每个细分的宽度
     const beats = measure.beats || [];
     const beatWidth = width / beats.length;
@@ -538,20 +528,60 @@ class CanvasNotationRenderer {
       }
     }
     
+    // ========== 第一层：绘制中轴线（最底层，会被小节线覆盖）==========
+    beats.forEach((beat, beatIndex) => {
+      if (beat.isPlaceholder) return;
+      
+      const beatX = x + beatIndex * beatWidth;
+      const subdivisions = beat.subdivisions || [];
+      const subWidth = beatWidth / subdivisions.length;
+      
+      subdivisions.forEach((subdivision, subIndex) => {
+        const subX = beatX + subIndex * subWidth;
+        // 绘制上下手分隔线（中轴线）
+        const dividerY = y + height / 2;
+        ctx.fillStyle = this.colors.handDivider;
+        ctx.fillRect(subX, dividerY - this.rpx2px(LINE_SETTINGS.handDividerHeight / 2), subWidth, this.rpx2px(LINE_SETTINGS.handDividerHeight));
+      });
+    });
+    
+    // ========== 第二层：绘制小节线（覆盖在中轴线之上）==========
+    // 【Bug修复】使用getBarLineWidth()获取适配紧凑模式的小节线宽度
+    const barLineWidth = this.getBarLineWidth();
+    
+    // 绘制左侧小节线（仅每行第一个小节）
+    if (col === 0) {
+      ctx.fillStyle = this.colors.barLine;
+      ctx.fillRect(x, y, this.rpx2px(barLineWidth), height);
+    }
+    
     // 绘制右侧小节线（在最后一个非占位拍后面）
     ctx.fillStyle = this.colors.barLine;
-    const rightBarX = x + (lastRealBeatIndex + 1) * beatWidth - this.rpx2px(LINE_SETTINGS.barLineWidth);
-    ctx.fillRect(rightBarX, y, this.rpx2px(LINE_SETTINGS.barLineWidth), height);
+    const rightBarX = x + (lastRealBeatIndex + 1) * beatWidth - this.rpx2px(barLineWidth);
+    ctx.fillRect(rightBarX, y, this.rpx2px(barLineWidth), height);
     
+    // ========== 第三层：绘制小节编号 ==========
+    const indexFontSize = this.rpx2px(
+      measuresPerRow > 1 ? FONT_SETTINGS.measureIndexFontSizeMulti : FONT_SETTINGS.measureIndexFontSizeSingle
+    );
+    ctx.fillStyle = this.colors.measureIndex;
+    ctx.font = `${FONT_SETTINGS.measureIndexFontWeight} ${indexFontSize}px ${FONT_SETTINGS.fontFamily}`;
+    ctx.textAlign = 'left'; // 左对齐，避免被遮挡
+    ctx.textBaseline = 'bottom';
+    const indexText = String(measureOffset + measureIndex + 1);
+    // 小节编号位于小节左侧上方
+    ctx.fillText(indexText, x + this.rpx2px(2), y - this.rpx2px(LAYOUT_SETTINGS.measureIndexOffsetY));
+    
+    // ========== 第四层：绘制拍子内容 ==========
     beats.forEach((beat, beatIndex) => {
       const beatX = x + beatIndex * beatWidth;
       
-      // 【任务1】如果是占位拍，只保留空间不绘制内容
+      // 如果是占位拍，只保留空间不绘制内容
       if (beat.isPlaceholder) {
-        return; // 跳过占位拍的绘制
+        return;
       }
       
-      // 【任务2】绘制选中高亮背景（更透明，无动态效果）
+      // 绘制选中高亮背景（更透明，无动态效果）
       const notationId = this.notation?.id;
       const selectionKey = `${notationId}-${measureIndex}-${beatIndex}`;
       if (this.selectionInfo && this.selectionInfo[selectionKey]) {
@@ -574,9 +604,9 @@ class CanvasNotationRenderer {
       if (beat.barLineAfter) {
         ctx.fillStyle = this.colors.barLine;
         ctx.fillRect(
-          beatX + beatWidth - this.rpx2px(LINE_SETTINGS.barLineWidth / 2), 
+          beatX + beatWidth - this.rpx2px(barLineWidth / 2), 
           y, 
-          this.rpx2px(LINE_SETTINGS.barLineWidth), 
+          this.rpx2px(barLineWidth), 
           height
         );
       }
@@ -600,11 +630,6 @@ class CanvasNotationRenderer {
         if (subdivision.annotation) {
           this.drawAnnotation(subX, y, subWidth, subdivision.annotation);
         }
-        
-        // 绘制上下手分隔线
-        const dividerY = y + height / 2;
-        ctx.fillStyle = this.colors.handDivider;
-        ctx.fillRect(subX, dividerY - this.rpx2px(LINE_SETTINGS.handDividerHeight / 2), subWidth, this.rpx2px(LINE_SETTINGS.handDividerHeight));
         
         // 绘制右手音符（上半部分）
         this.drawNoteSlots(
@@ -673,6 +698,10 @@ class CanvasNotationRenderer {
     const slotHeight = this.rpx2px(this.getSlotHeight());
     const columnGap = this.rpx2px(this.getColumnGap());
     
+    // 【优化】内侧槽位远离中轴线的偏移量（防止音高圆点混淆）
+    // 右手内侧槽位（index=1）向上偏移，左手内侧槽位（index=0）向下偏移
+    const innerSlotOffset = this.rpx2px(LAYOUT_SETTINGS.innerSlotOffset || 3);
+    
     // 计算两个槽位的位置（居中排列）
     const totalSlotsHeight = slotHeight * 2 + columnGap;
     const startY = y + (height - totalSlotsHeight) / 2;
@@ -682,7 +711,17 @@ class CanvasNotationRenderer {
     
     // 绘制两个槽位
     for (let index = 0; index < 2; index++) {
-      const slotY = startY + index * (slotHeight + columnGap);
+      let slotY = startY + index * (slotHeight + columnGap);
+      
+      // 【优化】调整内侧槽位位置，使其远离中轴线
+      // 右手：index=1 是内侧，向上偏移（减少Y）
+      // 左手：index=0 是内侧，向下偏移（增加Y）
+      if (hand === 'right' && index === 1) {
+        slotY -= innerSlotOffset;
+      } else if (hand === 'left' && index === 0) {
+        slotY += innerSlotOffset;
+      }
+      
       const note = notesArray[index] || '';
       
       // 记录点击区域
@@ -1027,6 +1066,9 @@ class CanvasNotationRenderer {
     ctx.fillRect(subX, dividerY - this.rpx2px(LINE_SETTINGS.handDividerHeight / 2), subWidth, this.rpx2px(LINE_SETTINGS.handDividerHeight));
     
     // 4. 重绘拍子分隔线（如果当前是拍子的第一个细分）
+    // 【Bug修复】使用getBarLineWidth()获取适配紧凑模式的小节线宽度
+    const redrawBarLineWidth = this.getBarLineWidth();
+    
     if (subIndex === 0 && beatIndex > 0) {
       const beatX = measureX + beatIndex * beatWidth;
       // 检查是否有中间小节线
@@ -1034,7 +1076,7 @@ class CanvasNotationRenderer {
       if (prevBeat && prevBeat.barLineAfter) {
         // 绘制小节线
         ctx.fillStyle = this.colors.barLine;
-        ctx.fillRect(beatX - this.rpx2px(LINE_SETTINGS.barLineWidth / 2), measureY, this.rpx2px(LINE_SETTINGS.barLineWidth), measureHeight);
+        ctx.fillRect(beatX - this.rpx2px(redrawBarLineWidth / 2), measureY, this.rpx2px(redrawBarLineWidth), measureHeight);
       } else {
         // 绘制拍子分隔线
         ctx.fillStyle = this.colors.beatLine;
@@ -1045,7 +1087,7 @@ class CanvasNotationRenderer {
     // 5. 重绘左侧小节线（如果是该行第一个小节的第一个细分）
     if (col === 0 && beatIndex === 0 && subIndex === 0) {
       ctx.fillStyle = this.colors.barLine;
-      ctx.fillRect(measureX, measureY, this.rpx2px(LINE_SETTINGS.barLineWidth), measureHeight);
+      ctx.fillRect(measureX, measureY, this.rpx2px(redrawBarLineWidth), measureHeight);
     }
     
     // 6. 重绘右侧小节线（如果是最后一个非占位拍的最后一个细分）
@@ -1061,8 +1103,8 @@ class CanvasNotationRenderer {
     // 只有当当前拍是最后一个非占位拍，且是该拍的最后一个细分时，才重绘右侧小节线
     if (subIndex === subdivisions.length - 1 && beatIndex === lastRealBeatIndex) {
       ctx.fillStyle = this.colors.barLine;
-      const rightBarX = measureX + (lastRealBeatIndex + 1) * beatWidth - this.rpx2px(LINE_SETTINGS.barLineWidth);
-      ctx.fillRect(rightBarX, measureY, this.rpx2px(LINE_SETTINGS.barLineWidth), measureHeight);
+      const rightBarX = measureX + (lastRealBeatIndex + 1) * beatWidth - this.rpx2px(redrawBarLineWidth);
+      ctx.fillRect(rightBarX, measureY, this.rpx2px(redrawBarLineWidth), measureHeight);
     }
     
     // 7. 重绘同一细分列中的其他音符槽位（可能被垂直扩展区域影响）

@@ -56,6 +56,10 @@ class SheetPlaybackManager {
     // 用户自定义的音频映射表（数字谱/简谱 -> SPN）
     this.customAudioMappings = null;
     
+    // 首调设置（用于计算简谱音符的 SPN）
+    // 格式：SPN 音名 + 八度，如 'F3' 表示简谱 1 = F3
+    this.conversionRootNote = 'F3';
+    
     // 默认SPN音频基础路径
     this.audioBasePath = '/subpackages/audio/sound/';
     
@@ -76,7 +80,7 @@ class SheetPlaybackManager {
     this.specialNoteVolumes = {
       '·': 1,
       'x': 1,
-      'P': 1,
+      'P': 1.5,
       'F': 1
     };
     
@@ -220,6 +224,68 @@ class SheetPlaybackManager {
   }
 
   /**
+   * 设置首调（用于计算简谱音符的 SPN）
+   * @param {string} rootNote - 首调设置，如 'F3' 表示简谱 1 = F3
+   */
+  setConversionRootNote(rootNote) {
+    if (rootNote && /^[A-G][#b]?\d$/.test(rootNote)) {
+      this.conversionRootNote = rootNote;
+      console.log('[SheetPlaybackManager] 设置首调:', rootNote);
+    }
+  }
+
+  /**
+   * 根据首调计算简谱音符的 SPN
+   * @param {string} simplified - 简谱音符（如 1, 2', 5, 等）
+   * @returns {string} SPN 音高
+   */
+  calculateSpnFromSimplified(simplified) {
+    if (!simplified) return '';
+    
+    // 解析首调设置
+    const rootNote = this.conversionRootNote || 'F3';
+    const rootMatch = rootNote.match(/^([A-G][#b]?)(\d)$/);
+    if (!rootMatch) return '';
+    
+    const rootName = rootMatch[1];
+    const rootOctave = parseInt(rootMatch[2]);
+    
+    // 解析简谱音符
+    let baseNote = simplified.replace(/[',_]/g, '');
+    const octaveUp = (simplified.match(/'/g) || []).length;
+    const octaveDown = (simplified.match(/,/g) || []).length;
+    
+    // 数字到音程的映射（半音数，以 1 为基准）
+    const degreeToSemitones = {
+      '1': 0, '2': 2, '3': 4, '4': 5, '5': 7, '6': 9, '7': 11
+    };
+    
+    if (!degreeToSemitones.hasOwnProperty(baseNote)) return '';
+    
+    // 音名到半音的映射
+    const noteToSemitones = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 };
+    
+    // 计算首调的半音数
+    let rootSemitones = noteToSemitones[rootName.charAt(0)] || 0;
+    if (rootName.includes('#')) rootSemitones += 1;
+    if (rootName.includes('b')) rootSemitones -= 1;
+    
+    // 计算音符的绝对半音位置
+    const noteSemitones = (rootSemitones + degreeToSemitones[baseNote]) % 12;
+    const octave = rootOctave + octaveUp - octaveDown + Math.floor((rootSemitones + degreeToSemitones[baseNote]) / 12);
+    
+    // 半音数到音名的映射
+    const semitonesToNote = {
+      0: 'C', 1: 'C#', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F',
+      6: 'F#', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B'
+    };
+    
+    const finalSemitones = ((noteSemitones % 12) + 12) % 12;
+    const noteName = semitonesToNote[finalSemitones];
+    return `${noteName}${octave}`;
+  }
+
+  /**
    * 根据音符获取对应的SPN音频文件名
    * @param {string} note - 音符字符串
    * @param {string} notationType - 谱式类型 ('digital' 或 'simplified')
@@ -292,28 +358,18 @@ class SheetPlaybackManager {
       }
     }
     
-    // 默认处理：直接尝试使用音符名作为SPN
-    // 处理简谱的八度标记
+    // 默认处理：使用首调计算简谱音符的 SPN
     if (notationType === 'simplified') {
-      // 处理 1', 2', 等高八度标记
-      let baseNote = mainNote.replace(/[',]/g, '');
-      let octaveUp = (mainNote.match(/'/g) || []).length;
-      let octaveDown = (mainNote.match(/,/g) || []).length;
+      // 使用首调计算正确的 SPN
+      const spn = this.calculateSpnFromSimplified(mainNote);
       
-      // 简谱数字到音名的映射（默认以C4为基准）
-      const simplifiedToNote = {
-        '1': 'C', '2': 'D', '3': 'E', '4': 'F', 
-        '5': 'G', '6': 'A', '7': 'B'
-      };
+      if (spn && this.availableAudioFiles.has(spn)) {
+        return { spn, volume: 1.0 };
+      }
       
-      if (simplifiedToNote[baseNote]) {
-        const noteName = simplifiedToNote[baseNote];
-        const octave = 4 + octaveUp - octaveDown; // 默认中央C为4
-        const spn = `${noteName}${octave}`;
-        
-        if (this.availableAudioFiles.has(spn)) {
-          return { spn, volume: 1.0 };
-        }
+      // 如果计算出的 SPN 不在可用音频中，尝试寻找最接近的音频
+      if (spn) {
+        console.warn(`[SheetPlaybackManager] 音频文件不存在: ${spn}，音符: ${mainNote}`);
       }
     }
     

@@ -40,10 +40,12 @@ const BASE_SETTINGS = {
 // ============================================================
 const LAYOUT_SETTINGS = {
   // 画布左侧边距 (rpx) - 与 CSS .notation-sheet padding 对应
-  canvasLeftPadding: 0,
+  // 【Bug修复】增加左右边距，防止小节线被页边距截断
+  // 边距需要至少为小节线宽度的一半（barLineWidth=5rpx，所以至少需要3rpx）
+  canvasLeftPadding: 4,
   
   // 画布右侧边距 (rpx)
-  canvasRightPadding: 0,
+  canvasRightPadding: 4,
   
   // 画布顶部边距 (rpx) - 为小节编号预留空间
   canvasTopPadding: 32,
@@ -74,6 +76,10 @@ const LAYOUT_SETTINGS = {
   // 列间距最大值 (rpx)
   columnGapMax: 16,
   
+  // 【优化】内侧槽位远离中轴线的偏移量 (rpx)
+  // 用于防止靠近中轴的两个槽位（右手index=1，左手index=0）的音高圆点混淆
+  innerSlotOffset: 3,
+  
   // 备注文字距小节顶部的距离 (rpx)
   annotationOffsetY: 24,
   
@@ -99,7 +105,8 @@ const LINE_SETTINGS = {
   beatLineWidth: 2,
   
   // 细分分隔线宽度 (rpx) - 对应 CSS .subdivision-line { width: 1rpx }
-  subdivisionLineWidth: 1,
+  // 【优化】稍微加粗，比拍线略细但比原来粗
+  subdivisionLineWidth: 1.5,
   
   // 细分线高度占小节高度的比例 - 默认50%，即小节中央部分
   subdivisionLineHeightRatio: 0.5,
@@ -108,15 +115,17 @@ const LINE_SETTINGS = {
   subdivisionLineStartRatio: 0.25,
   
   // 上下手分隔线（中轴线）高度 (rpx) - 对应 CSS .note-box-top { border-bottom: 1rpx }
+  // 【优化】中轴线与拍线一样粗，便于视觉区分上下手
   // 这条线位于小节高度的50%位置，分隔右手(上)和左手(下)
-  handDividerHeight: 1,
+  handDividerHeight: 2,
   
   // 编辑状态边框宽度 (rpx)
   editingBorderWidth: 2,
   
   // 多小节模式线条粗细调整（横屏两栏时）
-  // 对应 CSS .staff-container.multi-measure .bar-line { width: 4rpx }
-  barLineWidthMulti: 4,
+  // 【Bug修复】紧凑模式下小节线与拍线粗细一致，避免过粗
+  // 对应 CSS .staff-container.multi-measure .bar-line { width: 2rpx }
+  barLineWidthMulti: 2,
   // 对应 CSS .staff-container.multi-measure .beat-line { width: 2rpx }
   beatLineWidthMulti: 2,
 };

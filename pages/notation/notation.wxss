@@ -4025,6 +4025,11 @@
   z-index: 10002; /* 确保在Canvas上方 */
 }
 
+/* 【Bug修复】选中模式下允许气泡溢出显示 */
+.canvas-notation-container.bubble-visible {
+  overflow: visible !important;
+}
+
 .beat-bubble::before {
   content: '';
   position: absolute;
@@ -4296,7 +4301,7 @@
 
 .splash-header {
   text-align: center;
-  padding-top: 20rpx;
+  padding-top: 0rpx;
 }
 
 .splash-title {
@@ -4316,8 +4321,8 @@
 }
 
 .splash-logo {
-  width: 350rpx;
-  height: 350rpx;
+  width: 300rpx;
+  height: 300rpx;
   margin: -30rpx auto -30rpx auto;
   display: block;
 }
@@ -4336,6 +4341,132 @@
   text-align: left;
   text-indent: 2em;
   display: block;
+}
+
+/* 隐私说明容器 */
+.splash-privacy-container {
+  width: 100%;
+  max-height: 320rpx;
+  border: 1rpx solid #e8e8e8;
+  background: #fafafa;
+  border-radius: 12rpx;
+  overflow: hidden;
+  margin: 0;
+  position: relative;
+  box-shadow: inset 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+}
+
+.splash-privacy-header {
+  padding: 20rpx 24rpx 16rpx;
+  background: linear-gradient(135deg, rgba(49, 77, 99, 0.05) 0%, rgba(143, 185, 171, 0.05) 100%);
+  border-bottom: 1rpx solid #e8e8e8;
+}
+
+.splash-privacy-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #314D63;
+  display: block;
+}
+
+/* 可滚动区域 */
+.splash-privacy-scroll {
+  max-height: 280rpx;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.splash-privacy-content {
+  padding: 20rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.privacy-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.privacy-item {
+  display: flex;
+  gap: 16rpx;
+  align-items: flex-start;
+}
+
+.privacy-icon {
+  font-size: 32rpx;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+
+.privacy-text-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.privacy-item-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #314D63;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.privacy-item-desc {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.6;
+  display: block;
+  text-align: justify;
+}
+
+.privacy-agreement {
+  margin-top: 8rpx;
+  padding: 16rpx;
+  background: rgba(49, 77, 99, 0.03);
+  border-radius: 8rpx;
+  border-left: 3rpx solid #8FB9AB;
+}
+
+.privacy-agreement-text {
+  font-size: 22rpx;
+  color: #888;
+  line-height: 1.6;
+  display: block;
+  text-align: justify;
+}
+
+/* 平板模式适配 */
+.splash-modal-content.tablet .splash-privacy-container {
+  max-height: 260rpx;
+}
+
+.splash-modal-content.tablet .splash-privacy-scroll {
+  max-height: 220rpx;
+}
+
+.splash-modal-content.tablet .splash-privacy-title {
+  font-size: 24rpx;
+}
+
+.splash-modal-content.tablet .privacy-item-title {
+  font-size: 24rpx;
+}
+
+.splash-modal-content.tablet .privacy-item-desc {
+  font-size: 22rpx;
+}
+
+.splash-modal-content.tablet .privacy-agreement-text {
+  font-size: 20rpx;
+}
+
+.splash-modal-content.tablet .privacy-icon {
+  font-size: 28rpx;
 }
 
 .splash-actions {
@@ -5043,8 +5174,8 @@
 }
 
 .audio-preview-icon {
-  width: 23rpx;
-  height: 23rpx;
+  width: 20rpx;
+  height: 20rpx;
   filter: brightness(0) invert(1);
 }
 
@@ -5886,6 +6017,12 @@
   gap: 8rpx;
   flex: 1;
 }
+.vk-row-end {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  flex: 1;
+}
 
 /* 数字键 - 高级设计 */
 .vk-key {
@@ -6161,7 +6298,7 @@
   display: flex;
   margin-top: 20rpx;
   flex-direction: row;
-  gap: 6rpx;
+  gap: 10rpx;
 }
 
 .vk-edit-btn {
@@ -6179,14 +6316,271 @@
   transform: scale(0.94);
 }
 
-.vk-edit-btn text {
+/* 编辑按钮内的普通文字（排除特定类） */
+.vk-edit-btn text:not(.vk-edit-btn-label):not(.vk-icon-desc) {
   font-size: 30rpx;
   color: #000000;
   font-weight: 500;
 }
 
 .vk-edit-backspace {
-  background:linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  flex: 2; /* 删除键占2/3宽度 */
+  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* 更多设置键 */
+.vk-edit-settings {
+  flex: 1; /* 更多设置键占1/3宽度 */
+  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  flex-direction: column;
+  gap: 4rpx;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 编辑按钮文字模式（自定义键盘模式） */
+.vk-edit-btn-text {
+  background: linear-gradient(180deg, #314D63 0%, #456275 100%) !important;
+}
+
+/* 编辑按钮标签文字（自定义键盘模式下的"完成"和"↻"） */
+.vk-edit-btn-label {
+  font-size: 28rpx;
+  color: #fff !important;
+  font-weight: 600;
+  display: block;
+}
+
+.vk-reset-icon {
+  font-size: 36rpx !important;
+}
+
+/* ========== 更多设置界面样式 ========== */
+.vk-settings-panel {
+  position: absolute;
+  top: -340rpx;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #f8fafb 0%, #ffffff 100%);
+  border-radius: 24rpx 24rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  animation: settingsPanelFadeIn 0.25s ease-out;
+}
+
+@keyframes settingsPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 设置界面顶部导航 */
+.vk-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 24rpx;
+  border-bottom: 1rpx solid rgba(49, 77, 99, 0.08);
+}
+
+.vk-settings-back-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.vk-settings-back-btn:active {
+  transform: scale(0.92);
+  background: rgba(49, 77, 99, 0.12);
+}
+
+.vk-settings-back-icon {
+  width:42rpx;
+  height:42rpx;
+}
+
+.vk-settings-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #314D63;
+}
+
+.vk-settings-placeholder {
+  width: 56rpx;
+}
+
+/* 设置界面图标区域 */
+.vk-settings-icons-area {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  padding: 24rpx 20rpx;
+  gap: 20rpx;
+}
+
+.vk-settings-icon-row {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  flex: 1;
+}
+
+.vk-settings-icon-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  transition: all 0.15s ease;
+}
+
+.vk-settings-icon-item:active:not(.vk-settings-icon-empty):not(.vk-settings-icon-disabled) {
+  transform: scale(0.95);
+}
+
+.vk-settings-icon-empty {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vk-settings-icon-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.vk-settings-icon-box {
+  width: 88rpx;
+  height: 88rpx;
+  background: linear-gradient(145deg, #ffffff 0%, #f0f2f5 100%);
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 16rpx rgba(49, 77, 99, 0.08);
+  border: 1rpx solid rgba(49, 77, 99, 0.06);
+}
+
+.vk-settings-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.vk-settings-icon-label {
+  font-size: 22rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+/* 设置界面切换区域 */
+.vk-settings-toggles-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16rpx 24rpx;
+  gap: 16rpx;
+  background: rgba(49, 77, 99, 0.02);
+  border-top: 1rpx solid rgba(49, 77, 99, 0.06);
+}
+
+.vk-settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+
+.vk-settings-toggle-label {
+  font-size: 26rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+/* 胶囊切换按钮 */
+.vk-settings-capsule-switch {
+  display: flex;
+  background: rgba(49, 77, 99, 0.08);
+  border-radius: 24rpx;
+  padding: 4rpx;
+  gap: 0;
+}
+
+.vk-capsule-option {
+  padding: 12rpx 24rpx;
+  border-radius: 20rpx;
+  transition: all 0.2s ease;
+}
+
+.vk-capsule-option text {
+  font-size: 24rpx;
+  color: rgba(49, 77, 99, 0.6);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.vk-capsule-option.vk-capsule-active {
+  background: #fff;
+  box-shadow: 0 2rpx 8rpx rgba(49, 77, 99, 0.12);
+}
+
+.vk-capsule-option.vk-capsule-active text {
+  color: #314D63;
+  font-weight: 600;
+}
+
+/* ========== 自定义键盘模式样式 ========== */
+.vk-key-customizing {
+  position: relative;
+  background: #fff;
+}
+
+.vk-key-editing {
+  border: 2rpx solid #314D63 !important;
+  background: linear-gradient(180deg, #f8fafb 0%, #ffffff 100%) !important;
+}
+
+.vk-custom-input {
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #212529;
+  background: transparent;
+}
+
+/* 禁用状态样式 */
+.vk-toolbar-disabled {
+  opacity: 0.5;
+}
+
+.vk-pitch-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.vk-direction-disabled {
+  opacity: 0.4;
+}
+
+.vk-pad-disabled {
+  pointer-events: none;
+}
+
+.vk-btn-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ========== 新增：标题区优化样式 ========== */
@@ -7044,48 +7438,57 @@ background: radial-gradient(
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(49, 77, 99, 0.3);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(49, 77, 99, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 1100;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: overlayFadeIn 0.2s ease;
+  animation: overlayFadeIn 0.25s ease;
 }
 
 .player-settings-panel {
   width: 100%;
-  background: #fff;
-  border-radius: 32rpx 32rpx 0 0;
-  padding: 0 32rpx 32rpx;
-  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
-  animation: panelSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 85vh;
+  background: linear-gradient(180deg, #FBFCFD 0%, #F6F8FA 100%);
+  border-radius: 40rpx 40rpx 0 0;
+  padding: 0 40rpx;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  animation: panelSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 -8rpx 40rpx rgba(49, 77, 99, 0.08);
 }
 
 @keyframes panelSlideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from { transform: translateY(100%); opacity: 0.96; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.player-settings-handle {
+  width: 80rpx;
+  height: 8rpx;
+  margin: 20rpx auto 8rpx;
+  background: rgba(49, 77, 99, 0.14);
+  border-radius: 4rpx;
 }
 
 .player-settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 0;
-  border-bottom: 1rpx solid rgba(49, 77, 99, 0.08);
-  margin-bottom: 16rpx;
+  padding: 16rpx 0 28rpx;
 }
 
 .player-settings-title {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 36rpx;
+  font-weight: 700;
   color: #314D63;
+  letter-spacing: 0.5rpx;
 }
 
 .player-settings-close-btn {
-  width: 48rpx;
-  height: 48rpx;
+  width: 56rpx;
+  height: 56rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7094,22 +7497,81 @@ background: radial-gradient(
 }
 
 .player-settings-close-btn text {
+  font-size: 28rpx;
+  color: rgba(49, 77, 99, 0.45);
+  font-weight: 300;
+}
+
+.player-settings-body {
+  padding-bottom: 24rpx;
+}
+
+.player-settings-section {
+  margin-bottom: 32rpx;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.player-settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.player-settings-section-title {
+  display: block;
   font-size: 24rpx;
+  font-weight: 600;
   color: rgba(49, 77, 99, 0.5);
+  letter-spacing: 1rpx;
+  margin-bottom: 16rpx;
+  padding-left: 4rpx;
+}
+
+.player-settings-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 0 28rpx;
+  box-shadow: 0 2rpx 16rpx rgba(49, 77, 99, 0.04);
+  overflow: hidden;
 }
 
 .player-setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 0;
-  border-bottom: 1rpx solid rgba(49, 77, 99, 0.06);
+  padding: 28rpx 0;
+}
+
+.player-setting-row-slider {
+  flex-direction: row;
+  align-items: center;
+  padding: 28rpx 0;
+}
+
+.player-setting-row-slider .player-setting-label {
+  margin-bottom: 0;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.player-setting-control-slider {
+  position: relative;
+  flex: 1;
+  margin-left: 0;
+  padding-top: 20rpx;
+  padding-bottom: 2rpx;
+}
+
+.player-setting-divider {
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent 0%, rgba(49, 77, 99, 0.06) 8%, rgba(49, 77, 99, 0.06) 92%, transparent 100%);
+  margin: 0 -28rpx;
 }
 
 .player-setting-label {
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #314D63;
   flex-shrink: 0;
+  font-weight: 500;
 }
 
 .player-setting-control {
@@ -7121,6 +7583,40 @@ background: radial-gradient(
 
 .player-setting-slider {
   flex: 1;
+  height: 16rpx;
+}
+
+.player-setting-value-pill {
+  align-self: flex-end;
+  font-size: 26rpx;
+  color: #8FB9AB;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  padding: 8rpx 20rpx;
+  background: rgba(143, 185, 171, 0.12);
+  border-radius: 20rpx;
+  letter-spacing: 0.5rpx;
+}
+
+.player-setting-value-pill-above {
+  position: absolute;
+  top: 0rpx;
+  left: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 4rpx 14rpx;
+  font-size: 20rpx;
+  z-index: 10;
+  transform: translateX(-50%);
+  transition: left 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.player-setting-value-pill text {
+  font-size: 26rpx;
+  color: #8FB9AB;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  letter-spacing: 0.5rpx;
 }
 
 .player-setting-value {
@@ -7133,33 +7629,91 @@ background: radial-gradient(
 }
 
 .player-setting-switch {
-  transform: scale(0.85);
+  transform: scale(0.9);
 }
 
-.player-mode-selector {
+/* 播放模式区块（独立 section，不用 card） */
+.player-settings-section .player-mode-selector {
   display: flex;
-  gap: 12rpx;
+  gap: 16rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 8rpx;
+  box-shadow: 0 2rpx 16rpx rgba(49, 77, 99, 0.04);
 }
 
 .player-mode-opt {
-  padding: 14rpx 28rpx;
-  background: rgba(49, 77, 99, 0.06);
-  border-radius: 20rpx;
+  flex: 1;
+  padding: 22rpx 24rpx;
+  background: transparent;
+  border-radius: 18rpx;
+  text-align: center;
   transition: all 0.2s ease;
 }
 
 .player-mode-opt.selected {
-  background: rgba(143, 185, 171, 0.2);
+  background: rgba(143, 185, 171, 0.18);
+  box-shadow: 0 2rpx 8rpx rgba(143, 185, 171, 0.15);
 }
 
 .player-mode-opt text {
-  font-size: 24rpx;
-  color: rgba(49, 77, 99, 0.6);
+  font-size: 28rpx;
+  color: rgba(49, 77, 99, 0.55);
+  font-weight: 500;
 }
 
 .player-mode-opt.selected text {
-  color: #314D63;
+  color: #2A3F52;
+  font-weight: 700;
+}
+
+/* 音频映射入口（section 内） */
+.player-settings-section .audio-mapping-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 28rpx 32rpx;
+  background: linear-gradient(135deg, #314D63 0%, #2A3F52 100%);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(49, 77, 99, 0.2);
+  overflow: hidden;
+}
+
+.player-settings-section .audio-mapping-settings-btn:active {
+  transform: scale(0.98);
+  opacity: 0.95;
+}
+
+.player-settings-section .audio-mapping-btn-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+.audio-mapping-btn-text {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+  font-size: 30rpx;
+  color: #fff;
   font-weight: 600;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-mapping-btn-arrow {
+  font-size: 36rpx;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 300;
+  margin-left: 8rpx;
+  flex-shrink: 0;
 }
 
 /* 旧版样式兼容保留 */
@@ -7442,6 +7996,17 @@ background: radial-gradient(
   isolation: isolate;
 }
 
+/* 【Canvas模式迁移】展开模式样式 - 直接显示Canvas编辑模式 */
+.canvas-notation-container.canvas-expanded {
+  /* 展开模式下Canvas常驻编辑状态 */
+  margin-bottom: 0;
+}
+
+/* 【Canvas模式迁移】收起模式样式 - 显示静态图片 */
+.canvas-notation-container.canvas-collapsed {
+  margin-top: 10rpx;
+}
+
 /* 静态图片显示（非编辑状态） */
 .notation-static-image {
   display: block;
@@ -7686,6 +8251,23 @@ background: radial-gradient(
   50% { opacity: 0.7; }
 }
 
+/* 「切换键盘」后画布格上的原生输入框（唤起设备键盘，保持选中） */
+.canvas-native-input-wrap {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.canvas-native-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 4rpx;
+  font-size: 24rpx;
+  line-height: 1.2;
+  color: #314D63;
+  background: transparent;
+  border: none;
+  box-sizing: border-box;
+}
+
 /* Canvas模式下的收起状态额外样式 */
 .notation-sheet.collapsed .canvas-notation-container {
   margin-top: 10rpx;
@@ -7731,4 +8313,127 @@ background: radial-gradient(
 .canvas-loading-text {
   font-size: 24rpx;
   color: #999;
+}
+
+/* ========== 保存映射到曲谱选项 ========== */
+.save-mapping-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  margin: 16rpx 0;
+  background: rgba(49, 77, 99, 0.05);
+  border-radius: 12rpx;
+}
+
+.save-mapping-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.save-mapping-label {
+  font-size: 26rpx;
+  color: #314D63;
+  font-weight: 500;
+}
+
+.save-mapping-desc {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.save-mapping-toggle {
+  width: 88rpx;
+  height: 48rpx;
+  cursor: pointer;
+}
+
+.save-mapping-toggle .toggle-track {
+  width: 100%;
+  height: 100%;
+  background: rgba(49, 77, 99, 0.2);
+  border-radius: 24rpx;
+  position: relative;
+  transition: background 0.3s ease;
+}
+
+.save-mapping-toggle.active .toggle-track {
+  background: #8FB9AB;
+}
+
+.save-mapping-toggle .toggle-thumb {
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  width: 40rpx;
+  height: 40rpx;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+  transition: left 0.3s ease;
+}
+
+.save-mapping-toggle.active .toggle-thumb {
+  left: 44rpx;
+}
+
+/* 新音符提示 */
+.new-notes-hint {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  margin: 12rpx 0;
+  background: rgba(255, 193, 7, 0.15);
+  border-radius: 8rpx;
+  border-left: 4rpx solid #FFC107;
+}
+
+.new-notes-icon {
+  font-size: 28rpx;
+  color: #FFA000;
+}
+
+.new-notes-text {
+  font-size: 24rpx;
+  color: #6D4C00;
+  flex: 1;
+}
+
+/* ========== 音频映射设置按钮 ========== */
+.audio-mapping-btn-row {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(49, 77, 99, 0.1);
+}
+
+.audio-mapping-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 20rpx 32rpx;
+  background: linear-gradient(135deg, #314D63 0%, #496A81 100%);
+  border-radius: 12rpx;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.audio-mapping-settings-btn:active {
+  background: #26404F;
+  transform: scale(0.98);
+}
+
+.audio-mapping-btn-icon {
+  width: 32rpx;
+  height: 32rpx;
+  filter: brightness(0) invert(1);
+}
+
+.audio-mapping-btn-text {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: 500;
 }

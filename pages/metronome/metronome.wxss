@@ -919,7 +919,7 @@
 .manual-segment-pattern {
   display: flex;
   gap: 8rpx;
-  margin-bottom: 12rpx;
+  margin-bottom: 20rpx;
 }
 
 .manual-note {
@@ -947,6 +947,7 @@
 .delete-segment-icon {
   width: 30rpx;
   height: 30rpx;
+  margin-top: 4rpx;
 }
 
 .add-segment-btn {
