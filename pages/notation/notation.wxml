@@ -1914,7 +1914,7 @@ module.exports = {
   </view>
 
   <!-- 首调选择器弹窗 -->
-  <view wx:if="{{showConversionRootPicker}}" class="modal-overlay conversion-root-picker-overlay" catchtap="closeConversionRootPicker">
+  <view wx:if="{{showConversionRootPicker}}" class="modal-overlay conversion-root-picker-overlay" catchtap="closeConversionRootPicker" catchtouchmove="stopPropagation">
     <view class="ios-picker-modal" catchtap="stopPropagation">
       <view class="ios-picker-header">
         <text class="ios-picker-cancel" bindtap="closeConversionRootPicker">取消</text>
@@ -1933,7 +1933,7 @@ module.exports = {
   </view>
 
   <!-- 音频映射弹窗 -->
-  <view wx:if="{{showAudioMappingModal}}" class="modal-overlay audio-mapping-modal-overlay" bindtap="closeAudioMappingModal">
+  <view wx:if="{{showAudioMappingModal}}" class="modal-overlay audio-mapping-modal-overlay" bindtap="closeAudioMappingModal" catchtouchmove="stopPropagation">
     <view class="modal-content audio-mapping-modal" catchtap="stopPropagation">
       <!-- 标题行：居中标题 + 右侧转换表库按钮 -->
       <view class="conversion-modal-header">
@@ -2076,7 +2076,7 @@ module.exports = {
   </view>
 
   <!-- 音频映射表库弹窗（复用转换表库样式） -->
-  <view wx:if="{{showAudioMappingLibrary}}" class="modal-overlay audio-mapping-library-overlay" catchtap="closeAudioMappingLibrary">
+  <view wx:if="{{showAudioMappingLibrary}}" class="modal-overlay audio-mapping-library-overlay" catchtap="closeAudioMappingLibrary" catchtouchmove="stopPropagation">
     <view class="modal-content conversion-library-modal" catchtap="stopPropagation">
       <view class="modal-header">
         <text class="modal-title">转换表库</text>
@@ -2115,7 +2115,7 @@ module.exports = {
   </view>
   
   <!-- 新建/编辑音频映射转换表弹窗 -->
-  <view wx:if="{{showNewAudioMappingTableModal}}" class="modal-overlay new-audio-mapping-table-overlay" catchtap="closeNewAudioMappingTable">
+  <view wx:if="{{showNewAudioMappingTableModal}}" class="modal-overlay new-audio-mapping-table-overlay" catchtap="closeNewAudioMappingTable" catchtouchmove="stopPropagation">
     <view class="modal-content new-conversion-table-modal" catchtap="stopPropagation">
       <view class="modal-header">
         <text class="modal-title">{{editingAudioMappingTableId ? '编辑转换表' : '新建转换表'}}</text>
@@ -2277,16 +2277,18 @@ module.exports = {
       <!-- 弹窗描述 -->
       <view class="splash-description">
         <text class="splash-text">Orbit Note 是一个专为Handpan手碟音乐记谱设计的小程序工具。支持创建、编辑和导出乐谱，提供了灵活的记谱格式和多种导出选项。</text>
-        <text class="splash-text">谱面部分数据加载可能较慢，请耐心等待啦。导出文件有可能因为缓存超限失败，可在设置界面选择清除缓存（会删除所有数据，请提前及时导出创作内容）。欢迎分享给其他朋友使用~</text>
+        <text class="splash-text">如遇谱面绘制空白，可尝试点击模块底部最右侧“缩小”按钮尝试切换加载谱面。导出文件若因为缓存超限失败，可在设置界面选择清除缓存（会删除所有数据，请提前导出创作内容）。欢迎分享给其他朋友使用~</text>
         <text class="splash-text"></text>
       </view>
 
-      <!-- 隐私说明区域（可滚动） -->
-      <view class="splash-privacy-container">
-        <view class="splash-privacy-header">
+      <!-- 隐私说明区域（可展开） -->
+      <view class="splash-privacy-container {{splashPrivacyExpanded ? 'splash-privacy-expanded' : ''}}">
+        <view class="splash-privacy-header" bindtap="onSplashPrivacyToggle">
           <text class="splash-privacy-title">隐私权限说明</text>
+          <image wx:if="{{!splashPrivacyExpanded}}" class="splash-privacy-arrow" src="/assets/icons/keyboard/右_right.svg" mode="aspectFit"></image>
+          <image wx:else class="splash-privacy-arrow" src="/assets/icons/keyboard/下_down.svg" mode="aspectFit"></image>
         </view>
-        <scroll-view class="splash-privacy-scroll" scroll-y="true">
+        <scroll-view wx:if="{{splashPrivacyExpanded}}" class="splash-privacy-scroll" scroll-y="true">
           <view class="splash-privacy-content">
             <view class="privacy-section">
               <view class="privacy-item">

@@ -49,8 +49,44 @@ class SheetPlaybackManager {
     this.notationType = 'digital'; // 'digital' 或 'simplified'
     
     // ===== 音频文件目录缓存 =====
-    this.availableAudioFiles = new Set(); // 缓存可用的音频文件名
+    this.availableAudioFiles = new Set(); // 缓存可用的音频文件名（主分包 + 已加载的次分包）
+    this.mainPackageAudioFiles = new Set(); // 【重要】只存储主分包的音频文件（不会被次分包污染）
     this.audioFilesLoaded = false; // 是否已加载音频文件列表
+    
+    // ===== 扩展音频分包配置 =====
+    // 已加载的音频分包
+    this.loadedAudioSubpackages = new Set(['audio']); // 主音频分包默认已加载
+    
+    // 分包加载中的Promise（防止重复加载）
+    this._subpackageLoadingPromises = new Map();
+    
+    // 各分包的音频文件映射
+    this.subpackageAudioMappings = {
+      // audio4: 高音区音频
+      audio4: {
+        path: '/subpackages/audio4/handpan_sound_high/',
+        pagePath: '/subpackages/audio4/placeholder/index',
+        notes: new Set(['Ab4', 'Ab5', 'B4', 'Bb4', 'D6', 'Db4', 'Db5', 'Db6', 'E6', 'Eb4', 'Eb5', 'Eb6', 'Gb4', 'Gb5']),
+        displayName: '高音区音频'
+      },
+      // audio3: 中音区音频
+      audio3: {
+        path: '/subpackages/audio3/handpan_sound_mid/',
+        pagePath: '/subpackages/audio3/placeholder/index',
+        notes: new Set(['Ab3', 'B3', 'C3', 'Db3', 'Eb3', 'Gb3']),
+        displayName: '中音区音频'
+      },
+      // audio2: 低音区音频
+      audio2: {
+        path: '/subpackages/audio2/hanpanpan_sound_low/',
+        pagePath: '/subpackages/audio2/placeholder/index',
+        notes: new Set(['A2', 'Ab2', 'B2', 'Bb2', 'D2', 'Db2', 'E2', 'Eb2', 'F2', 'G2', 'Gb2']),
+        displayName: '低音区音频'
+      }
+    };
+    
+    // SPN到分包的快速查找映射（初始化时构建）
+    this.spnToSubpackage = new Map();
     
     // ===== 音频映射配置 =====
     // 用户自定义的音频映射表（数字谱/简谱 -> SPN）
@@ -65,6 +101,7 @@ class SheetPlaybackManager {
     
     // 特殊音符的默认SPN映射
     // d/T/K 特殊处理：按优先级查找对应音频文件
+    // 【优化】D 按照简谱的 "6," 处理，以便移调时能正确分配音频
     this.specialNoteMappings = {
       's': 'SLAP',      // 闷音
       'd': 'd',         // d音
@@ -73,7 +110,8 @@ class SheetPlaybackManager {
       'P': 'P',         // P音
       'x': 'x',         // x音
       'F': 'x',         // F音，映射到x
-      '·': 'x'          // 中圆点，映射到x
+      '·': 'x',         // 中圆点，映射到x
+      'D': 'D_DYNAMIC'  // D音，动态计算（按6,处理）
     };
     
     // 特殊音符的音量调整
@@ -81,7 +119,18 @@ class SheetPlaybackManager {
       '·': 1,
       'x': 1,
       'P': 1.5,
-      'F': 1
+      'F': 1,
+      'D': 1
+    };
+    
+    // 【优化】SPN等音名映射（用于音频文件匹配）
+    // 升号 = 降号 等价对应
+    this.enharmonicEquivalents = {
+      'C#': 'Db', 'Db': 'C#',
+      'D#': 'Eb', 'Eb': 'D#',
+      'F#': 'Gb', 'Gb': 'F#',
+      'G#': 'Ab', 'Ab': 'G#',
+      'A#': 'Bb', 'Bb': 'A#'
     };
     
     // 节拍器预备拍音频
@@ -95,6 +144,7 @@ class SheetPlaybackManager {
     this.onColumnHighlight = null; // (columnInfo) => void
     this.onPageChange = null; // (pageIndex, preloadNext) => void
     this.onPlaybackEnd = null; // () => void
+    this.onPlaybackStart = null; // () => void - 播放真正开始时触发
     this.onLoadingStateChange = null; // (isLoading, message) => void
     this.onCountdownTick = null; // (secondsLeft) => void
     this.onMetronomeBeat = null; // (beatIndex, isAccent) => void
@@ -121,6 +171,10 @@ class SheetPlaybackManager {
       minDuration: 20,      // 最小时长 20ms
       maxDuration: 50       // 最大时长 50ms
     };
+    
+    // 【重要】在构造函数中立即构建 SPN 到分包的映射
+    // 确保在任何方法调用前映射已就绪
+    this._buildSpnToSubpackageMapping();
   }
 
   /**
@@ -149,6 +203,9 @@ class SheetPlaybackManager {
       this.masterGain.connect(this.compressor);
       this.compressor.connect(this.audioContext.destination);
       
+      // 构建SPN到分包的快速查找映射
+      this._buildSpnToSubpackageMapping();
+      
       this.isInitialized = true;
       console.log('[SheetPlaybackManager] Web Audio 初始化成功（含动态压缩器）');
       return true;
@@ -158,9 +215,131 @@ class SheetPlaybackManager {
       return false;
     }
   }
+  
+  /**
+   * 构建SPN到分包的快速查找映射
+   * @private
+   */
+  _buildSpnToSubpackageMapping() {
+    this.spnToSubpackage.clear();
+    for (const [subpackageName, config] of Object.entries(this.subpackageAudioMappings)) {
+      for (const note of config.notes) {
+        this.spnToSubpackage.set(note, subpackageName);
+      }
+    }
+    console.log('[SheetPlaybackManager] SPN分包映射已构建，共', this.spnToSubpackage.size, '个音符');
+    console.log('[SheetPlaybackManager] 扩展分包音符列表:', Array.from(this.spnToSubpackage.keys()));
+  }
+  
+  /**
+   * 【优化】获取SPN的等音名（如 C#3 -> Db3）
+   * @param {string} spn - SPN音符名（如 C#3, Db3）
+   * @returns {string|null} 等音名，如果没有等音名则返回null
+   */
+  getEnharmonicEquivalent(spn) {
+    if (!spn) return null;
+    
+    // 解析SPN：音名 + 八度
+    const match = spn.match(/^([A-G][#b]?)(\d)$/);
+    if (!match) return null;
+    
+    const [, noteName, octave] = match;
+    const equivalent = this.enharmonicEquivalents[noteName];
+    
+    if (equivalent) {
+      return equivalent + octave;
+    }
+    return null;
+  }
+  
+  /**
+   * 【优化】检查SPN音频是否可用（包括等音名检查）
+   * @param {string} spn - SPN音符名
+   * @returns {{available: boolean, actualSpn: string}} 是否可用及实际可用的SPN
+   */
+  checkSpnAudioAvailable(spn) {
+    if (!spn) return { available: false, actualSpn: '' };
+    
+    // 首先检查原始SPN
+    if (this.mainPackageAudioFiles.has(spn)) {
+      return { available: true, actualSpn: spn };
+    }
+    if (this.spnToSubpackage.has(spn)) {
+      return { available: true, actualSpn: spn };
+    }
+    
+    // 检查等音名
+    const equivalent = this.getEnharmonicEquivalent(spn);
+    if (equivalent) {
+      if (this.mainPackageAudioFiles.has(equivalent)) {
+        return { available: true, actualSpn: equivalent };
+      }
+      if (this.spnToSubpackage.has(equivalent)) {
+        return { available: true, actualSpn: equivalent };
+      }
+    }
+    
+    return { available: false, actualSpn: spn };
+  }
+  
+  /**
+   * 【优化】计算特殊音符"D"的动态SPN
+   * D音在数字谱中记为D，但应按简谱的"6,"（低音6）处理
+   * @returns {string} D音的SPN
+   */
+  calculateDynamicDSpn() {
+    // 解析首调（如F3）
+    const rootNote = this.conversionRootNote || 'F3';
+    const rootMatch = rootNote.match(/^([A-G][#b]?)(\d)$/);
+    if (!rootMatch) return 'D3'; // 默认返回D3
+    
+    const rootPitch = rootMatch[1];
+    const rootOctave = parseInt(rootMatch[2]);
+    
+    // 简谱到半音偏移的映射（以1为基准）
+    const simplifiedToSemitone = {
+      '1': 0, '2': 2, '3': 4, '4': 5, '5': 7, '6': 9, '7': 11
+    };
+    
+    // SPN音符到半音的映射
+    const noteToSemitone = {
+      'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
+      'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8,
+      'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+    };
+    
+    // 半音到SPN音符的映射（优先使用降号）
+    const semitoneToNote = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    
+    // 6, = 低音6 = 6 - 12半音
+    const baseOffset = simplifiedToSemitone['6']; // 9
+    const octaveShift = -1; // 低一个八度
+    
+    // 计算首调的半音位置
+    const rootSemitone = noteToSemitone[rootPitch];
+    if (rootSemitone === undefined) return 'D3';
+    
+    // 计算目标半音
+    let targetSemitone = rootSemitone + baseOffset;
+    let targetOctave = rootOctave + octaveShift;
+    
+    // 处理跨八度
+    while (targetSemitone >= 12) {
+      targetSemitone -= 12;
+      targetOctave++;
+    }
+    while (targetSemitone < 0) {
+      targetSemitone += 12;
+      targetOctave--;
+    }
+    
+    const targetNote = semitoneToNote[targetSemitone];
+    return targetNote + targetOctave;
+  }
 
   /**
    * 加载可用的音频文件列表（首次打开时缓存）
+   * 【重要】同时维护 mainPackageAudioFiles（只含主分包）和 availableAudioFiles（含已加载的次分包）
    * @returns {Promise<Set<string>>} 可用的音频文件名集合
    */
   async loadAvailableAudioFiles() {
@@ -177,11 +356,13 @@ class SheetPlaybackManager {
             // 提取.mp3文件名（不含扩展名）
             res.files.forEach(file => {
               if (file.endsWith('.mp3')) {
-                this.availableAudioFiles.add(file.replace('.mp3', ''));
+                const fileName = file.replace('.mp3', '');
+                this.availableAudioFiles.add(fileName);
+                this.mainPackageAudioFiles.add(fileName); // 【修复】同时添加到主分包列表
               }
             });
             this.audioFilesLoaded = true;
-            console.log('[SheetPlaybackManager] 可用音频文件:', Array.from(this.availableAudioFiles));
+            console.log('[SheetPlaybackManager] 主分包可用音频文件:', Array.from(this.mainPackageAudioFiles));
             resolve(this.availableAudioFiles);
           },
           fail: (err) => {
@@ -193,7 +374,10 @@ class SheetPlaybackManager {
               'G3', 'G4', 'G5', 'SLAP',
               'd', 'T', 'K', 'P', 'x'  // 特殊音符音频
             ];
-            presetFiles.forEach(f => this.availableAudioFiles.add(f));
+            presetFiles.forEach(f => {
+              this.availableAudioFiles.add(f);
+              this.mainPackageAudioFiles.add(f); // 【修复】同时添加到主分包列表
+            });
             this.audioFilesLoaded = true;
             resolve(this.availableAudioFiles);
           }
@@ -207,11 +391,545 @@ class SheetPlaybackManager {
           'G3', 'G4', 'G5', 'SLAP',
           'd', 'T', 'K', 'P', 'x'  // 特殊音符音频
         ];
-        presetFiles.forEach(f => this.availableAudioFiles.add(f));
+        presetFiles.forEach(f => {
+          this.availableAudioFiles.add(f);
+          this.mainPackageAudioFiles.add(f); // 【修复】同时添加到主分包列表
+        });
         this.audioFilesLoaded = true;
         resolve(this.availableAudioFiles);
       }
     });
+  }
+  
+  /**
+   * 检查需要哪些额外的音频分包
+   * 【重要】使用 mainPackageAudioFiles 判断是否在主分包中，避免被已加载的次分包音符污染
+   * 【优化】支持等音名检查（如 C#3 和 Db3 视为等价）
+   * @param {Set<string>} requiredNotes - 需要的音符集合（SPN格式）
+   * @returns {{subpackages: Set<string>, missingNotes: Set<string>}} 需要的分包和缺失的音符
+   */
+  checkRequiredSubpackages(requiredNotes) {
+    const requiredSubpackages = new Set();
+    const missingNotes = new Set();
+    
+    console.log('[checkRequiredSubpackages] 开始检查，所需音符:', Array.from(requiredNotes));
+    console.log('[checkRequiredSubpackages] 主分包音频文件:', Array.from(this.mainPackageAudioFiles));
+    console.log('[checkRequiredSubpackages] 已加载的次分包:', Array.from(this.loadedAudioSubpackages));
+    
+    for (const note of requiredNotes) {
+      // 跳过特殊音符（它们在主分包中）
+      if (this.specialNoteMappings[note]) {
+        console.log(`[checkRequiredSubpackages] ${note}: 特殊音符，跳过`);
+        continue;
+      }
+      
+      // 【优化】使用 checkSpnAudioAvailable 检查音频可用性（包括等音名）
+      const checkResult = this.checkSpnAudioAvailable(note);
+      
+      if (checkResult.available) {
+        // 检查是在主分包还是次分包
+        if (this.mainPackageAudioFiles.has(checkResult.actualSpn)) {
+          console.log(`[checkRequiredSubpackages] ${note}: 在主分包中 (实际: ${checkResult.actualSpn})`);
+          continue;
+        }
+        
+        // 在次分包中
+        const subpackage = this.spnToSubpackage.get(checkResult.actualSpn);
+        if (subpackage) {
+          console.log(`[checkRequiredSubpackages] ${note}: 在扩展分包 ${subpackage} 中 (实际: ${checkResult.actualSpn})`);
+          requiredSubpackages.add(subpackage);
+          missingNotes.add(note);
+        }
+      } else {
+        // 也检查等音名在次分包中
+        const equivalent = this.getEnharmonicEquivalent(note);
+        const subpackage = this.spnToSubpackage.get(note) || (equivalent ? this.spnToSubpackage.get(equivalent) : null);
+        if (subpackage) {
+          console.log(`[checkRequiredSubpackages] ${note}: 在扩展分包 ${subpackage} 中`);
+          requiredSubpackages.add(subpackage);
+          missingNotes.add(note);
+        } else {
+          console.log(`[checkRequiredSubpackages] ${note}: 未找到对应分包，可能是无效的SPN`);
+        }
+      }
+    }
+    
+    console.log('[checkRequiredSubpackages] 检查完成，需要的分包:', Array.from(requiredSubpackages));
+    console.log('[checkRequiredSubpackages] 缺失的音符:', Array.from(missingNotes));
+    
+    return { subpackages: requiredSubpackages, missingNotes };
+  }
+  
+  /**
+   * 标记分包为已加载，并将其音符加入可用列表
+   * @param {string} subpackageName - 分包名称
+   */
+  markSubpackageAsLoaded(subpackageName) {
+    if (this.loadedAudioSubpackages.has(subpackageName)) {
+      return;
+    }
+    
+    this.loadedAudioSubpackages.add(subpackageName);
+    
+    // 将该分包的音符加入可用音频文件列表
+    const config = this.subpackageAudioMappings[subpackageName];
+    if (config && config.notes) {
+      config.notes.forEach(note => {
+        this.availableAudioFiles.add(note);
+      });
+      console.log(`[SheetPlaybackManager] 分包 ${subpackageName} 已标记为可用，添加 ${config.notes.size} 个音符`);
+    }
+    
+    // 清理加载Promise
+    this._subpackageLoadingPromises.delete(subpackageName);
+  }
+  
+  /**
+   * 通过导航到分包页面来触发分包下载
+   * 这是微信小程序中加载分包的正确方式
+   * 【优化】添加10秒超时检测和失败处理
+   * @param {string} subpackageName - 分包名称
+   * @returns {Promise<boolean>} 是否加载成功
+   */
+  async loadSubpackageViaNavigation(subpackageName) {
+    // 检查是否已加载
+    if (this.loadedAudioSubpackages.has(subpackageName)) {
+      console.log(`[SheetPlaybackManager] 分包 ${subpackageName} 已加载`);
+      return true;
+    }
+    
+    // 检查是否正在加载中（防止重复导航）
+    if (this._subpackageLoadingPromises.has(subpackageName)) {
+      console.log(`[SheetPlaybackManager] 分包 ${subpackageName} 正在加载中，等待...`);
+      return this._subpackageLoadingPromises.get(subpackageName);
+    }
+    
+    const config = this.subpackageAudioMappings[subpackageName];
+    if (!config || !config.pagePath) {
+      console.error(`[SheetPlaybackManager] 未找到分包配置: ${subpackageName}`);
+      return false;
+    }
+    
+    console.log(`[SheetPlaybackManager] 通过导航加载分包: ${subpackageName}`);
+    
+    // 【优化】创建带超时的加载Promise
+    const LOAD_TIMEOUT = 10000; // 10秒超时
+    let resolved = false;
+    let checkInterval = null;
+    let timeoutTimer = null;
+    
+    const loadPromise = new Promise((resolve) => {
+      // 【优化】定时检查加载状态（每500ms检查一次）
+      const checkLoadStatus = () => {
+        if (resolved) return;
+        
+        const app = getApp();
+        if (app && app.globalData && app.globalData.loadedAudioSubpackages) {
+          if (app.globalData.loadedAudioSubpackages.has(subpackageName)) {
+            console.log(`[SheetPlaybackManager] 检测到分包 ${subpackageName} 已加载成功`);
+            resolved = true;
+            clearInterval(checkInterval);
+            clearTimeout(timeoutTimer);
+            this.markSubpackageAsLoaded(subpackageName);
+            this._subpackageLoadingPromises.delete(subpackageName);
+            
+            // 【优化】立即触发页面返回
+            wx.navigateBack({ delta: 1, fail: () => {} });
+            resolve(true);
+            return true;
+          }
+        }
+        return false;
+      };
+      
+      // 【优化】设置超时处理
+      timeoutTimer = setTimeout(() => {
+        if (resolved) return;
+        
+        clearInterval(checkInterval);
+        resolved = true;
+        this._subpackageLoadingPromises.delete(subpackageName);
+        
+        // 记录加载失败的分包
+        this._failedSubpackages = this._failedSubpackages || new Set();
+        this._failedSubpackages.add(subpackageName);
+        
+        console.error(`[SheetPlaybackManager] 分包 ${subpackageName} 加载超时（${LOAD_TIMEOUT/1000}秒），标记为失败`);
+        console.warn(`[SheetPlaybackManager] ${config.displayName}加载失败，相关音符将暂时无音频`);
+        
+        // 尝试返回上一页
+        wx.navigateBack({ delta: 1, fail: () => {} });
+        resolve(false);
+      }, LOAD_TIMEOUT);
+      
+      wx.navigateTo({
+        url: config.pagePath,
+        events: {
+          // 监听分包页面发送的加载完成事件
+          subpackageLoaded: (data) => {
+            if (resolved) return;
+            
+            console.log(`[SheetPlaybackManager] 收到分包加载完成事件:`, data);
+            if (data.subpackageName === subpackageName && data.success) {
+              resolved = true;
+              clearInterval(checkInterval);
+              clearTimeout(timeoutTimer);
+              this.markSubpackageAsLoaded(subpackageName);
+              this._subpackageLoadingPromises.delete(subpackageName);
+              resolve(true);
+            }
+          }
+        },
+        success: () => {
+          console.log(`[SheetPlaybackManager] 导航到分包页面成功: ${config.pagePath}`);
+          // 【优化】启动定时检查
+          checkInterval = setInterval(checkLoadStatus, 500);
+          // 立即检查一次
+          checkLoadStatus();
+        },
+        fail: (err) => {
+          if (resolved) return;
+          
+          console.error(`[SheetPlaybackManager] 导航到分包页面失败:`, err);
+          resolved = true;
+          clearTimeout(timeoutTimer);
+          this._subpackageLoadingPromises.delete(subpackageName);
+          resolve(false);
+        }
+      });
+    });
+    
+    this._subpackageLoadingPromises.set(subpackageName, loadPromise);
+    return loadPromise;
+  }
+  
+  /**
+   * 检查分包是否加载失败
+   * @param {string} subpackageName - 分包名称
+   * @returns {boolean} 是否加载失败
+   */
+  isSubpackageFailed(subpackageName) {
+    return this._failedSubpackages && this._failedSubpackages.has(subpackageName);
+  }
+  
+  /**
+   * 批量加载所需的音频分包（通过导航）
+   * 【优化】顺序加载多个分包，每个分包加载完成后等待页面返回再加载下一个
+   * @param {Set<string>} subpackageNames - 需要加载的分包名称集合
+   * @returns {Promise<{success: number, failed: number, failedPackages: Array}>}
+   */
+  async loadRequiredSubpackagesViaNavigation(subpackageNames) {
+    if (!subpackageNames || subpackageNames.size === 0) {
+      return { success: 0, failed: 0, failedPackages: [] };
+    }
+    
+    let success = 0;
+    let failed = 0;
+    const failedPackages = [];
+    const packageList = Array.from(subpackageNames);
+    
+    console.log(`[SheetPlaybackManager] 开始批量加载 ${packageList.length} 个分包:`, packageList);
+    
+    // 顺序加载分包（因为导航是互斥的）
+    for (let i = 0; i < packageList.length; i++) {
+      const name = packageList[i];
+      console.log(`[SheetPlaybackManager] 加载分包 ${i + 1}/${packageList.length}: ${name}`);
+      
+      const result = await this.loadSubpackageViaNavigation(name);
+      
+      if (result) {
+        success++;
+        console.log(`[SheetPlaybackManager] 分包 ${name} 加载成功`);
+      } else {
+        failed++;
+        failedPackages.push(name);
+        console.warn(`[SheetPlaybackManager] 分包 ${name} 加载失败`);
+      }
+      
+      // 【优化】如果还有更多分包要加载，等待一段时间确保页面已返回
+      if (i < packageList.length - 1) {
+        console.log(`[SheetPlaybackManager] 等待页面返回后加载下一个分包...`);
+        await this._waitForPageReturn();
+      }
+    }
+    
+    console.log(`[SheetPlaybackManager] 批量加载完成: ${success}成功, ${failed}失败`);
+    
+    if (failedPackages.length > 0) {
+      console.warn(`[SheetPlaybackManager] 加载失败的分包: ${failedPackages.join(', ')}`);
+    }
+    
+    return { success, failed, failedPackages };
+  }
+  
+  /**
+   * 等待页面返回（用于多分包顺序加载）
+   * @returns {Promise<void>}
+   */
+  async _waitForPageReturn() {
+    return new Promise((resolve) => {
+      // 等待页面栈恢复到notation页面
+      const checkPages = () => {
+        const pages = getCurrentPages();
+        const currentPage = pages[pages.length - 1];
+        if (currentPage && currentPage.route && currentPage.route.includes('notation')) {
+          resolve();
+        } else {
+          setTimeout(checkPages, 100);
+        }
+      };
+      
+      // 延迟开始检查，给页面返回一些时间
+      setTimeout(checkPages, 300);
+      
+      // 最多等待2秒
+      setTimeout(resolve, 2000);
+    });
+  }
+  
+  /**
+   * 检查分包是否已加载（包括检查全局状态）
+   * @param {string} subpackageName - 分包名称
+   * @returns {boolean}
+   */
+  isSubpackageLoaded(subpackageName) {
+    if (this.loadedAudioSubpackages.has(subpackageName)) {
+      return true;
+    }
+    
+    // 检查全局状态（可能是分包页面设置的）
+    const app = getApp();
+    if (app && app.globalData && app.globalData.loadedAudioSubpackages) {
+      if (app.globalData.loadedAudioSubpackages.has(subpackageName)) {
+        this.markSubpackageAsLoaded(subpackageName);
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
+   * 尝试从扩展分包加载音频文件
+   * 微信小程序通过 preloadRule 自动下载分包，直接尝试访问文件即可
+   * @param {string} spn - SPN格式的音符名
+   * @returns {Promise<boolean>} 是否成功加载
+   */
+  async tryLoadFromSubpackage(spn) {
+    const subpackage = this.spnToSubpackage.get(spn);
+    if (!subpackage) {
+      return false;
+    }
+    
+    const config = this.subpackageAudioMappings[subpackage];
+    if (!config) {
+      return false;
+    }
+    
+    const url = `${config.path}${spn}.mp3`;
+    console.log(`[SheetPlaybackManager] 尝试从分包 ${subpackage} 加载音频: ${url}`);
+    
+    const loaded = await this._loadAndDecodeAudio(spn, url);
+    if (loaded) {
+      // 加载成功，标记分包为已加载
+      this.markSubpackageAsLoaded(subpackage);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * 预加载扩展分包中的音符
+   * 在用户修改音频映射设置时调用
+   * @param {Set<string>|Array<string>} notes - 需要预加载的音符集合
+   * @returns {Promise<{loaded: number, failed: number}>}
+   */
+  async preloadExtendedAudio(notes) {
+    const noteSet = notes instanceof Set ? notes : new Set(notes);
+    let loaded = 0;
+    let failed = 0;
+    
+    const loadPromises = [];
+    
+    for (const note of noteSet) {
+      // 跳过已加载的音符
+      if (this.audioBuffers.has(note)) {
+        loaded++;
+        continue;
+      }
+      
+      // 跳过主分包中的音符（它们会通过正常流程加载）
+      if (this.availableAudioFiles.has(note)) {
+        continue;
+      }
+      
+      // 检查是否在扩展分包中
+      const subpackage = this.spnToSubpackage.get(note);
+      if (subpackage) {
+        loadPromises.push(
+          this.tryLoadFromSubpackage(note).then(result => {
+            if (result) loaded++;
+            else failed++;
+            return result;
+          })
+        );
+      }
+    }
+    
+    await Promise.all(loadPromises);
+    console.log(`[SheetPlaybackManager] 扩展音频预加载完成: ${loaded}成功, ${failed}失败`);
+    return { loaded, failed };
+  }
+  
+  /**
+   * 获取音符对应的音频文件路径
+   * @param {string} spn - SPN格式的音符名
+   * @returns {string} 音频文件路径
+   */
+  getAudioPath(spn) {
+    // 检查是否在扩展分包中
+    const subpackage = this.spnToSubpackage.get(spn);
+    if (subpackage) {
+      const config = this.subpackageAudioMappings[subpackage];
+      if (config) {
+        return `${config.path}${spn}.mp3`;
+      }
+    }
+    
+    // 默认使用主分包路径
+    return `${this.audioBasePath}${spn}.mp3`;
+  }
+  
+  /**
+   * 当用户在音频映射弹窗中修改设置后调用
+   * 重新分析所需音频并预加载
+   * @param {Array} mappings - 当前的音频映射表
+   * @param {string} rootNote - 当前的首调设置
+   * @returns {Promise<{needsAdditionalAudio: boolean, missingNotes: Array}>}
+   */
+  async onAudioMappingChanged(mappings, rootNote, options = {}) {
+    console.log('[SheetPlaybackManager] 音频映射设置已更改，重新检查所需音频');
+    
+    // 确保主分包的音频文件列表已加载
+    await this.loadAvailableAudioFiles();
+    
+    // 更新设置
+    if (rootNote) {
+      this.setConversionRootNote(rootNote);
+    }
+    if (mappings) {
+      this.setCustomAudioMappings(mappings);
+    }
+    
+    // 收集所有需要的 SPN 音符
+    const requiredSpnNotes = new Set();
+    
+    if (mappings && Array.isArray(mappings)) {
+      for (const mapping of mappings) {
+        if (mapping.spn && !this.specialNoteMappings[mapping.spn]) {
+          requiredSpnNotes.add(mapping.spn);
+        }
+      }
+    }
+    
+    console.log('[SheetPlaybackManager] 所需SPN音符:', Array.from(requiredSpnNotes));
+    
+    // 检查哪些音符需要从扩展分包加载
+    const { subpackages, missingNotes } = this.checkRequiredSubpackages(requiredSpnNotes);
+    
+    console.log('[SheetPlaybackManager] 检测到需要分包:', Array.from(subpackages));
+    console.log('[SheetPlaybackManager] 缺失的音符:', Array.from(missingNotes));
+    
+    // 过滤出真正需要加载的分包
+    const subpackagesToLoad = new Set();
+    for (const pkg of subpackages) {
+      if (!this.isSubpackageLoaded(pkg)) {
+        subpackagesToLoad.add(pkg);
+      }
+    }
+    
+    if (subpackagesToLoad.size > 0) {
+      console.log('[SheetPlaybackManager] 需要加载的分包:', Array.from(subpackagesToLoad));
+      
+      // 如果不跳过导航，则通过导航加载分包
+      if (!options.skipNavigation) {
+        await this.loadRequiredSubpackagesViaNavigation(subpackagesToLoad);
+      }
+    }
+    
+    // 预加载这些音符
+    if (missingNotes.size > 0) {
+      console.log('[SheetPlaybackManager] 需要从扩展分包加载的音符:', Array.from(missingNotes));
+      await this.preloadExtendedAudio(missingNotes);
+    }
+    
+    // 检查最终还有哪些音符无法加载
+    const stillMissing = [];
+    for (const note of requiredSpnNotes) {
+      if (!this.audioBuffers.has(note) && !this.availableAudioFiles.has(note) && !this.spnToSubpackage.has(note)) {
+        stillMissing.push(note);
+      }
+    }
+    
+    return {
+      needsAdditionalAudio: missingNotes.size > 0,
+      subpackagesToLoad: Array.from(subpackagesToLoad),
+      loadedFromSubpackages: Array.from(subpackages),
+      missingNotes: stillMissing
+    };
+  }
+  
+  /**
+   * 检查音频映射是否需要加载分包（不触发导航）
+   * 用于在UI上显示提示
+   * 注意：这是异步方法，需要等待 availableAudioFiles 加载完成
+   * @param {Array} mappings - 映射数组
+   * @returns {Promise<{needsSubpackages: boolean, subpackages: Array, notes: Array}>}
+   */
+  async checkMappingRequiresSubpackages(mappings) {
+    // 确保主分包的音频文件列表已加载
+    await this.loadAvailableAudioFiles();
+    
+    const requiredSpnNotes = new Set();
+    
+    if (mappings && Array.isArray(mappings)) {
+      for (const mapping of mappings) {
+        if (mapping.spn && !this.specialNoteMappings[mapping.spn]) {
+          requiredSpnNotes.add(mapping.spn);
+        }
+      }
+    }
+    
+    console.log('[SheetPlaybackManager] 检查映射所需音符:', Array.from(requiredSpnNotes));
+    console.log('[SheetPlaybackManager] 主分包音频文件:', Array.from(this.mainPackageAudioFiles));
+    console.log('[SheetPlaybackManager] 已加载的分包:', Array.from(this.loadedAudioSubpackages));
+    console.log('[SheetPlaybackManager] SPN分包映射数量:', this.spnToSubpackage.size);
+    
+    const { subpackages, missingNotes } = this.checkRequiredSubpackages(requiredSpnNotes);
+    
+    console.log('[SheetPlaybackManager] 需要的分包:', Array.from(subpackages));
+    console.log('[SheetPlaybackManager] 来自次分包的音符:', Array.from(missingNotes));
+    
+    // 过滤出真正需要加载的分包（排除已加载的）
+    const subpackagesToLoad = [];
+    for (const pkg of subpackages) {
+      const isLoaded = this.isSubpackageLoaded(pkg);
+      console.log(`[SheetPlaybackManager] 分包 ${pkg} 是否已加载: ${isLoaded}`);
+      if (!isLoaded) {
+        const config = this.subpackageAudioMappings[pkg];
+        subpackagesToLoad.push({
+          name: pkg,
+          displayName: config?.displayName || pkg
+        });
+      }
+    }
+    
+    return {
+      needsSubpackages: subpackagesToLoad.length > 0,
+      subpackages: subpackagesToLoad,
+      notes: Array.from(missingNotes)
+    };
   }
 
   /**
@@ -363,18 +1081,20 @@ class SheetPlaybackManager {
       // 使用首调计算正确的 SPN
       const spn = this.calculateSpnFromSimplified(mainNote);
       
-      if (spn && this.availableAudioFiles.has(spn)) {
+      // 检查是否在主分包或扩展分包中可用
+      if (spn && (this.availableAudioFiles.has(spn) || this.spnToSubpackage.has(spn))) {
         return { spn, volume: 1.0 };
       }
       
-      // 如果计算出的 SPN 不在可用音频中，尝试寻找最接近的音频
+      // 如果计算出的 SPN 不在任何分包中，打印警告
       if (spn) {
         console.warn(`[SheetPlaybackManager] 音频文件不存在: ${spn}，音符: ${mainNote}`);
       }
     }
     
     // 如果音符本身就是SPN格式（如 A3, D4）
-    if (this.availableAudioFiles.has(mainNote)) {
+    // 检查主分包和扩展分包
+    if (this.availableAudioFiles.has(mainNote) || this.spnToSubpackage.has(mainNote)) {
       return { spn: mainNote, volume: 1.0 };
     }
     
@@ -471,12 +1191,13 @@ class SheetPlaybackManager {
 
   /**
    * 加载指定音符的音频文件（带重试机制）
+   * 优先从主分包加载，如果音符不在主分包中，则按需加载扩展分包
    * @param {Set|Array} notes - 需要加载的音符（SPN格式）
    * @param {string} notationType - 谱式类型
    * @param {number} maxRetries - 最大重试次数
    * @returns {Promise<{success: boolean, loaded: number, failed: number}>}
    */
-  async loadSounds(notes, notationType = 'digital', maxRetries = 3) {
+  async loadSounds(notes, notationType = 'digital', maxRetries = 3, options = {}) {
     if (!this.isInitialized) {
       const initResult = await this.init();
       if (!initResult) return { success: false, loaded: 0, failed: notes.size || notes.length };
@@ -487,7 +1208,43 @@ class SheetPlaybackManager {
     // 确保已加载可用音频文件列表
     await this.loadAvailableAudioFiles();
     
-    const noteArray = Array.from(notes);
+    const noteSet = notes instanceof Set ? notes : new Set(notes);
+    
+    // 检查是否需要从扩展分包加载
+    const { subpackages, missingNotes } = this.checkRequiredSubpackages(noteSet);
+    
+    // 过滤出真正需要加载的分包（排除已加载的）
+    const subpackagesToLoad = new Set();
+    for (const pkg of subpackages) {
+      if (!this.isSubpackageLoaded(pkg)) {
+        subpackagesToLoad.add(pkg);
+      }
+    }
+    
+    if (missingNotes.size > 0) {
+      console.log('[SheetPlaybackManager] 需要从扩展分包加载的音符:', Array.from(missingNotes));
+      console.log('[SheetPlaybackManager] 涉及的分包:', Array.from(subpackages));
+      
+      // 如果有未加载的分包，通过导航触发下载
+      if (subpackagesToLoad.size > 0 && !options.skipSubpackageNavigation) {
+        console.log('[SheetPlaybackManager] 需要通过导航加载的分包:', Array.from(subpackagesToLoad));
+        
+        // 通知调用者需要加载分包
+        if (this.onLoadingStateChange) {
+          const pkgNames = Array.from(subpackagesToLoad).map(pkg => 
+            this.subpackageAudioMappings[pkg]?.displayName || pkg
+          ).join(', ');
+          this.onLoadingStateChange(true, `正在加载${pkgNames}...`);
+        }
+        
+        // 通过导航加载分包
+        await this.loadRequiredSubpackagesViaNavigation(subpackagesToLoad);
+      }
+    } else {
+      console.log('[SheetPlaybackManager] 所有音符均在主分包中');
+    }
+    
+    const noteArray = Array.from(noteSet);
     let loaded = 0;
     let failed = 0;
     
@@ -500,12 +1257,21 @@ class SheetPlaybackManager {
     // 加载所需音符
     noteArray.forEach(spn => {
       if (!this.audioBuffers.has(spn)) {
-        const url = `${this.audioBasePath}${spn}.mp3`;
+        // 使用正确的路径（根据分包）
+        const url = this.getAudioPath(spn);
         loadPromises.push(
           this._loadAndDecodeAudioWithRetry(spn, url, maxRetries)
             .then(result => {
-              if (result) loaded++;
-              else failed++;
+              if (result) {
+                loaded++;
+                // 如果加载成功且是扩展分包中的音符，标记分包为已加载
+                const subpackage = this.spnToSubpackage.get(spn);
+                if (subpackage) {
+                  this.markSubpackageAsLoaded(subpackage);
+                }
+              } else {
+                failed++;
+              }
               return result;
             })
         );
@@ -933,6 +1699,11 @@ class SheetPlaybackManager {
     this.playbackStartTime = this.audioContext.currentTime - this.playbackOffset;
     this.lastMetronomeBeat = -1;
     
+    // 【Bug修复】触发播放开始回调，通知UI层播放已真正开始
+    if (this.onPlaybackStart) {
+      this.onPlaybackStart();
+    }
+    
     // 启动 RAF 循环
     this._startRAFLoop();
   }
@@ -1128,26 +1899,62 @@ class SheetPlaybackManager {
 
   /**
    * 试听单个音频（用于音频映射弹窗）
+   * 支持从扩展分包加载音频
    * @param {string} spn - SPN格式的音符名
    * @param {number} volume - 音量 0-1
    * @returns {Promise<boolean>} 是否成功播放
    */
-  async previewSound(spn, volume = 0.7) {
+  async previewSound(spn, volume = 0.7, options = {}) {
     if (!this.isInitialized) {
       await this.init();
     }
     
+    // 确保已加载可用音频文件列表
+    await this.loadAvailableAudioFiles();
+    
     // 确保音频已加载
     if (!this.audioBuffers.has(spn)) {
-      const url = `${this.audioBasePath}${spn}.mp3`;
+      // 检查是否需要先加载分包
+      const subpackage = this.spnToSubpackage.get(spn);
+      if (subpackage && !this.isSubpackageLoaded(subpackage)) {
+        console.log(`[SheetPlaybackManager] 试听需要加载分包: ${subpackage}`);
+        
+        // 如果允许导航加载分包
+        if (!options.skipNavigation) {
+          const loadResult = await this.loadSubpackageViaNavigation(subpackage);
+          if (!loadResult) {
+            console.warn(`[SheetPlaybackManager] 分包 ${subpackage} 加载失败，无法试听 ${spn}`);
+            return { success: false, needsSubpackage: true, subpackage };
+          }
+        } else {
+          // 返回需要加载分包的信息
+          return { 
+            success: false, 
+            needsSubpackage: true, 
+            subpackage,
+            displayName: this.subpackageAudioMappings[subpackage]?.displayName || subpackage
+          };
+        }
+      }
+      
+      // 获取正确的音频路径（会自动判断是主分包还是扩展分包）
+      const url = this.getAudioPath(spn);
+      console.log(`[SheetPlaybackManager] 试听加载音频: ${spn} -> ${url}`);
+      
       const loaded = await this._loadAndDecodeAudioWithRetry(spn, url, 2);
-      if (!loaded) {
-        return false;
+      if (loaded) {
+        // 如果是扩展分包中的音符，标记分包为已加载
+        if (subpackage) {
+          this.markSubpackageAsLoaded(subpackage);
+        }
+      } else {
+        console.warn(`[SheetPlaybackManager] 音频加载失败: ${spn}`);
+        return { success: false, error: 'load_failed' };
       }
     }
     
     this._playSound(spn, volume);
-    return true;
+    return { success: true };
   }
 
   /**
@@ -1407,20 +2214,71 @@ class SheetPlaybackManager {
   }
 
   /**
-   * 检查指定SPN音频是否可用
+   * 检查指定SPN音频是否可用（已加载或可从分包加载）
+   * @param {string} spn - SPN格式的音符名
+   * @param {boolean} checkExtendedOnly - 是否只检查已加载的分包
+   * @returns {boolean}
+   */
+  isAudioAvailable(spn, checkExtendedOnly = false) {
+    // 检查是否在已加载的音频文件中
+    if (this.availableAudioFiles.has(spn)) {
+      return true;
+    }
+    
+    // 如果只检查已加载的分包，则返回false
+    if (checkExtendedOnly) {
+      return false;
+    }
+    
+    // 检查是否可以从扩展分包中加载
+    return this.spnToSubpackage.has(spn);
+  }
+  
+  /**
+   * 检查指定SPN音频是否存在于任何分包中（包括未加载的）
    * @param {string} spn - SPN格式的音符名
    * @returns {boolean}
    */
-  isAudioAvailable(spn) {
-    return this.availableAudioFiles.has(spn);
+  canLoadAudio(spn) {
+    // 检查是否在主分包的可用文件中
+    if (this.availableAudioFiles.has(spn)) {
+      return true;
+    }
+    
+    // 检查是否在扩展分包映射中
+    return this.spnToSubpackage.has(spn);
   }
 
   /**
-   * 获取可用的音频文件列表
+   * 获取可用的音频文件列表（已加载的分包中的音频）
    * @returns {Set<string>}
    */
   getAvailableAudioFiles() {
     return this.availableAudioFiles;
+  }
+  
+  /**
+   * 获取所有可加载的音频文件列表（包括未加载分包中的）
+   * @returns {Set<string>}
+   */
+  getAllLoadableAudioFiles() {
+    const allFiles = new Set(this.availableAudioFiles);
+    
+    // 添加所有扩展分包中的音符
+    for (const config of Object.values(this.subpackageAudioMappings)) {
+      config.notes.forEach(note => allFiles.add(note));
+    }
+    
+    return allFiles;
+  }
+  
+  /**
+   * 获取音符所在的分包名称
+   * @param {string} spn - SPN格式的音符名
+   * @returns {string|null} 分包名称或null（如果在主分包中）
+   */
+  getAudioSubpackage(spn) {
+    return this.spnToSubpackage.get(spn) || null;
   }
 
   /**
@@ -1454,6 +2312,12 @@ class SheetPlaybackManager {
     this.compressor = null;
     this.isInitialized = false;
     this.timeline = [];
+    
+    // 重置分包加载状态（保留主分包标记）
+    this.loadedAudioSubpackages = new Set(['audio']);
+    this._subpackageLoadingPromises.clear();
+    this.availableAudioFiles.clear();
+    this.audioFilesLoaded = false;
     
     console.log('[SheetPlaybackManager] 资源已释放');
   }

@@ -73,20 +73,24 @@ function migrateNotations(notations) {
     const newNotation = { ...notation };
     newNotation.measures = (notation.measures || []).map(measure => {
       const beats = (measure.beats || []).map(beat => {
+        let out;
         if (!beat.subdivisions) {
           const rh = ensureArray2(beat.rightHand);
           const lh = ensureArray2(beat.leftHand);
-          return {
-            subdivisions: [{ rightHand: rh, leftHand: lh }]
-          };
+          out = { subdivisions: [{ rightHand: rh, leftHand: lh }] };
+        } else {
+          const subs = (beat.subdivisions || []).map(sub => ({
+            rightHand: ensureArray2(sub.rightHand),
+            leftHand: ensureArray2(sub.leftHand)
+          }));
+          out = { subdivisions: subs };
         }
-        const subs = (beat.subdivisions || []).map(sub => ({
-          rightHand: ensureArray2(sub.rightHand),
-          leftHand: ensureArray2(sub.leftHand)
-        }));
-        return { subdivisions: subs };
+        if (beat.isPlaceholder === true) out.isPlaceholder = true;
+        return out;
       });
-      return { beats };
+      const measureOut = { beats };
+      if (measure.lastRealBeatIndex !== undefined) measureOut.lastRealBeatIndex = measure.lastRealBeatIndex;
+      return measureOut;
     });
     
     if (newNotation.collapsed === undefined) {

@@ -41,6 +41,27 @@
       "pages": [
         "placeholder/index"
       ]
+    },
+    {
+      "root": "subpackages/audio2",
+      "name": "audio2",
+      "pages": [
+        "placeholder/index"
+      ]
+    },
+    {
+      "root": "subpackages/audio3",
+      "name": "audio3",
+      "pages": [
+        "placeholder/index"
+      ]
+    },
+    {
+      "root": "subpackages/audio4",
+      "name": "audio4",
+      "pages": [
+        "placeholder/index"
+      ]
     }
   ],
   "preloadRule": {

@@ -879,6 +879,177 @@ class OptimizedNotationStorage {
   }
 }
 
+/**
+ * 播放模式 Canvas 缓存管理器
+ * 缓存播放模式下每个 module 的 Canvas 渲染结果和源代码哈希
+ * 支持增量更新：只重绘内容变化的 module
+ */
+class PlaybackCanvasCacheManager {
+  // 内存缓存（当前文件的渲染结果）
+  static currentFileId = null;
+  static moduleCache = new Map(); // moduleId -> { hash, imagePath, timestamp }
+  
+  // 缓存配置
+  static MAX_CACHED_MODULES = 50;
+  static CACHE_PREFIX = 'playback_canvas_';
+  
+  /**
+   * 生成 module 内容的哈希值
+   * 基于 measures 数据、样式配置等生成唯一标识
+   * @param {Object} notation - module 数据
+   * @param {string} orientation - 屏幕方向
+   * @param {number} measuresPerRow - 每行小节数
+   * @returns {string} 哈希值
+   */
+  static generateModuleHash(notation, orientation, measuresPerRow) {
+    if (!notation) return '';
+    
+    try {
+      // 提取影响渲染结果的关键数据
+      const hashSource = {
+        id: notation.id,
+        label: notation.label,
+        measures: notation.measures ? JSON.stringify(notation.measures) : '',
+        style: notation.style || {},
+        orientation,
+        measuresPerRow: notation.measuresPerRow || measuresPerRow
+      };
+      
+      // 简单哈希算法（适用于小程序环境）
+      const str = JSON.stringify(hashSource);
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return hash.toString(16);
+    } catch (e) {
+      console.warn('[PlaybackCanvasCacheManager] 生成哈希失败:', e);
+      return Date.now().toString(16); // 失败时返回时间戳作为唯一标识
+    }
+  }
+  
+  /**
+   * 设置当前文件ID，切换文件时清除旧缓存
+   * @param {string} fileId - 文件标识
+   */
+  static setCurrentFile(fileId) {
+    if (this.currentFileId !== fileId) {
+      console.log(`[PlaybackCanvasCacheManager] 切换文件: ${this.currentFileId} -> ${fileId}`);
+      this.clearMemoryCache();
+      this.currentFileId = fileId;
+    }
+  }
+  
+  /**
+   * 检查 module 是否有可用的缓存
+   * @param {string} moduleId - module ID
+   * @param {string} currentHash - 当前内容哈希
+   * @returns {Object|null} 缓存信息 { imagePath } 或 null
+   */
+  static getCachedModule(moduleId, currentHash) {
+    const cached = this.moduleCache.get(moduleId);
+    if (cached && cached.hash === currentHash && cached.imagePath) {
+      console.log(`[PlaybackCanvasCacheManager] 命中缓存: ${moduleId}`);
+      return { imagePath: cached.imagePath };
+    }
+    return null;
+  }
+  
+  /**
+   * 缓存 module 的渲染结果
+   * @param {string} moduleId - module ID
+   * @param {string} hash - 内容哈希
+   * @param {string} imagePath - 渲染后的图片路径
+   */
+  static cacheModule(moduleId, hash, imagePath) {
+    // 检查缓存数量限制
+    if (this.moduleCache.size >= this.MAX_CACHED_MODULES) {
+      // 删除最旧的缓存
+      const oldestKey = this.moduleCache.keys().next().value;
+      if (oldestKey) {
+        this.moduleCache.delete(oldestKey);
+      }
+    }
+    
+    this.moduleCache.set(moduleId, {
+      hash,
+      imagePath,
+      timestamp: Date.now()
+    });
+    
+    console.log(`[PlaybackCanvasCacheManager] 缓存 module: ${moduleId}, hash: ${hash.substring(0, 8)}...`);
+  }
+  
+  /**
+   * 批量检查哪些 module 需要重新渲染
+   * @param {Array} notations - module 数组
+   * @param {string} orientation - 屏幕方向
+   * @param {number} measuresPerRow - 每行小节数
+   * @returns {Object} { toRender: [], fromCache: [] } 需要渲染的和可以复用缓存的 module
+   */
+  static analyzeModules(notations, orientation, measuresPerRow) {
+    const toRender = [];
+    const fromCache = [];
+    
+    notations.forEach((notation, index) => {
+      const hash = this.generateModuleHash(notation, orientation, measuresPerRow);
+      const cached = this.getCachedModule(notation.id, hash);
+      
+      if (cached) {
+        fromCache.push({
+          index,
+          moduleId: notation.id,
+          imagePath: cached.imagePath,
+          hash
+        });
+      } else {
+        toRender.push({
+          index,
+          moduleId: notation.id,
+          hash
+        });
+      }
+    });
+    
+    console.log(`[PlaybackCanvasCacheManager] 分析结果: ${fromCache.length} 个可复用缓存, ${toRender.length} 个需要渲染`);
+    
+    return { toRender, fromCache };
+  }
+  
+  /**
+   * 清除内存缓存
+   */
+  static clearMemoryCache() {
+    console.log(`[PlaybackCanvasCacheManager] 清除内存缓存: ${this.moduleCache.size} 个 module`);
+    this.moduleCache.clear();
+  }
+  
+  /**
+   * 清除指定 module 的缓存
+   * @param {string} moduleId - module ID
+   */
+  static invalidateModule(moduleId) {
+    if (this.moduleCache.has(moduleId)) {
+      this.moduleCache.delete(moduleId);
+      console.log(`[PlaybackCanvasCacheManager] 失效缓存: ${moduleId}`);
+    }
+  }
+  
+  /**
+   * 获取缓存统计信息
+   * @returns {Object} 统计信息
+   */
+  static getStats() {
+    return {
+      currentFileId: this.currentFileId,
+      cachedModules: this.moduleCache.size,
+      maxModules: this.MAX_CACHED_MODULES
+    };
+  }
+}
+
 // 创建单例
 const optimizedStorage = new OptimizedNotationStorage();
 
@@ -887,6 +1058,7 @@ module.exports = {
   AsyncStorage,
   ShardedStorage,
   LayoutCacheManager,
+  PlaybackCanvasCacheManager,
   WorkerManager,
   workerManager,
   OptimizedNotationStorage,

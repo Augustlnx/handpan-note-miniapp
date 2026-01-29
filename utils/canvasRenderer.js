@@ -233,10 +233,11 @@ class CanvasNotationRenderer {
   
   /**
    * 【Bug修复】获取小节线宽度（紧凑模式使用更细的线条）
+   * 小节线粗细只由"宽松"/"紧凑"模式（orientation）决定，而不是由每行小节数量决定
    */
   getBarLineWidth() {
-    const isMultiMeasure = this.measuresPerRow > 1;
-    return isMultiMeasure ? LINE_SETTINGS.barLineWidthMulti : LINE_SETTINGS.barLineWidth;
+    const isCompactMode = this.orientation === 'landscape';
+    return isCompactMode ? LINE_SETTINGS.barLineWidthMulti : LINE_SETTINGS.barLineWidth;
   }
   
   /**
@@ -812,11 +813,13 @@ class CanvasNotationRenderer {
       
       // 绘制上八度点
       if (parsed.octaveUp > 0) {
+        // 使用 octaveDotOffsetUp 参数控制距离（负数表示向上偏移，远离音符）
+        const octaveUpStartY = centerY - fontSize / 2 - dotSize / 2 + this.rpx2px(OCTAVE_SETTINGS.octaveDotOffsetUp);
         for (let i = 0; i < parsed.octaveUp; i++) {
           ctx.beginPath();
           ctx.arc(
             currentX + baseNoteWidth / 2,
-            centerY - fontSize / 2 - dotSize / 2 - i * (dotSize + OCTAVE_SETTINGS.octaveDotGap),
+            octaveUpStartY - i * (dotSize + OCTAVE_SETTINGS.octaveDotGap),
             dotSize / 2,
             0, Math.PI * 2
           );
@@ -854,8 +857,9 @@ class CanvasNotationRenderer {
           // 起始位置 = 下划线底部 + 间距 + 圆点半径
           octaveDownStartY = underlineY + underlineThickness + underlineDotGap + dotSize / 2;
         } else {
-          // 仅有低八度点时，使用原有位置
-          octaveDownStartY = centerY + fontSize / 2 + dotSize / 2 + OCTAVE_SETTINGS.octaveDotGap;
+          // 仅有低八度点时，紧贴音符底部（与上八度点对称）
+          // 使用 octaveDotOffsetDown 参数控制距离（负数表示更靠近音符）
+          octaveDownStartY = centerY + fontSize / 2 + dotSize / 2 + this.rpx2px(OCTAVE_SETTINGS.octaveDotOffsetDown);
         }
         
         for (let i = 0; i < parsed.octaveDown; i++) {

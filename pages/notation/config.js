@@ -177,13 +177,13 @@ const OCTAVE_SETTINGS = {
   
   // 八度点之间的间距 (rpx) - 多个八度点时的垂直间距
   // 对应 CSS .octave-dots-up/.octave-dots-down { gap: 2rpx }
-  octaveDotGap: 2,
+  octaveDotGap: 1,
   
   // 八度点距离音符的偏移距离 (rpx)
   // 上方点容器 margin-bottom: -7rpx (紧贴音符)
   // 下方点容器 margin-top: -2rpx (紧贴音符)
-  octaveDotOffsetUp: -7,
-  octaveDotOffsetDown: -2,
+  octaveDotOffsetUp: 0,
+  octaveDotOffsetDown: -1,
   
   // ==================== 上标八度点参数 ====================
   

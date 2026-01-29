@@ -6,6 +6,7 @@ const { CanvasNotationRenderer } = require('../../utils/canvasRenderer.js');
 const { 
   AsyncStorage, 
   LayoutCacheManager, 
+  PlaybackCanvasCacheManager,
   optimizedStorage, 
   workerManager 
 } = require('../../utils/storageOptimizer.js');
@@ -187,9 +188,10 @@ Page({
     hasEmptyConversionMapping: false, // 是否有空的映射
     // 新版默认转换表（数字谱 -> [简谱, SPN]）
     // 注：手碟约定俗成，9对应5'(C5)而非4'(Bb4)
+    // 【优化】D音按简谱的"6,"（低音6）动态计算SPN，以便移调时正确分配音频
     defaultConversionTable: {
       // 基础音组 (Ding & 底层音)
-      'D': ['D', 'D3'],      
+      'D': ['6,', 'D_DYNAMIC'],  // D音按6,（低音6）动态计算，SPN根据首调变化
       '0': ['0', ''], 
       'd': ['d', ''],        // d/T/K 特殊处理，SPN在运行时动态判断
       '1': ['3', 'A3'],    
@@ -312,6 +314,7 @@ Page({
     // 开屏弹窗相关
     showSplashModal: false,
     isTablet: false, // 是否为平板设备
+    splashPrivacyExpanded: false, // 隐私权限说明是否展开
 
     // 页面加载状态（用于从 splash 过渡的淡入动画）
     pageReady: false,
@@ -479,6 +482,11 @@ Page({
     saveAudioMappingToScore: false, // 是否将音频映射保存到曲谱
     savedAudioMappings: null, // 曲谱保存的音频映射（从文件数据加载）
     audioMappingNewNotesHint: '', // 新音符类型提示
+    // 分包加载状态（用于从分包加载页面返回后恢复状态）
+    _pendingSubpackageReturn: false, // 是否正在等待分包加载返回
+    _pendingAudioMappings: null, // 待恢复的音频映射数据
+    _pendingRootNote: null, // 待恢复的首调设置
+    _pendingModalWasOpen: false, // 分包加载前音频映射弹窗是否打开
     // 新建/编辑音频映射转换表相关
     showNewAudioMappingTableModal: false, // 显示新建转换表弹窗
     newAudioMappingTableName: '', // 新建转换表的名称
@@ -890,6 +898,145 @@ Page({
       wx.hideLoading();
       this.updateStorageDisplay(false); // 更新存储显示
     }
+    
+    // 【修复】从分包加载页面返回后，恢复音频映射弹窗或进入播放模式
+    if (this.data._pendingSubpackageReturn) {
+      console.log('[Notation] 从分包加载页面返回');
+      
+      const pendingMappings = this.data._pendingAudioMappings;
+      const pendingRootNote = this.data._pendingRootNote;
+      const wasAudioMappingModalOpen = this.data._pendingModalWasOpen;
+      
+      // 重置标记
+      this.setData({ 
+        _pendingSubpackageReturn: false,
+        _pendingAudioMappings: null,
+        _pendingRootNote: null,
+        _pendingModalWasOpen: false
+      });
+      
+      // 【Bug修复】确保从分包加载返回时关闭加载提示，添加超时保护
+      if (this.data.showPlaybackLoading) {
+        // 立即关闭加载提示（分包加载已完成）
+        this.setData({ showPlaybackLoading: false });
+      }
+      // 清除任何遗留的加载超时计时器
+      if (this._loadingTimeoutTimer) {
+        clearTimeout(this._loadingTimeoutTimer);
+        this._loadingTimeoutTimer = null;
+      }
+      
+      // 延迟处理，确保页面完全显示
+      setTimeout(async () => {
+        // 刷新Canvas内容（防止丢失）
+        this.refreshAllVisibleCanvas();
+        
+        // 如果之前音频映射弹窗是打开的，恢复弹窗
+        if (wasAudioMappingModalOpen && pendingMappings) {
+          this.setData({
+            showAudioMappingModal: true,
+            audioMappings: pendingMappings
+          });
+          
+          // 重新检查并更新音频可用状态
+          this.updateAudioMappingsAvailability();
+        } else if (pendingMappings) {
+          // 如果有待处理的映射但弹窗没开，说明是从直接播放流程来的
+          // 应用映射并进入播放模式
+          try {
+            const playbackMgr = await getSheetPlaybackManager();
+            if (pendingRootNote) {
+              playbackMgr.setConversionRootNote(pendingRootNote);
+            }
+            playbackMgr.setCustomAudioMappings(pendingMappings);
+            this.enterPlaybackMode();
+          } catch (e) {
+            console.error('[Notation] 进入播放模式失败:', e);
+            this.openAudioMappingModal();
+          }
+        } else {
+          // 没有待处理数据，打开音频映射弹窗
+          this.openAudioMappingModal();
+        }
+      }, 300);
+    } else {
+      // 【修复】普通返回页面时，也刷新Canvas防止内容丢失
+      // 使用较短延迟，避免每次返回都看到空白
+      setTimeout(() => {
+        this.refreshAllVisibleCanvas();
+      }, 100);
+    }
+  },
+  
+  /**
+   * 刷新所有可见的Canvas渲染器
+   * 用于从其他页面返回时恢复Canvas内容
+   */
+  refreshAllVisibleCanvas() {
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    const { notations, currentPageModules } = this.data;
+    if (!notations || notations.length === 0) return;
+    
+    // 获取当前可见的modules
+    const visibleModules = currentPageModules || notations.map((n, i) => ({ id: n.id, index: i }));
+    
+    console.log('[Canvas] 刷新可见Canvas，模块数量:', visibleModules.length);
+    
+    visibleModules.forEach(({ id, index }) => {
+      const notation = notations[index];
+      if (!notation) return;
+      
+      // 只处理非折叠状态的module（展开状态的module有Canvas）
+      if (!notation.collapsed) {
+        const renderer = this._canvasRenderers[id];
+        if (renderer) {
+          // 渲染器存在，重新绘制
+          try {
+            renderer.render();
+            console.log('[Canvas] 重新绘制Canvas:', id);
+          } catch (e) {
+            console.warn('[Canvas] 重新绘制失败，重新初始化:', id, e);
+            this.initCanvasRendererForModuleWithRetry(id, index, 3);
+          }
+        } else {
+          // 渲染器不存在，初始化
+          this.initCanvasRendererForModuleWithRetry(id, index, 3);
+        }
+      } else if (notation.collapsed && !notation.tempImagePath) {
+        // 折叠状态但没有缓存图片，重新生成
+        this.initCanvasRendererForModuleWithRetry(id, index, 3);
+      }
+    });
+  },
+  
+  /**
+   * 更新音频映射的可用状态
+   * 在分包加载完成后调用
+   */
+  async updateAudioMappingsAvailability() {
+    const mappings = this.data.audioMappings;
+    if (!mappings || mappings.length === 0) return;
+    
+    try {
+      const playbackMgr = await getSheetPlaybackManager();
+      
+      // 更新每个映射的音频可用状态
+      const updatedMappings = mappings.map(m => {
+        const hasAudio = m.spn && (
+          playbackMgr.availableAudioFiles.has(m.spn) || 
+          playbackMgr.spnToSubpackage.has(m.spn)
+        );
+        return { ...m, hasAudio };
+      });
+      
+      this.setData({ audioMappings: updatedMappings });
+      console.log('[Notation] 音频映射可用状态已更新');
+    } catch (e) {
+      console.error('[Notation] 更新音频映射可用状态失败:', e);
+    }
   },
 
   // 【优化】底部导航栏切换时自动关闭选中模式
@@ -908,6 +1055,11 @@ Page({
     if (this.data.isPlaybackMode) {
       this.exitPlaybackMode();
     }
+    
+    // 【优化】切换文件时清除播放模式 Canvas 缓存
+    // 使用文件ID作为标识，切换文件时自动清除旧缓存
+    const newFileId = payload.id || payload.file_name || Date.now().toString();
+    PlaybackCanvasCacheManager.setCurrentFile(newFileId);
     
     // 重置播放器缓存的音频，确保切换文件后不会残留前一个文件的播放状态
     if (sheetPlaybackManager) {
@@ -959,6 +1111,18 @@ Page({
     const beats = parseInt(beatsStr, 10) || 4;
     const bottom = parseInt(bottomStr, 10) || 4;
 
+    // 【Bug修复】加载保存的首调设置，如果没有则根据rootNote计算默认值
+    let savedConversionRootNote = payload.conversionRootNote;
+    if (!savedConversionRootNote) {
+      // 没有保存的值，根据rootNote计算默认值
+      const rootNote = payload.rootNote || 'D';
+      let spnRoot = rootNote;
+      if (rootNote === 'D') {
+        spnRoot = 'F';
+      }
+      savedConversionRootNote = spnRoot + '3';
+    }
+    
     this.setData({
       mainTitle: payload.title || payload.file_name || '未命名',
       subTitle: payload.subtitle || 'Author: Unknown',
@@ -983,6 +1147,8 @@ Page({
       noteCount: payload.noteCount || 10,
       difficulty: payload.difficulty || 1,
       introduction: payload.introduction || '',
+      // 【Bug修复】加载保存的首调设置
+      conversionRootNote: savedConversionRootNote,
       // 加载保存的音频映射（如果有）
       savedAudioMappings: payload.savedAudioMappings || null,
       saveAudioMappingToScore: !!payload.savedAudioMappings // 如果有保存的映射，默认勾选
@@ -1050,6 +1216,12 @@ Page({
       Object.keys(this._canvasRenderers).forEach(id => {
         this.destroyCanvasRenderer(id);
       });
+    }
+    
+    // 【Bug修复】清理加载超时计时器
+    if (this._loadingTimeoutTimer) {
+      clearTimeout(this._loadingTimeoutTimer);
+      this._loadingTimeoutTimer = null;
     }
     
     // 【优化】页面卸载时刷新所有待保存数据
@@ -1601,26 +1773,32 @@ Page({
       newNotation.measures = (notation.measures || []).map(measure => {
         const beats = (measure.beats || []).map(beat => {
           // 旧结构可能是 {rightHand: 'x', leftHand: 'y'} 或已是 {subdivisions: [...]}
+          let out;
           if (!beat.subdivisions) {
             // 将缺省的拍转换为单个 subdivision，保留原左右手值
             const rh = ensureArray2(beat.rightHand);
             const lh = ensureArray2(beat.leftHand);
-            return {
+            out = {
               subdivisions: [
                 { rightHand: rh, leftHand: lh }
               ]
             };
+          } else {
+            // 已有 subdivisions，则逐个规范化，不补齐数量
+            const subs = (beat.subdivisions || []).map(sub => ({
+              rightHand: ensureArray2(sub.rightHand),
+              leftHand: ensureArray2(sub.leftHand)
+            }));
+            out = { subdivisions: subs };
           }
-
-          // 已有 subdivisions，则逐个规范化，不补齐数量
-          const subs = (beat.subdivisions || []).map(sub => ({
-            rightHand: ensureArray2(sub.rightHand),
-            leftHand: ensureArray2(sub.leftHand)
-          }));
-
-          return { subdivisions: subs };
+          // 【修复】保留占位拍标记，确保重新进入/刷新后尾行占位拍绘制正确
+          if (beat.isPlaceholder === true) out.isPlaceholder = true;
+          return out;
         });
-        return { beats };
+        const measureOut = { beats };
+        // 【修复】保留 lastRealBeatIndex（占位拍右侧小节线位置），确保重新进入/刷新后绘制正确
+        if (measure.lastRealBeatIndex !== undefined) measureOut.lastRealBeatIndex = measure.lastRealBeatIndex;
+        return measureOut;
       });
       // 不再强制截断/补足固定小节数，保留导入的实际行数
       // 确保有 collapsed 属性（旧数据可能没有）
@@ -4941,6 +5119,7 @@ Page({
    * 将Canvas转换为静态图片
    * 解决Canvas层级最高和跟随延迟的问题
    * 修复：使用路径更新避免多module并行转换时的竞争条件
+   * 【优化】播放模式下将渲染结果缓存到 PlaybackCanvasCacheManager
    */
   async convertCanvasToImage(notationId, notationIndex) {
     const renderer = this._canvasRenderers[notationId];
@@ -4963,6 +5142,12 @@ Page({
       
       this.setData(updateData);
       console.log('[Canvas] 已转换为图片:', notationId, 'index:', notationIndex);
+      
+      // 【优化】在播放模式下缓存渲染结果
+      if (this.data.isPlaybackMode && this._moduleHashes && this._moduleHashes[notationId]) {
+        const hash = this._moduleHashes[notationId];
+        PlaybackCanvasCacheManager.cacheModule(notationId, hash, tempImagePath);
+      }
     } catch (err) {
       console.error('[Canvas] 转图片失败:', err);
     }
@@ -6575,6 +6760,7 @@ Page({
         noteCount: this.data.noteCount,
         difficulty: this.data.difficulty,
         introduction: this.data.introduction,
+        conversionRootNote: this.data.conversionRootNote || 'F3', // 【Bug修复】保存首调设置
         code
       };
 
@@ -6630,6 +6816,7 @@ Page({
         noteCount: this.data.noteCount,
         difficulty: this.data.difficulty,
         introduction: this.data.introduction,
+        conversionRootNote: this.data.conversionRootNote || 'F3', // 【Bug修复】保存首调设置
         code
       };
 
@@ -9573,8 +9760,15 @@ Page({
   
   /**
    * 初始化首调设置（从曲谱rootNote读取）
+   * 【Bug修复】如果已有保存的首调设置则保留，不覆盖
    */
   initConversionRootNote() {
+    // 如果已经有首调设置且不是默认值，则保留不覆盖
+    if (this.data.conversionRootNote && this.data.conversionRootNote !== 'F3') {
+      console.log('[Notation] 保留已有首调设置:', this.data.conversionRootNote);
+      return this.data.conversionRootNote;
+    }
+    
     const rootNote = this.data.rootNote || 'D';
     // D小调等价于F调
     let spnRoot = rootNote;
@@ -10036,21 +10230,37 @@ Page({
   /**
    * 重新计算所有SPN值（谱式转换和音频映射弹窗共用同一首调）
    */
-  recalculateAllSPN() {
+  async recalculateAllSPN() {
     // 重新计算谱式转换弹窗的SPN
     const conversionMappings = this.data.conversionMappings.map(m => {
       const newSpn = this.simplifiedToSPN(m.simplified);
       return { ...m, spn: newSpn };
     });
     
+    // 获取播放管理器以检查音频可用性
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    
     // 重新计算音频映射弹窗的SPN（如果已加载）
-    const availableAudio = new Set(this.data.availableAudioFiles);
+    // 【修复】使用播放管理器的等音名检查方法
     const audioMappings = this.data.audioMappings.map(m => {
       const newSpn = this.calculateSpnFromSimplified(m.simplified);
+      let hasAudio = false;
+      let actualSpn = newSpn;
+      if (newSpn && playbackMgr) {
+        const checkResult = playbackMgr.checkSpnAudioAvailable(newSpn);
+        hasAudio = checkResult.available;
+        actualSpn = checkResult.actualSpn;
+      }
       return { 
         ...m, 
         spn: newSpn,
-        hasAudio: newSpn ? availableAudio.has(newSpn) : false
+        hasAudio: hasAudio,
+        actualSpn: actualSpn
       };
     });
     
@@ -10058,6 +10268,53 @@ Page({
       conversionMappings: conversionMappings,
       audioMappings: audioMappings
     });
+    
+    // 【修复】检查是否需要加载额外的音频分包
+    if (this.data.showAudioMappingModal && audioMappings.length > 0) {
+      await this.checkAndLoadSubpackagesForMappings(audioMappings);
+    }
+  },
+  
+  /**
+   * 检查并加载音频映射所需的分包
+   * @param {Array} mappings - 音频映射数组
+   */
+  async checkAndLoadSubpackagesForMappings(mappings) {
+    try {
+      const playbackMgr = await getSheetPlaybackManager();
+      const checkResult = await playbackMgr.checkMappingRequiresSubpackages(mappings);
+      
+      console.log('[Notation] 分包检查结果:', checkResult);
+      
+      if (checkResult.needsSubpackages && checkResult.subpackages.length > 0) {
+        // 需要加载分包
+        const subpackageNames = checkResult.subpackages.map(s => s.displayName).join('、');
+        
+        wx.showModal({
+          title: '需要加载音频',
+          content: `当前映射需要加载${subpackageNames}，是否立即加载？`,
+          confirmText: '加载',
+          cancelText: '稍后',
+          success: async (res) => {
+            if (res.confirm) {
+              // 保存当前状态，准备导航加载
+              this.setData({
+                _pendingSubpackageReturn: true,
+                _pendingAudioMappings: this.data.audioMappings,
+                _pendingRootNote: this.data.conversionRootNote,
+                _pendingModalWasOpen: this.data.showAudioMappingModal
+              });
+              
+              // 触发分包加载
+              const subpackagesToLoad = new Set(checkResult.subpackages.map(s => s.name));
+              await playbackMgr.loadRequiredSubpackagesViaNavigation(subpackagesToLoad);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.error('[Notation] 检查分包需求失败:', e);
+    }
   },
   
   /**
@@ -10076,14 +10333,26 @@ Page({
    * 重新计算新建音频映射表的SPN值
    * @param {string} rootNote - 新的首调设置
    */
-  recalculateNewAudioTableSPN(rootNote) {
-    const availableAudio = new Set(this.data.availableAudioFiles);
+  async recalculateNewAudioTableSPN(rootNote) {
+    // 【修复】获取播放管理器以检查音频可用性
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    
     const updatedData = this.data.newAudioMappingTableData.map(item => {
       const newSpn = this.calculateSpnFromSimplifiedWithRoot(item.simplified, rootNote);
+      let hasAudio = false;
+      if (newSpn && playbackMgr) {
+        hasAudio = playbackMgr.mainPackageAudioFiles.has(newSpn) || 
+                  playbackMgr.spnToSubpackage.has(newSpn);
+      }
       return { 
         ...item, 
         spn: newSpn,
-        hasAudio: newSpn ? availableAudio.has(newSpn) : false
+        hasAudio: hasAudio
       };
     });
     this.setData({ newAudioMappingTableData: updatedData });
@@ -11407,7 +11676,7 @@ Page({
     if (!dismissed) {
       // 检测是否为平板设备
       const isTablet = this.checkIsTablet();
-      this.setData({ showSplashModal: true, isTablet });
+      this.setData({ showSplashModal: true, isTablet, splashPrivacyExpanded: false });
     }
   },
 
@@ -11426,6 +11695,11 @@ Page({
       console.error('检测设备类型失败:', e);
       return false;
     }
+  },
+
+  // 开屏弹窗：隐私权限说明展开/收起
+  onSplashPrivacyToggle() {
+    this.setData({ splashPrivacyExpanded: !this.data.splashPrivacyExpanded });
   },
 
   // 开屏弹窗：不再显示
@@ -15556,8 +15830,16 @@ Page({
   
   /**
    * 检查保存的映射并决定是否跳过弹窗
+   * 【修复】如果 saveAudioMappingToScore 为 false，则始终显示弹窗
    */
   async checkAndStartPlayback() {
+    // 【修复】如果用户选择不保存映射（即每次都显示弹窗），直接打开弹窗
+    if (!this.data.saveAudioMappingToScore) {
+      console.log('[Playback] saveAudioMappingToScore 为 false，显示音频映射弹窗');
+      this.openAudioMappingModal();
+      return;
+    }
+    
     // 获取保存的映射（从当前曲谱文件数据中）
     const savedMappings = this.data.savedAudioMappings;
     
@@ -15589,6 +15871,23 @@ Page({
           // 同步首调设置
           playbackMgr.setConversionRootNote(this.data.conversionRootNote);
           playbackMgr.setCustomAudioMappings(savedMappings);
+          
+          // 【修复】检查是否需要加载分包
+          const checkResult = await playbackMgr.checkMappingRequiresSubpackages(savedMappings);
+          if (checkResult.needsSubpackages && checkResult.subpackages.length > 0) {
+            // 需要加载分包，保存状态后导航
+            this.setData({
+              _pendingSubpackageReturn: true,
+              _pendingAudioMappings: savedMappings,
+              _pendingRootNote: this.data.conversionRootNote
+            });
+            
+            const subpackagesToLoad = new Set(checkResult.subpackages.map(s => s.name));
+            await playbackMgr.loadRequiredSubpackagesViaNavigation(subpackagesToLoad);
+            // 加载完成后会在 onShow 中继续
+            return;
+          }
+          
           this.enterPlaybackMode();
         } catch (e) {
           console.error('[Playback] 应用保存的映射失败:', e);
@@ -15636,6 +15935,32 @@ Page({
   },
 
   /**
+   * 【优化】检查数字谱中是否包含音高修饰符（' 或 ,）
+   * 如果包含，说明用户可能需要切换到简谱模式
+   * @returns {{hasPitchModifiers: boolean, modifiedNotes: Array}} 检测结果
+   */
+  checkDigitalNotationForPitchModifiers() {
+    const usedNotes = this.analyzeUsedNotes();
+    const modifiedNotes = [];
+    
+    for (const note of usedNotes) {
+      // 检查是否包含高八度标记 ' 或低八度标记 ,
+      if (note.includes("'") || note.includes(',')) {
+        // 确认是数字音符带修饰符（如 1', 2,, 等）
+        const baseNote = note.replace(/['`,_]/g, '');
+        if (/^[1-7]$/.test(baseNote)) {
+          modifiedNotes.push(note);
+        }
+      }
+    }
+    
+    return {
+      hasPitchModifiers: modifiedNotes.length > 0,
+      modifiedNotes: modifiedNotes
+    };
+  },
+  
+  /**
    * 打开音频映射弹窗
    * 加载可用音频文件列表，并根据当前谱式初始化映射表
    * @param {boolean} fromSettings - 是否从播放器设置打开（用于恢复保存状态）
@@ -15645,9 +15970,45 @@ Page({
     wx.showLoading({ title: '加载音频...' });
     
     try {
-      // 加载可用音频文件列表（首次打开时缓存）
+      // 【优化】如果当前是数字谱，检查是否包含音高修饰符
+      if (this.data.notationType === 'digital') {
+        const checkResult = this.checkDigitalNotationForPitchModifiers();
+        if (checkResult.hasPitchModifiers) {
+          wx.hideLoading();
+          
+          // 提示用户可能需要切换谱式
+          const result = await new Promise((resolve) => {
+            wx.showModal({
+              title: '检测到音高标记',
+              content: `当前为"数字谱"模式，但谱面中包含音高标记（如 ${checkResult.modifiedNotes.slice(0, 3).join(', ')}${checkResult.modifiedNotes.length > 3 ? ' 等' : ''}）。\n\n是否切换到"简谱"模式以正确解析这些音符？`,
+              confirmText: '切换谱式',
+              cancelText: '继续',
+              success: (res) => resolve(res)
+            });
+          });
+          
+          if (result.confirm) {
+            // 用户选择切换谱式，打开谱式转换弹窗
+            this.openNotationTypeModal();
+            return;
+          }
+          
+          // 用户选择继续，重新显示加载状态
+          wx.showLoading({ title: '加载音频...' });
+        }
+      }
+      
+      // 获取播放管理器
+      const playbackMgr = await getSheetPlaybackManager();
+      
+      // 【修复】确保播放管理器的音频文件列表已加载
+      // 这会填充 mainPackageAudioFiles 和 availableAudioFiles
+      await playbackMgr.loadAvailableAudioFiles();
+      
+      // 加载可用音频文件列表（首次打开时缓存到本地）
       if (!this.data.audioMappingsLoaded) {
-        const audioFiles = await this.loadAvailableAudioFiles();
+        // 使用播放管理器的主分包文件列表
+        const audioFiles = new Set(playbackMgr.mainPackageAudioFiles);
         this.setData({ 
           availableAudioFiles: Array.from(audioFiles),
           audioMappingsLoaded: true
@@ -15664,15 +16025,32 @@ Page({
         mappings = mappings.map(m => {
           const saved = savedMap.get(m.key);
           if (saved && saved.spn) {
+            // 【修复】使用播放管理器的等音名检查方法
+            const checkResult = playbackMgr.checkSpnAudioAvailable(saved.spn);
             return {
               ...m,
               spn: saved.spn,
-              hasAudio: this.data.availableAudioFiles.includes(saved.spn)
+              hasAudio: checkResult.available,
+              actualSpn: checkResult.actualSpn
             };
           }
           return m;
         });
       }
+      
+      // 【修复】重新检查所有映射的音频可用性（包括等音名检查）
+      mappings = mappings.map(m => {
+        if (m.spn) {
+          // 使用播放管理器的等音名检查方法
+          const checkResult = playbackMgr.checkSpnAudioAvailable(m.spn);
+          return { 
+            ...m, 
+            hasAudio: checkResult.available,
+            actualSpn: checkResult.actualSpn // 实际使用的SPN（可能是等音名）
+          };
+        }
+        return m;
+      });
       
       // 如果从设置打开，保持之前的保存状态；否则重置
       const updateData = {
@@ -15689,6 +16067,9 @@ Page({
       
       // 后台预加载音频资源（利用弹窗打开的时间）
       this.preloadAudioInBackground(mappings);
+      
+      // 【修复】检查是否需要加载分包并提示用户
+      await this.checkAndLoadSubpackagesForMappings(mappings);
       
     } catch (e) {
       console.error('[Notation] 打开音频映射弹窗失败:', e);
@@ -15733,6 +16114,7 @@ Page({
     const specialNotes = new Set(['s', 'H', 'B', 'O', 'M']);
     
     // 特殊音符处理函数
+    // 【优化】D音按简谱的"6,"（低音6）动态计算SPN
     const getSpecialNoteSpn = (note) => {
       if (note === 'd') {
         return availableAudio.has('d') ? 'd' : (availableAudio.has('T') ? 'T' : (availableAudio.has('K') ? 'K' : 'D3'));
@@ -15749,7 +16131,8 @@ Page({
       } else if (note === '·') {
         return availableAudio.has('x') ? 'x' : 'D3';
       } else if (note === 'D') {
-        return 'D3';
+        // 【优化】D音按简谱"6,"动态计算，以便移调时正确分配音频
+        return this.calculateSpnFromSimplified('6,');
       }
       return '';
     };
@@ -15846,6 +16229,11 @@ Page({
         
         // 计算实际SPN（基于当前首调设置）
         let spn = defaultSpn || '';
+        
+        // 【优化】处理D_DYNAMIC标记，动态计算D音的SPN
+        if (spn === 'D_DYNAMIC') {
+          spn = this.calculateSpnFromSimplified('6,'); // D音按6,（低音6）计算
+        }
         
         // 处理特殊音符的默认映射
         if (!spn || spn === '') {
@@ -16024,26 +16412,93 @@ Page({
   /**
    * 音频映射原生输入处理
    */
-  onAudioMappingNativeInput(e) {
+  async onAudioMappingNativeInput(e) {
     const { index, field } = e.currentTarget.dataset;
     const value = e.detail.value;
     
     const mappings = [...this.data.audioMappings];
     mappings[index][field] = value;
     
+    // 获取播放管理器检查音频可用性
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    
     // 如果修改了simplified，自动更新SPN（基于首调计算）
     if (field === 'simplified') {
       const newSpn = this.calculateSpnFromSimplified(value);
       mappings[index].spn = newSpn;
-      mappings[index].hasAudio = newSpn ? this.data.availableAudioFiles.includes(newSpn) : false;
+      // 【优化】使用等音名检查方法
+      if (playbackMgr && newSpn) {
+        const checkResult = playbackMgr.checkSpnAudioAvailable(newSpn);
+        mappings[index].hasAudio = checkResult.available;
+        mappings[index].actualSpn = checkResult.actualSpn;
+      } else {
+        mappings[index].hasAudio = false;
+      }
     }
     
     // 如果手动修改了SPN，更新hasAudio状态
     if (field === 'spn') {
-      mappings[index].hasAudio = value ? this.data.availableAudioFiles.includes(value) : false;
+      // 【优化】使用等音名检查方法
+      if (playbackMgr && value) {
+        const checkResult = playbackMgr.checkSpnAudioAvailable(value);
+        mappings[index].hasAudio = checkResult.available;
+        mappings[index].actualSpn = checkResult.actualSpn;
+      } else {
+        mappings[index].hasAudio = false;
+      }
     }
     
     this.setData({ audioMappings: mappings });
+    
+    // 【修复】如果修改的是SPN字段，检查是否需要加载分包
+    if (field === 'spn' && value) {
+      this.checkSingleSpnSubpackage(value);
+    }
+  },
+  
+  /**
+   * 检查单个SPN是否需要加载分包
+   * @param {string} spn - SPN音符名
+   */
+  async checkSingleSpnSubpackage(spn) {
+    try {
+      const playbackMgr = await getSheetPlaybackManager();
+      
+      // 如果在扩展分包中但分包未加载
+      const subpackage = playbackMgr.spnToSubpackage.get(spn);
+      if (subpackage && !playbackMgr.isSubpackageLoaded(subpackage)) {
+        const config = playbackMgr.subpackageAudioMappings[subpackage];
+        const displayName = config?.displayName || subpackage;
+        
+        wx.showModal({
+          title: '需要加载音频',
+          content: `${spn} 需要加载${displayName}，是否立即加载？`,
+          confirmText: '加载',
+          cancelText: '稍后',
+          success: async (res) => {
+            if (res.confirm) {
+              // 保存当前状态
+              this.setData({
+                _pendingSubpackageReturn: true,
+                _pendingAudioMappings: this.data.audioMappings,
+                _pendingRootNote: this.data.conversionRootNote,
+                _pendingModalWasOpen: this.data.showAudioMappingModal
+              });
+              
+              // 加载分包
+              await playbackMgr.loadSubpackageViaNavigation(subpackage);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.error('[Notation] 检查SPN分包失败:', e);
+    }
   },
 
   /**
@@ -16160,33 +16615,54 @@ Page({
   /**
    * 应用选中的音频映射表
    */
-  applyAudioMappingTable() {
+  async applyAudioMappingTable() {
     const tableId = this.data.currentAudioMappingTableId;
+    
+    // 获取播放管理器以检查音频可用性
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    
+    let mappings;
     
     if (tableId === null) {
       // 使用默认表
-      const mappings = this.initializeAudioMappings();
-      this.setData({
-        audioMappings: mappings,
-        showAudioMappingLibrary: false
-      });
+      mappings = this.initializeAudioMappings();
     } else {
       // 使用选中的表
       const library = this.data.conversionTableLibrary;
       const table = library.find(t => t.id === tableId);
       
       if (table && table.data) {
-        const availableAudio = new Set(this.data.availableAudioFiles);
-        const mappings = table.data.map(item => ({
+        mappings = table.data.map(item => ({
           ...item,
-          hasAudio: item.spn ? availableAudio.has(item.spn) : false
+          hasAudio: false // 先置为false，后面统一检查
         }));
-        
-        this.setData({
-          audioMappings: mappings,
-          showAudioMappingLibrary: false
-        });
       }
+    }
+    
+    if (mappings) {
+      // 【修复】使用播放管理器检查音频可用性（包括主分包和次分包）
+      if (playbackMgr) {
+        mappings = mappings.map(item => ({
+          ...item,
+          hasAudio: item.spn ? (
+            playbackMgr.mainPackageAudioFiles.has(item.spn) || 
+            playbackMgr.spnToSubpackage.has(item.spn)
+          ) : false
+        }));
+      }
+      
+      this.setData({
+        audioMappings: mappings,
+        showAudioMappingLibrary: false
+      });
+      
+      // 【修复】检查是否需要加载分包
+      await this.checkAndLoadSubpackagesForMappings(mappings);
     }
   },
 
@@ -16201,9 +16677,23 @@ Page({
   /**
    * 打开选中的音频映射表进行编辑/查看
    */
-  openSelectedAudioMappingTable() {
+  async openSelectedAudioMappingTable() {
     const tableId = this.data.currentAudioMappingTableId;
-    const availableAudio = new Set(this.data.availableAudioFiles);
+    
+    // 【修复】获取播放管理器以检查音频可用性
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    
+    // 检查音频可用性的辅助函数
+    const checkAudioAvailable = (spn) => {
+      if (!spn || !playbackMgr) return false;
+      return playbackMgr.mainPackageAudioFiles.has(spn) || 
+             playbackMgr.spnToSubpackage.has(spn);
+    };
     
     if (tableId === null) {
       // 使用默认表作为模板打开
@@ -16214,7 +16704,7 @@ Page({
           key: key,
           simplified: simplified,
           spn: spn || '',
-          hasAudio: spn ? availableAudio.has(spn) : false
+          hasAudio: checkAudioAvailable(spn)
         };
       });
       
@@ -16234,7 +16724,7 @@ Page({
       if (table && table.data) {
         const tableData = table.data.map(item => ({
           ...item,
-          hasAudio: item.spn ? availableAudio.has(item.spn) : false
+          hasAudio: checkAudioAvailable(item.spn)
         }));
         
         this.setData({
@@ -16252,9 +16742,23 @@ Page({
   /**
    * 打开新建音频映射转换表弹窗
    */
-  openNewAudioMappingTable() {
+  async openNewAudioMappingTable() {
     const defaultTable = this.data.defaultConversionTable;
-    const availableAudio = new Set(this.data.availableAudioFiles);
+    
+    // 【修复】获取播放管理器以检查音频可用性
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    
+    // 检查音频可用性的辅助函数
+    const checkAudioAvailable = (spn) => {
+      if (!spn || !playbackMgr) return false;
+      return playbackMgr.mainPackageAudioFiles.has(spn) || 
+             playbackMgr.spnToSubpackage.has(spn);
+    };
     
     // 使用默认转换表作为模板
     const tableData = Object.keys(defaultTable).map(key => {
@@ -16263,7 +16767,7 @@ Page({
         key: key,
         simplified: simplified,
         spn: spn || '',
-        hasAudio: spn ? availableAudio.has(spn) : false
+        hasAudio: checkAudioAvailable(spn)
       };
     });
     
@@ -16773,6 +17277,10 @@ Page({
   
   /**
    * 为播放模式收起所有notations（单页模式）
+   * 【优化】使用 PlaybackCanvasCacheManager 实现增量渲染：
+   * 1. 比较每个 module 的内容哈希，决定是否复用缓存
+   * 2. 对于内容未变化的 module，直接使用缓存的图片
+   * 3. 对于内容变化的 module，重新渲染并缓存
    */
   collapseAllNotationsForPlayback() {
     // 确保 _canvasRenderers 存在
@@ -16783,22 +17291,59 @@ Page({
       this._columnRectsCache = {};
     }
     
+    // 【优化】设置当前文件ID，切换文件时清除旧缓存
+    const currentFileId = this.data.libraryFileId || this.data.libraryFileName || 'local_editing';
+    PlaybackCanvasCacheManager.setCurrentFile(currentFileId);
+    
+    // 【优化】分析哪些 module 可以复用缓存
+    const orientation = this.data.orientation || 'portrait';
+    const measuresPerRow = this.data.measuresPerRow || 1;
+    const { toRender, fromCache } = PlaybackCanvasCacheManager.analyzeModules(
+      this.data.notations,
+      orientation,
+      measuresPerRow
+    );
+    
     // 为所有notations设置collapsed状态
-    const notations = this.data.notations.map(notation => ({
-      ...notation,
-      collapsed: true,
-      canvasHeight: this.calculateCanvasHeight(notation),
-      tempImagePath: null,
-      isCanvasEditing: false,
-      cursorVisible: false
-    }));
+    const notations = this.data.notations.map((notation, index) => {
+      // 检查是否有可用缓存
+      const cachedInfo = fromCache.find(c => c.moduleId === notation.id);
+      
+      return {
+        ...notation,
+        collapsed: true,
+        canvasHeight: this.calculateCanvasHeight(notation),
+        // 【优化】如果有缓存，直接使用缓存的图片路径
+        tempImagePath: cachedInfo ? cachedInfo.imagePath : null,
+        isCanvasEditing: false,
+        cursorVisible: false,
+        // 【优化】记录当前哈希值，用于后续缓存
+        _contentHash: cachedInfo ? cachedInfo.hash : 
+          PlaybackCanvasCacheManager.generateModuleHash(notation, orientation, measuresPerRow)
+      };
+    });
+    
+    // 记录需要渲染的 module 索引
+    this._modulesToRender = toRender.map(t => t.index);
+    this._moduleHashes = {};
+    toRender.forEach(t => {
+      this._moduleHashes[t.moduleId] = t.hash;
+    });
+    
+    console.log(`[Playback] Canvas缓存优化: ${fromCache.length}个复用缓存, ${toRender.length}个需要渲染`);
     
     this.setData({ notations }, () => {
-      // 延迟初始化所有Canvas渲染器（播放模式下所有module都需要）
+      // 延迟初始化需要渲染的Canvas渲染器
       setTimeout(() => {
-        notations.forEach((notation, index) => {
-          this.initCanvasRendererWithRetry(notation.id, index, 3);
+        // 【优化】只初始化需要重新渲染的 module
+        toRender.forEach(({ index, moduleId }) => {
+          this.initCanvasRendererWithRetry(moduleId, index, 3);
         });
+        
+        // 如果所有 module 都从缓存加载，快速通知就绪
+        if (toRender.length === 0) {
+          console.log('[Playback] 所有module从缓存加载，无需渲染');
+        }
       }, 100);
     });
   },
@@ -17052,10 +17597,27 @@ Page({
 
     // 设置回调
     playbackMgr.onLoadingStateChange = (isLoading, message) => {
+      // 清除之前的超时计时器
+      if (this._loadingTimeoutTimer) {
+        clearTimeout(this._loadingTimeoutTimer);
+        this._loadingTimeoutTimer = null;
+      }
+      
       this.setData({
         showPlaybackLoading: isLoading,
         playbackLoadingText: message || '加载中...'
       });
+      
+      // 【Bug修复】如果开始显示加载状态，设置超时保护（30秒后自动关闭）
+      if (isLoading) {
+        this._loadingTimeoutTimer = setTimeout(() => {
+          console.warn('[Notation] 加载提示超时，自动关闭');
+          if (this.data.showPlaybackLoading) {
+            this.setData({ showPlaybackLoading: false });
+          }
+          this._loadingTimeoutTimer = null;
+        }, 30000); // 30秒超时
+      }
     };
 
     playbackMgr.onCountdownTick = (secondsLeft) => {
@@ -17097,11 +17659,15 @@ Page({
         title: error.message || '播放出错',
         icon: 'none'
       });
+      // 【Bug修复】确保在错误时重置播放状态
+      this.setData({ isPlaying: false, isPaused: false });
       this.exitPlaybackMode();
     };
 
-    // 更新播放状态
-    this.setData({ isPlaying: true });
+    // 【Bug修复】添加播放开始回调，确保状态在真正开始播放后设置
+    playbackMgr.onPlaybackStart = () => {
+      this.setData({ isPlaying: true, isPaused: false });
+    };
 
     // 启动播放（根据 countdownEnabled 决定是否跳过倒计时）
     const playbackOptions = {
@@ -17109,6 +17675,9 @@ Page({
     };
     
     try {
+      // 先设置加载状态，避免用户认为无反应
+      this.setData({ showPlaybackLoading: true, playbackLoadingText: '准备播放...' });
+      
       await playbackMgr.startPlayback(
         notations,
         tempo,
@@ -17117,8 +17686,17 @@ Page({
         pageInfo,
         playbackOptions
       );
+      
+      // 播放成功启动后隐藏加载提示，设置播放状态
+      // 注意：如果有倒计时，isPlaying 会在倒计时结束后由 onPlaybackStart 回调设置
+      this.setData({ 
+        showPlaybackLoading: false,
+        isPlaying: true, 
+        isPaused: false 
+      });
     } catch (e) {
       console.error('[Notation] 启动播放失败:', e);
+      this.setData({ showPlaybackLoading: false, isPlaying: false, isPaused: false });
       this.exitPlaybackMode();
     }
   },
@@ -17147,14 +17725,24 @@ Page({
     } else if (this.data.isPaused) {
       // 检查播放管理器是否真正在暂停状态（区分点击定位 vs 真正暂停）
       const isReallyPaused = sheetPlaybackManager && sheetPlaybackManager.isPaused;
+      const isReallyPlaying = sheetPlaybackManager && sheetPlaybackManager.isPlaying;
       
       if (isReallyPaused && !this.data.countdownEnabled) {
         // 从真正的暂停状态恢复播放（倒计时关闭时直接恢复）
         sheetPlaybackManager.resumePlayback();
         this.setData({ isPlaying: true, isPaused: false });
-      } else {
+      } else if (isReallyPaused && this.data.countdownEnabled) {
         // 倒计时开启时，需要重新开始播放（带倒计时）
-        // 或者从点击定位状态开始播放
+        this._firstPlayback = false;
+        this.startPlayback();
+      } else if (!isReallyPlaying) {
+        // 【Bug修复】播放管理器没有真正在播放（可能是之前播放失败或从未开始）
+        // 需要重新开始播放，而不是尝试恢复
+        this._firstPlayback = false;
+        this.setData({ isPaused: false }); // 重置UI暂停状态
+        this.startPlayback();
+      } else {
+        // 从点击定位状态开始播放
         this._firstPlayback = false;
         this.startPlayback();
       }
@@ -17770,6 +18358,13 @@ Page({
           // 显示当前module的光标
           updateData[`notations[${moduleIndex}].cursorVisible`] = true;
           this._currentPlayingModuleIndex = moduleIndex;
+          
+          // 【Bug修复】切换module时预检查渲染器是否存在，不存在则预先重建
+          const notation = this.data.notations[moduleIndex];
+          if (notation && !this._canvasRenderers[notation.id]) {
+            console.log('[Playback] 切换module时检测到渲染器丢失，预先重建:', notation.id);
+            // 触发渲染器重建（会在animatePlaybackCursor中处理）
+          }
         } else {
           // 在同一module内播放时，确保光标可见性为true（修复播放时光标消失的问题）
           // 因为可能在初始化时cursorVisible为false，需要确保播放时始终为true
@@ -17834,7 +18429,23 @@ Page({
     
     // 如果没有缓存或为空，尝试从渲染器获取
     if (!columnRects || columnRects.length === 0) {
-      const renderer = this._canvasRenderers[notationId];
+      let renderer = this._canvasRenderers[notationId];
+      
+      // 【Bug修复】如果渲染器不存在，尝试重新初始化
+      if (!renderer) {
+        console.warn('[Playback] 渲染器不存在，尝试重建:', notationId);
+        
+        // 查找该notation的索引
+        const notationIndex = this.data.notations.findIndex(n => n.id === notationId);
+        if (notationIndex !== -1) {
+          // 异步重建渲染器，并在完成后重试光标移动
+          this._rebuildRendererAndRetryCursor(notationId, notationIndex, measureIndex, beatIndex, subIndex);
+        } else {
+          console.warn('[Playback] 无法找到notation索引:', notationId);
+        }
+        return;
+      }
+      
       if (renderer) {
         // 尝试直接获取特定列的坐标（最高效）
         const rect = renderer.getColumnRect(measureIndex, beatIndex, subIndex);
@@ -17851,9 +18462,6 @@ Page({
         } else {
           console.warn('[Playback] 渲染器返回空列坐标:', notationId);
         }
-      } else {
-        console.warn('[Playback] 渲染器不存在:', notationId, 
-          '可用渲染器:', Object.keys(this._canvasRenderers));
       }
     }
     
@@ -17878,6 +18486,96 @@ Page({
         '可用列数:', columnRects.length,
         '首列:', columnRects[0] ? `(${columnRects[0].measureIndex},${columnRects[0].beatIndex},${columnRects[0].subIndex})` : 'N/A');
     }
+  },
+  
+  /**
+   * 【Bug修复】重建丢失的渲染器并重试光标移动
+   * 当播放过程中发现渲染器丢失时，尝试重新初始化并恢复光标
+   * @param {string} notationId - 谱面ID
+   * @param {number} notationIndex - 谱面索引
+   * @param {number} measureIndex - 小节索引
+   * @param {number} beatIndex - 拍索引
+   * @param {number} subIndex - 细分索引
+   */
+  _rebuildRendererAndRetryCursor(notationId, notationIndex, measureIndex, beatIndex, subIndex) {
+    // 防止重复重建
+    if (this._rebuildingRenderers && this._rebuildingRenderers[notationId]) {
+      console.log('[Playback] 渲染器正在重建中，跳过:', notationId);
+      return;
+    }
+    
+    // 标记正在重建
+    if (!this._rebuildingRenderers) {
+      this._rebuildingRenderers = {};
+    }
+    this._rebuildingRenderers[notationId] = true;
+    
+    // 使用带重试的初始化方法
+    console.log('[Playback] 开始重建渲染器:', notationId);
+    
+    // 获取Canvas节点并初始化渲染器
+    const canvasId = `notation-canvas-${notationId}`;
+    const query = wx.createSelectorQuery();
+    query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((res) => {
+      // 清除重建标记
+      delete this._rebuildingRenderers[notationId];
+      
+      if (!res || !res[0] || !res[0].node) {
+        console.warn('[Playback] 重建渲染器失败，Canvas节点不存在:', canvasId);
+        return;
+      }
+      
+      const canvas = res[0].node;
+      const width = res[0].width;
+      const height = res[0].height;
+      
+      if (width === 0 || height === 0) {
+        console.warn('[Playback] 重建渲染器失败，Canvas尺寸为0:', canvasId);
+        return;
+      }
+      
+      // 获取最新的notation数据
+      const notation = this.data.notations[notationIndex];
+      if (!notation || notation.id !== notationId) {
+        console.warn('[Playback] 重建渲染器失败，notation数据不匹配');
+        return;
+      }
+      
+      // 创建渲染器实例
+      const CanvasNotationRenderer = require('../../utils/canvasRenderer').CanvasNotationRenderer;
+      const renderer = new CanvasNotationRenderer({
+        colors: {
+          rightHand: this.data.rightHandColor,
+          leftHand: this.data.leftHandColor
+        }
+      });
+      
+      // 初始化Canvas
+      renderer.init(canvas, width, height);
+      
+      // 设置数据
+      renderer.setData(notation, this.data.orientation, notation.measuresPerRow || this.data.measuresPerRow);
+      
+      // 渲染
+      renderer.render();
+      
+      // 保存渲染器实例
+      this._canvasRenderers[notationId] = renderer;
+      
+      // 获取列坐标并缓存
+      const columnRects = renderer.getAllColumnRects();
+      if (columnRects && columnRects.length > 0) {
+        this._columnRectsCache[notationId] = columnRects;
+        console.log('[Playback] 渲染器重建成功:', notationId, '列数:', columnRects.length);
+        
+        // 重试移动光标
+        setTimeout(() => {
+          this.animatePlaybackCursor(notationId, measureIndex, beatIndex, subIndex);
+        }, 50);
+      } else {
+        console.warn('[Playback] 渲染器重建后列坐标为空:', notationId);
+      }
+    });
   },
   
   /**
@@ -18034,7 +18732,9 @@ Page({
             this._columnRectsCache[notation.id] = columnRects;
             console.log('[Playback] 从渲染器获取列坐标:', notation.id, ', 列数:', columnRects.length);
           } else {
-            console.warn('[Playback] 渲染器不存在:', notation.id);
+            // 【Bug修复】渲染器不存在时，尝试重建
+            console.warn('[Playback] 渲染器不存在，尝试重建:', notation.id);
+            this.initCanvasRendererForModuleWithRetry(notation.id, index, 5);
           }
         }
         

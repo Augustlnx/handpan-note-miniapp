@@ -4360,6 +4360,14 @@
   padding: 20rpx 24rpx 16rpx;
   background: linear-gradient(135deg, rgba(49, 77, 99, 0.05) 0%, rgba(143, 185, 171, 0.05) 100%);
   border-bottom: 1rpx solid #e8e8e8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.splash-privacy-container:not(.splash-privacy-expanded) .splash-privacy-header {
+  border-bottom: none;
 }
 
 .splash-privacy-title {
@@ -4367,6 +4375,12 @@
   font-weight: 600;
   color: #314D63;
   display: block;
+}
+
+.splash-privacy-arrow {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
 }
 
 /* 可滚动区域 */
