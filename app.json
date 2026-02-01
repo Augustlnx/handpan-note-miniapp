@@ -7,6 +7,18 @@
   ],
   "subpackages": [
     {
+      "root": "subpackages/open_library",
+      "name": "open_library",
+      "pages": [
+        "pages/index/index",
+        "pages/search/index",
+        "pages/category-list/index",
+        "pages/artists/index",
+        "pages/artist-profile/index",
+        "pages/sheet-preview/index"
+      ]
+    },
+    {
       "root": "subpackages/resources",
       "name": "resources",
       "pages": [
@@ -71,7 +83,7 @@
     },
     "pages/library/library": {
       "network": "all",
-      "packages": ["resources"]
+      "packages": ["resources", "open_library"]
     },
     "pages/settings/settings": {
       "network": "all",

@@ -1,0 +1,136 @@
+<!--制谱人个人主页-->
+<view class="page-container">
+  <!-- 顶部背景区（视差效果） -->
+  <view class="header-bg" style="background: linear-gradient(135deg, {{artist.backgroundGradient[0] || '#667eea'}} 0%, {{artist.backgroundGradient[1] || '#764ba2'}} 100%); height: {{headerHeight}}px;">
+    <!-- 返回按钮 -->
+    <view class="nav-back" style="top: {{statusBarHeight}}px;" bindtap="goBack">
+      <text class="icon-back">‹</text>
+    </view>
+  </view>
+
+  <!-- 主内容区 -->
+  <view class="main-content" style="margin-top: {{headerHeight - 60}}px;">
+    <!-- 个人信息卡片 -->
+    <view class="profile-card">
+      <!-- 头像 -->
+      <view class="avatar-wrap">
+        <view class="artist-avatar" style="background: linear-gradient(135deg, {{artist.backgroundGradient[0] || '#667eea'}} 0%, {{artist.backgroundGradient[1] || '#764ba2'}} 100%);">
+          <text class="avatar-text">{{artist.name[0] || ''}}</text>
+          <view class="verified-badge" wx:if="{{artist.isVerified}}">✓</view>
+        </view>
+      </view>
+      
+      <!-- 信息 -->
+      <view class="profile-info">
+        <view class="name-row">
+          <text class="artist-name">{{artist.name}}</text>
+          <view class="artist-title-badge" wx:if="{{artist.title}}">{{artist.title}}</view>
+        </view>
+        <text class="artist-bio">{{artist.bio}}</text>
+        
+        <!-- 统计数据 -->
+        <view class="stats-row">
+          <view class="stat-item">
+            <text class="stat-value">{{artist.songCount || 0}}</text>
+            <text class="stat-label">曲谱</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{artist.collectionCount || 0}}</text>
+            <text class="stat-label">合集</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{artist.followers || 0}}</text>
+            <text class="stat-label">关注</text>
+          </view>
+        </view>
+        
+        <!-- 标签 -->
+        <view class="tags-wrap" wx:if="{{artist.tags && artist.tags.length > 0}}">
+          <text class="tag" wx:for="{{artist.tags}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Tab导航 -->
+    <view class="tab-nav">
+      <view 
+        class="tab-item {{activeTab === 'songs' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="songs"
+      >
+        <text>歌曲</text>
+        <text class="tab-count">{{songs.length}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'collections' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="collections"
+      >
+        <text>合集</text>
+        <text class="tab-count">{{collections.length}}</text>
+      </view>
+    </view>
+
+    <!-- 歌曲列表 -->
+    <view class="song-list" wx:if="{{activeTab === 'songs'}}">
+      <view 
+        class="song-item" 
+        wx:for="{{songs}}" 
+        wx:key="id"
+        bindtap="goToSongDetail"
+        data-item="{{item}}"
+      >
+        <text class="song-index">{{index + 1}}</text>
+        <view class="song-info">
+          <view class="song-title-row">
+            <text class="song-title">{{item.title}}</text>
+            <view class="song-tags">
+              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}}</text>
+              <text class="tag-badge vip" wx:if="{{item.isVip}}">VIP</text>
+            </view>
+          </view>
+          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+        </view>
+        <view class="song-actions">
+          <view class="action-btn heart {{item.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}">
+            <text>{{item.isFavorite ? '❤️' : '🤍'}}</text>
+          </view>
+          <view class="action-btn more" catchtap="showSongActions" data-item="{{item}}">
+            <text>⋮</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="empty-list" wx:if="{{songs.length === 0}}">
+        <text>暂无曲谱</text>
+      </view>
+    </view>
+
+    <!-- 合集列表 -->
+    <view class="collection-list" wx:if="{{activeTab === 'collections'}}">
+      <view 
+        class="collection-item" 
+        wx:for="{{collections}}" 
+        wx:key="id"
+        bindtap="goToCollectionDetail"
+        data-item="{{item}}"
+      >
+        <view class="collection-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+          <text class="cover-text">{{item.title[0]}}{{item.title[1]}}</text>
+          <text class="cover-count">{{item.songCount}}首</text>
+        </view>
+        <view class="collection-info">
+          <text class="collection-title">{{item.title}}</text>
+          <text class="collection-desc">{{item.description}}</text>
+        </view>
+      </view>
+      
+      <view class="empty-list" wx:if="{{collections.length === 0}}">
+        <text>暂无合集</text>
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="bottom-space"></view>
+  </view>
+</view>

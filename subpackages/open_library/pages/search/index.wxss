@@ -1,0 +1,461 @@
+/* 搜索页样式 */
+
+page {
+  --primary-color: #314D63;
+  --accent-gold: #F2C94C;
+  --bg-light: #F8F9FA;
+  --text-primary: #1A1A1A;
+  --text-secondary: #666666;
+  --text-light: #999999;
+  --border-color: #EEEEEE;
+}
+
+.page-container {
+  min-height: 100vh;
+  background: #FFFFFF;
+}
+
+/* 搜索栏 */
+.search-bar {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  background: #FFFFFF;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.search-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: var(--bg-light);
+  border-radius: 40rpx;
+  padding: 16rpx 24rpx;
+}
+
+.search-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.clear-btn {
+  font-size: 36rpx;
+  color: var(--text-light);
+  padding: 0 8rpx;
+}
+
+.cancel-btn {
+  margin-left: 20rpx;
+  font-size: 28rpx;
+  color: var(--primary-color);
+}
+
+/* 内容滚动区 */
+.content-scroll {
+  height: calc(100vh - 120rpx);
+}
+
+/* 搜索历史 */
+.history-section,
+.hot-section,
+.tags-section {
+  padding: 32rpx 24rpx 16rpx;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.clear-history {
+  font-size: 26rpx;
+  color: var(--text-light);
+}
+
+.history-scroll {
+  width: 100%;
+}
+
+.history-list {
+  display: flex;
+  white-space: nowrap;
+}
+
+.history-tag {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: 1rpx solid rgba(49, 77, 99, 0.3);
+  border-radius: 32rpx;
+  padding: 12rpx 24rpx;
+  margin-right: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.remove-history {
+  margin-left: 12rpx;
+  font-size: 28rpx;
+  color: var(--text-light);
+}
+
+/* 热搜榜 */
+.hot-grid {
+  display: flex;
+}
+
+.hot-column {
+  flex: 1;
+}
+
+.hot-item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.hot-rank {
+  width: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.hot-rank.top-rank {
+  color: #FF6B6B;
+}
+
+.hot-name {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hot-icon {
+  font-size: 24rpx;
+  margin-left: 8rpx;
+}
+
+/* 热门标签 */
+.tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.tag-item {
+  background: rgba(49, 77, 99, 0.08);
+  border-radius: 24rpx;
+  padding: 12rpx 28rpx;
+  font-size: 26rpx;
+  color: var(--primary-color);
+}
+
+/* 搜索结果Tab */
+.result-tabs {
+  display: flex;
+  border-bottom: 1rpx solid var(--border-color);
+  background: #FFFFFF;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  position: relative;
+}
+
+.tab-item.active {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background: var(--primary-color);
+  border-radius: 2rpx;
+}
+
+.tab-count {
+  font-size: 24rpx;
+  margin-left: 4rpx;
+}
+
+/* 搜索结果列表 */
+.result-list {
+  padding: 0 24rpx;
+}
+
+/* 曲谱结果项 */
+.song-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.song-cover {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cover-text {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+}
+
+.song-info {
+  flex: 1;
+  margin-left: 20rpx;
+  overflow: hidden;
+}
+
+.song-title-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.song-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-tags {
+  display: flex;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+.tag {
+  font-size: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+  margin-left: 8rpx;
+}
+
+.tag.scale {
+  background: rgba(49, 77, 99, 0.1);
+  color: var(--primary-color);
+}
+
+.tag.vip {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #FFFFFF;
+}
+
+.song-meta {
+  font-size: 24rpx;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 制谱人结果项 */
+.artist-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.artist-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.verified-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28rpx;
+  height: 28rpx;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16rpx;
+  color: #FFFFFF;
+}
+
+.artist-info {
+  flex: 1;
+  margin-left: 20rpx;
+  overflow: hidden;
+}
+
+.artist-name-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.artist-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.artist-title {
+  font-size: 22rpx;
+  color: var(--accent-gold);
+  margin-left: 12rpx;
+  background: rgba(242, 201, 76, 0.15);
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.artist-stats {
+  font-size: 24rpx;
+  color: var(--text-light);
+}
+
+/* 合集结果项 */
+.collection-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.collection-cover {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.collection-info {
+  flex: 1;
+  margin-left: 20rpx;
+  overflow: hidden;
+}
+
+.collection-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collection-meta {
+  font-size: 24rpx;
+  color: var(--text-light);
+}
+
+/* 无结果 */
+.empty-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 24rpx;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 30rpx;
+  color: var(--text-secondary);
+  margin-bottom: 12rpx;
+}
+
+.empty-hint {
+  font-size: 26rpx;
+  color: var(--text-light);
+}
+
+/* 加载中 */
+.loading-mask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: var(--text-light);
+}

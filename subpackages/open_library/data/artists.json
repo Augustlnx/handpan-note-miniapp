@@ -1,0 +1,112 @@
+[
+  {
+    "id": "artist_001",
+    "name": "Luna Zhang",
+    "avatar": "",
+    "title": "星轨认证制谱人",
+    "isVerified": true,
+    "isVip": true,
+    "bio": "专注于冥想和疗愈音乐的手碟演奏者，拥有10年演奏经验",
+    "location": "上海",
+    "followers": 12580,
+    "songCount": 28,
+    "collectionCount": 3,
+    "tags": ["冥想", "疗愈", "原创"],
+    "socialLinks": {
+      "weibo": "",
+      "bilibili": ""
+    },
+    "featuredSongIds": ["song_001", "song_002", "song_008"],
+    "backgroundGradient": ["#667eea", "#764ba2"],
+    "createTime": 1640995200000,
+    "updateTime": 1706832000000
+  },
+  {
+    "id": "artist_002",
+    "name": "River Chen",
+    "avatar": "",
+    "title": "星轨认证制谱人",
+    "isVerified": true,
+    "isVip": true,
+    "bio": "自然系音乐创作者，擅长将大自然的声音融入手碟演奏",
+    "location": "杭州",
+    "followers": 9870,
+    "songCount": 22,
+    "collectionCount": 2,
+    "tags": ["自然", "禅修", "节奏"],
+    "socialLinks": {
+      "weibo": "",
+      "bilibili": ""
+    },
+    "featuredSongIds": ["song_003", "song_005"],
+    "backgroundGradient": ["#11998e", "#38ef7d"],
+    "createTime": 1643673600000,
+    "updateTime": 1706745600000
+  },
+  {
+    "id": "artist_003",
+    "name": "星轨官方",
+    "avatar": "",
+    "title": "官方账号",
+    "isVerified": true,
+    "isVip": true,
+    "bio": "Orbit Note 星轨手碟记谱官方账号，分享优质原创内容",
+    "location": "全国",
+    "followers": 58900,
+    "songCount": 45,
+    "collectionCount": 8,
+    "tags": ["官方", "教程", "原创"],
+    "socialLinks": {
+      "weibo": "",
+      "bilibili": ""
+    },
+    "featuredSongIds": ["song_004"],
+    "backgroundGradient": ["#314D63", "#F2C94C"],
+    "createTime": 1609459200000,
+    "updateTime": 1706918400000
+  },
+  {
+    "id": "artist_004",
+    "name": "Forest Wu",
+    "avatar": "",
+    "title": "新晋制谱人",
+    "isVerified": false,
+    "isVip": false,
+    "bio": "热爱自然和音乐，希望用手碟传递森林的声音",
+    "location": "成都",
+    "followers": 2340,
+    "songCount": 8,
+    "collectionCount": 1,
+    "tags": ["新人", "自然", "简约"],
+    "socialLinks": {
+      "weibo": "",
+      "bilibili": ""
+    },
+    "featuredSongIds": ["song_006"],
+    "backgroundGradient": ["#56ab2f", "#a8e063"],
+    "createTime": 1698796800000,
+    "updateTime": 1706745600000
+  },
+  {
+    "id": "artist_005",
+    "name": "Jazz Lin",
+    "avatar": "",
+    "title": "星轨认证制谱人",
+    "isVerified": true,
+    "isVip": true,
+    "bio": "爵士乐背景的手碟演奏者，擅长即兴创作和复杂节奏",
+    "location": "北京",
+    "followers": 7650,
+    "songCount": 15,
+    "collectionCount": 2,
+    "tags": ["爵士", "即兴", "进阶"],
+    "socialLinks": {
+      "weibo": "",
+      "bilibili": ""
+    },
+    "featuredSongIds": ["song_007"],
+    "backgroundGradient": ["#1a1a2e", "#eaf2f8"],
+    "createTime": 1651363200000,
+    "updateTime": 1706659200000
+  }
+]

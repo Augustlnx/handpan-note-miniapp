@@ -1,0 +1,145 @@
+<!--谱面详情预览页-->
+<view class="page-container" style="padding-top: {{statusBarHeight}}px; background: {{bgGradient}};">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text class="icon-back">‹</text>
+    </view>
+    <view class="nav-title-wrap">
+      <text class="nav-title">{{song.title || '曲谱详情'}}</text>
+    </view>
+    <view class="nav-action" bindtap="showMoreActions">
+      <text class="icon-more">⋯</text>
+    </view>
+  </view>
+
+  <!-- 主内容区 -->
+  <scroll-view class="main-content" scroll-y enhanced show-scrollbar="{{false}}">
+    <!-- 曲谱信息头部 -->
+    <view class="song-header">
+      <text class="song-title">{{song.title}}</text>
+      <text class="song-subtitle">{{song.subtitle}}</text>
+      
+      <view class="song-meta">
+        <view class="meta-item">
+          <text class="meta-label">制谱人</text>
+          <text class="meta-value clickable" bindtap="goToArtist">{{song.artistName}}</text>
+        </view>
+        <view class="meta-divider">|</view>
+        <view class="meta-item">
+          <text class="meta-label">调式</text>
+          <text class="meta-value">{{song.rootNote}}-{{song.scaleType}}</text>
+        </view>
+        <view class="meta-divider">|</view>
+        <view class="meta-item">
+          <text class="meta-label">难度</text>
+          <view class="difficulty-stars">
+            <text wx:for="{{5}}" wx:key="*this" class="star {{index < song.difficulty ? 'active' : ''}}">★</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="song-tags">
+        <text class="tag" wx:for="{{song.tags}}" wx:key="*this">{{item}}</text>
+        <text class="tag vip" wx:if="{{song.isVip}}">VIP</text>
+      </view>
+
+      <view class="song-stats">
+        <view class="stat-item">
+          <text class="stat-icon">▶</text>
+          <text class="stat-value">{{song.playCount}}</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-icon">❤</text>
+          <text class="stat-value">{{song.likeCount}}</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-icon">⏱</text>
+          <text class="stat-value">{{song.tempo}} BPM</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 谱面预览区域 -->
+    <view class="sheet-preview-section">
+      <view class="preview-container">
+        <view class="preview-header">
+          <text class="preview-label">谱面预览</text>
+        </view>
+        
+        <!-- Canvas 绘制谱面第一页 -->
+        <view class="sheet-canvas-wrap">
+          <canvas 
+            id="sheetCanvas" 
+            type="2d" 
+            class="sheet-canvas"
+            style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+          ></canvas>
+          
+          <!-- 加载中遮罩 -->
+          <view class="canvas-loading" wx:if="{{isCanvasLoading}}">
+            <view class="loading-spinner"></view>
+            <text class="loading-text">生成预览中...</text>
+          </view>
+          
+          <!-- 预览图片（用于更好的展示） -->
+          <image 
+            wx:if="{{previewImage}}"
+            class="preview-image"
+            src="{{previewImage}}"
+            mode="aspectFit"
+          />
+        </view>
+        
+        <!-- 简介 -->
+        <view class="introduction" wx:if="{{song.introduction}}">
+          <text class="intro-text">{{song.introduction}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 相关推荐 -->
+    <view class="related-section" wx:if="{{relatedSongs.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">相关推荐</text>
+      </view>
+      <view class="related-list">
+        <view 
+          class="related-item" 
+          wx:for="{{relatedSongs}}" 
+          wx:key="id"
+          bindtap="goToRelatedSong"
+          data-item="{{item}}"
+        >
+          <view class="related-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+            <text class="cover-text">{{item.title[0]}}</text>
+          </view>
+          <view class="related-info">
+            <text class="related-title">{{item.title}}</text>
+            <text class="related-artist">{{item.artistName}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="bottom-space"></view>
+  </scroll-view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar" style="padding-bottom: {{safeAreaBottom}}px;">
+    <view class="action-btn secondary" bindtap="previewPlay">
+      <text class="btn-icon">▶</text>
+      <text class="btn-text">试听</text>
+    </view>
+    <view class="action-btn primary" bindtap="openSheet">
+      <text class="btn-icon">📄</text>
+      <text class="btn-text">打开曲谱</text>
+    </view>
+  </view>
+
+  <!-- 收藏按钮 -->
+  <view class="favorite-btn {{isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
+    <text class="fav-icon">{{isFavorite ? '❤️' : '🤍'}}</text>
+  </view>
+</view>

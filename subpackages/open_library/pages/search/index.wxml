@@ -1,0 +1,207 @@
+<!--搜索页面-->
+<view class="page-container" style="padding-top: {{statusBarHeight}}px;">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-wrapper">
+      <text class="search-icon">🔍</text>
+      <input 
+        class="search-input" 
+        type="text" 
+        placeholder="搜索曲谱、制谱人" 
+        focus="{{true}}"
+        value="{{keyword}}"
+        bindinput="onInput"
+        bindconfirm="onSearch"
+        confirm-type="search"
+      />
+      <text class="clear-btn" wx:if="{{keyword}}" bindtap="clearInput">×</text>
+    </view>
+    <text class="cancel-btn" bindtap="goBack">取消</text>
+  </view>
+
+  <!-- 无搜索关键词时显示 -->
+  <scroll-view class="content-scroll" scroll-y wx:if="{{!keyword && !isSearching}}">
+    <!-- 搜索历史 -->
+    <view class="history-section" wx:if="{{searchHistory.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">历史记录</text>
+        <text class="clear-history" bindtap="clearHistory">清空</text>
+      </view>
+      <scroll-view class="history-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="history-list">
+          <view 
+            class="history-tag" 
+            wx:for="{{searchHistory}}" 
+            wx:key="*this"
+            bindtap="searchFromHistory"
+            data-keyword="{{item}}"
+          >
+            <text>{{item}}</text>
+            <text class="remove-history" catchtap="removeHistory" data-keyword="{{item}}">×</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 热搜榜 -->
+    <view class="hot-section">
+      <view class="section-header">
+        <text class="section-title">热搜榜</text>
+      </view>
+      <view class="hot-grid">
+        <view class="hot-column">
+          <view 
+            class="hot-item" 
+            wx:for="{{hotSearchLeft}}" 
+            wx:key="index"
+            bindtap="searchFromHot"
+            data-keyword="{{item.title}}"
+          >
+            <text class="hot-rank {{index < 3 ? 'top-rank' : ''}}">{{item.rank}}</text>
+            <text class="hot-name">{{item.title}}</text>
+            <text class="hot-icon" wx:if="{{item.isHot}}">🔥</text>
+          </view>
+        </view>
+        <view class="hot-column">
+          <view 
+            class="hot-item" 
+            wx:for="{{hotSearchRight}}" 
+            wx:key="index"
+            bindtap="searchFromHot"
+            data-keyword="{{item.title}}"
+          >
+            <text class="hot-rank">{{item.rank}}</text>
+            <text class="hot-name">{{item.title}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 热门标签 -->
+    <view class="tags-section" wx:if="{{hotTags.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">热门标签</text>
+      </view>
+      <view class="tags-wrap">
+        <view 
+          class="tag-item" 
+          wx:for="{{hotTags}}" 
+          wx:key="*this"
+          bindtap="searchFromTag"
+          data-tag="{{item}}"
+        >{{item}}</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 搜索结果 -->
+  <scroll-view class="content-scroll" scroll-y wx:if="{{keyword && !isSearching}}">
+    <!-- 结果Tab -->
+    <view class="result-tabs" wx:if="{{hasResults}}">
+      <view 
+        class="tab-item {{activeTab === 'songs' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="songs"
+      >
+        <text>曲谱</text>
+        <text class="tab-count">({{searchResults.songs.length}})</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'artists' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="artists"
+      >
+        <text>制谱人</text>
+        <text class="tab-count">({{searchResults.artists.length}})</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'collections' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="collections"
+      >
+        <text>合集</text>
+        <text class="tab-count">({{searchResults.collections.length}})</text>
+      </view>
+    </view>
+
+    <!-- 曲谱结果 -->
+    <view class="result-list" wx:if="{{activeTab === 'songs' && searchResults.songs.length > 0}}">
+      <view 
+        class="song-item" 
+        wx:for="{{searchResults.songs}}" 
+        wx:key="id"
+        bindtap="goToSongDetail"
+        data-item="{{item}}"
+      >
+        <view class="song-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+          <text class="cover-text">{{item.title[0]}}</text>
+        </view>
+        <view class="song-info">
+          <view class="song-title-row">
+            <text class="song-title">{{item.title}}</text>
+            <view class="song-tags">
+              <text class="tag scale">{{item.rootNote}}-{{item.scaleType}}</text>
+              <text class="tag vip" wx:if="{{item.isVip}}">VIP</text>
+            </view>
+          </view>
+          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 制谱人结果 -->
+    <view class="result-list" wx:if="{{activeTab === 'artists' && searchResults.artists.length > 0}}">
+      <view 
+        class="artist-item" 
+        wx:for="{{searchResults.artists}}" 
+        wx:key="id"
+        bindtap="goToArtistDetail"
+        data-item="{{item}}"
+      >
+        <view class="artist-avatar" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);">
+          <text class="avatar-text">{{item.name[0]}}</text>
+          <view class="verified-badge" wx:if="{{item.isVerified}}">✓</view>
+        </view>
+        <view class="artist-info">
+          <view class="artist-name-row">
+            <text class="artist-name">{{item.name}}</text>
+            <text class="artist-title">{{item.title}}</text>
+          </view>
+          <text class="artist-stats">{{item.songCount}}首曲谱 · {{item.followers}}粉丝</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 合集结果 -->
+    <view class="result-list" wx:if="{{activeTab === 'collections' && searchResults.collections.length > 0}}">
+      <view 
+        class="collection-item" 
+        wx:for="{{searchResults.collections}}" 
+        wx:key="id"
+        bindtap="goToCollectionDetail"
+        data-item="{{item}}"
+      >
+        <view class="collection-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+          <text class="cover-text">{{item.title[0]}}{{item.title[1]}}</text>
+        </view>
+        <view class="collection-info">
+          <text class="collection-title">{{item.title}}</text>
+          <text class="collection-meta">{{item.songCount}}首 · {{item.artistName}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 无结果提示 -->
+    <view class="empty-result" wx:if="{{!hasResults}}">
+      <text class="empty-icon">🔍</text>
+      <text class="empty-text">未找到相关结果</text>
+      <text class="empty-hint">换个关键词试试吧</text>
+    </view>
+  </scroll-view>
+
+  <!-- 搜索中 -->
+  <view class="loading-mask" wx:if="{{isSearching}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">搜索中...</text>
+  </view>
+</view>

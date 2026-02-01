@@ -1,0 +1,65 @@
+<!--制谱人列表页-->
+<view class="page-container" style="padding-top: {{statusBarHeight}}px;">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text class="icon-back">‹</text>
+    </view>
+    <text class="nav-title">制谱人</text>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <!-- 列表 -->
+  <scroll-view class="artists-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="artists-list">
+      <view 
+        class="artist-card" 
+        wx:for="{{artists}}" 
+        wx:key="id"
+        bindtap="goToArtistDetail"
+        data-item="{{item}}"
+      >
+        <!-- 背景模糊图 -->
+        <view class="card-bg" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);"></view>
+        <view class="card-overlay"></view>
+        
+        <!-- 内容 -->
+        <view class="card-content">
+          <view class="artist-avatar" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);">
+            <text class="avatar-text">{{item.name[0]}}</text>
+            <view class="verified-badge" wx:if="{{item.isVerified}}">✓</view>
+          </view>
+          <view class="artist-info">
+            <view class="artist-name-row">
+              <text class="artist-name">{{item.name}}</text>
+              <text class="artist-title" wx:if="{{item.title}}">{{item.title}}</text>
+            </view>
+            <text class="artist-bio">{{item.bio}}</text>
+            <view class="artist-stats">
+              <text class="stat">收录 {{item.songCount}} 首</text>
+              <text class="stat-divider">·</text>
+              <text class="stat">{{item.followers}} 关注</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 加载更多 -->
+    <view class="load-more" wx:if="{{isLoading}}">
+      <view class="loading-spinner"></view>
+      <text>加载中...</text>
+    </view>
+    
+    <!-- 无更多 -->
+    <view class="no-more" wx:if="{{!isLoading && artists.length > 0}}">
+      <text>— 已展示全部制谱人 —</text>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!isLoading && artists.length === 0}}">
+      <text class="empty-icon">👥</text>
+      <text class="empty-text">暂无制谱人</text>
+    </view>
+  </scroll-view>
+</view>

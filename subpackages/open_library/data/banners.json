@@ -1,0 +1,38 @@
+[
+  {
+    "id": "banner_001",
+    "title": "星轨原创新曲上线",
+    "subtitle": "《星轨之舞》震撼发布",
+    "type": "song",
+    "targetId": "song_004",
+    "gradient": ["#F2C94C", "#314D63"],
+    "image": "",
+    "isActive": true,
+    "order": 1,
+    "createTime": 1706918400000
+  },
+  {
+    "id": "banner_002",
+    "title": "入门必练精选",
+    "subtitle": "新手专属学习路径",
+    "type": "collection",
+    "targetId": "col_002",
+    "gradient": ["#a8edea", "#fed6e3"],
+    "image": "",
+    "isActive": true,
+    "order": 2,
+    "createTime": 1704931200000
+  },
+  {
+    "id": "banner_003",
+    "title": "宝藏制谱人",
+    "subtitle": "发现更多优质创作者",
+    "type": "artists",
+    "targetId": "",
+    "gradient": ["#667eea", "#764ba2"],
+    "image": "",
+    "isActive": true,
+    "order": 3,
+    "createTime": 1703721600000
+  }
+]

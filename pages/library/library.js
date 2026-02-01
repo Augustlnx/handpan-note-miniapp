@@ -264,14 +264,14 @@ Page({
   // ========== 标签切换 ==========
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
-    if (tab === 'public') {
-      wx.showToast({
-        title: '功能开发中',
-        icon: 'none',
-        duration: 2000
-      });
-    }
     this.setData({ activeTab: tab });
+  },
+
+  // ========== 公开曲库入口 ==========
+  goToPublicLibrary() {
+    wx.navigateTo({
+      url: '/subpackages/open_library/pages/index/index'
+    });
   },
 
   // ========== 导航操作 ==========
