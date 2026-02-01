@@ -1718,39 +1718,55 @@ module.exports = {
             <text class="conversion-col-header">简谱</text>
             <text class="conversion-col-header">SPN</text>
           </view>
-          <view wx:for="{{conversionMappings}}" wx:key="key" class="conversion-row conversion-row-3col">
-            <!-- 数字谱列 -->
-            <view class="conversion-col-fixed conversion-col-3">{{item.key}}</view>
-            <!-- 简谱列（可编辑） -->
-            <view class="conversion-col-input-wrap conversion-col-3 {{conversionEditingKey === item.key && conversionEditingField === 'simplified' ? 'conversion-cell-active' : ''}}" 
-                  bindtap="onConversionCellTap" 
-                  data-key="{{item.key}}" 
+          <view wx:for="{{conversionMappings}}" wx:key="sourceNote" class="conversion-row conversion-row-3col">
+            <!-- 数字谱列（根据转换方向显示不同内容） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{notationType === 'simplified' && conversionEditingKey === item.sourceNote && conversionEditingField === 'key' ? 'conversion-cell-active' : ''}}" 
+                  bindtap="{{notationType === 'simplified' ? 'onConversionCellTap' : ''}}" 
+                  data-key="{{item.sourceNote}}" 
+                  data-field="key">
+              <block wx:if="{{notationType === 'simplified' && conversionUseNativeInput && conversionEditingKey === item.sourceNote && conversionEditingField === 'key'}}">
+                <input class="conversion-native-input" 
+                       value="{{item.key}}" 
+                       focus="{{true}}"
+                       bindinput="onConversionNativeInput"
+                       bindblur="onConversionNativeBlur"
+                       data-key="{{item.sourceNote}}"
+                       data-field="key" />
+              </block>
+              <block wx:else>
+                <text class="conversion-col-value {{item.key ? '' : 'placeholder'}}">{{item.key || (notationType === 'simplified' ? '点击输入' : '')}}</text>
+              </block>
+            </view>
+            <!-- 简谱列（根据转换方向显示不同内容） -->
+            <view class="conversion-col-input-wrap conversion-col-3 {{notationType === 'digital' && conversionEditingKey === item.sourceNote && conversionEditingField === 'simplified' ? 'conversion-cell-active' : ''}}" 
+                  bindtap="{{notationType === 'digital' ? 'onConversionCellTap' : ''}}" 
+                  data-key="{{item.sourceNote}}" 
                   data-field="simplified">
-              <block wx:if="{{conversionUseNativeInput && conversionEditingKey === item.key && conversionEditingField === 'simplified'}}">
+              <block wx:if="{{notationType === 'digital' && conversionUseNativeInput && conversionEditingKey === item.sourceNote && conversionEditingField === 'simplified'}}">
                 <input class="conversion-native-input" 
                        value="{{item.simplified}}" 
                        focus="{{true}}"
                        bindinput="onConversionNativeInput"
                        bindblur="onConversionNativeBlur"
-                       data-key="{{item.key}}"
+                       data-key="{{item.sourceNote}}"
                        data-field="simplified" />
               </block>
               <block wx:else>
-                <text class="conversion-col-value {{item.simplified ? '' : 'placeholder'}}">{{item.simplified || '点击输入'}}</text>
+                <text class="conversion-col-value {{item.simplified ? '' : 'placeholder'}}">{{item.simplified || (notationType === 'digital' ? '点击输入' : '')}}</text>
               </block>
             </view>
             <!-- SPN列（自动计算，可编辑） -->
-            <view class="conversion-col-input-wrap conversion-col-3 {{conversionEditingKey === item.key && conversionEditingField === 'spn' ? 'conversion-cell-active' : ''}}"
+            <view class="conversion-col-input-wrap conversion-col-3 {{conversionEditingKey === item.sourceNote && conversionEditingField === 'spn' ? 'conversion-cell-active' : ''}}"
                   bindtap="onConversionCellTap" 
-                  data-key="{{item.key}}" 
+                  data-key="{{item.sourceNote}}" 
                   data-field="spn">
-              <block wx:if="{{conversionUseNativeInput && conversionEditingKey === item.key && conversionEditingField === 'spn'}}">
+              <block wx:if="{{conversionUseNativeInput && conversionEditingKey === item.sourceNote && conversionEditingField === 'spn'}}">
                 <input class="conversion-native-input" 
                        value="{{item.spn}}" 
                        focus="{{true}}"
                        bindinput="onConversionNativeInput"
                        bindblur="onConversionNativeBlur"
-                       data-key="{{item.key}}"
+                       data-key="{{item.sourceNote}}"
                        data-field="spn" />
               </block>
               <block wx:else>
@@ -2467,20 +2483,36 @@ module.exports = {
 
     <!-- 键盘主体区域：左中右三栏布局 -->
     <view class="vk-main-area" wx:if="{{!showKeyboardSettings}}">
-      <!-- 区域D-左侧: 胶囊音高调节器 -->
-      <view class="vk-pitch-sidebar {{isCustomizingKeyboard ? 'vk-pitch-disabled' : ''}}">
-        <view class="pitch-sidebar-inner">
-          <view class="pitch-capsule-outer">
+      <!-- 区域D-左侧: 胶囊音高调节器 / 替代按键区域 -->
+      <view class="vk-pitch-sidebar {{isCustomizingKeyboard ? 'vk-pitch-disabled' : ''}} {{!pitchBarEnabled && virtualKeyboardMode !== 'number' ? 'vk-pitch-bar-disabled' : ''}}">
+        <!-- 数字键盘模式下，音高条关闭时显示替代按键区域（D, d, s, P） -->
+        <view class="pitch-alt-keys" wx:if="{{!pitchBarEnabled && virtualKeyboardMode === 'number'}}">
+          <view class="pitch-alt-key" bindtap="onVirtualKey" data-key="D">
+            <text>D</text>
+          </view>
+          <view class="pitch-alt-key" bindtap="onVirtualKey" data-key="d">
+            <text>d</text>
+          </view>
+          <view class="pitch-alt-key" bindtap="onVirtualKey" data-key="s">
+            <text>s</text>
+          </view>
+          <view class="pitch-alt-key" bindtap="onVirtualKey" data-key="P">
+            <text>P</text>
+          </view>
+        </view>
+        <!-- 其他情况显示原有的音高调节器（符号键盘下关闭时变暗禁用） -->
+        <view class="pitch-sidebar-inner" wx:else>
+          <view class="pitch-capsule-outer {{!pitchBarEnabled ? 'pitch-capsule-disabled' : ''}}">
             <!-- 向上箭头按钮 -->
-            <view class="pitch-capsule-arrow pitch-arrow-up {{pitchLevel >= 4 || isCustomizingKeyboard ? 'disabled' : ''}}" bindtap="{{isCustomizingKeyboard ? '' : 'pitchUp'}}">
+            <view class="pitch-capsule-arrow pitch-arrow-up {{pitchLevel >= 4 || isCustomizingKeyboard || !pitchBarEnabled ? 'disabled' : ''}}" bindtap="{{isCustomizingKeyboard || !pitchBarEnabled ? '' : 'pitchUp'}}">
               <image src="/assets/icons/keyboard/上1_up-one.svg" class="vk-pitch-arrow-icon"></image>
             </view>
             
             <!-- 轨道区域 -->
             <view class="pitch-capsule-track"
-                  bindtouchstart="{{isCustomizingKeyboard ? '' : 'onPitchTouchStart'}}"
-                  bindtouchmove="{{isCustomizingKeyboard ? '' : 'onPitchTouchMove'}}"
-                  bindtouchend="{{isCustomizingKeyboard ? '' : 'onPitchTouchEnd'}}">
+                  bindtouchstart="{{isCustomizingKeyboard || !pitchBarEnabled ? '' : 'onPitchTouchStart'}}"
+                  bindtouchmove="{{isCustomizingKeyboard || !pitchBarEnabled ? '' : 'onPitchTouchMove'}}"
+                  bindtouchend="{{isCustomizingKeyboard || !pitchBarEnabled ? '' : 'onPitchTouchEnd'}}">
               <!-- 刻度线 -->
               <view class="pitch-track-ticks">
                 <view class="pitch-tick"></view>
@@ -2496,7 +2528,7 @@ module.exports = {
             </view>
             
             <!-- 向下箭头按钮 -->
-            <view class="pitch-capsule-arrow pitch-arrow-down {{pitchLevel <= 0 || isCustomizingKeyboard ? 'disabled' : ''}}" bindtap="{{isCustomizingKeyboard ? '' : 'pitchDown'}}">
+            <view class="pitch-capsule-arrow pitch-arrow-down {{pitchLevel <= 0 || isCustomizingKeyboard || !pitchBarEnabled ? 'disabled' : ''}}" bindtap="{{isCustomizingKeyboard || !pitchBarEnabled ? '' : 'pitchDown'}}">
               <image src="/assets/icons/keyboard/下1_down-one.svg" class="vk-pitch-arrow-icon"></image>
             </view>
             
@@ -2505,7 +2537,7 @@ module.exports = {
               <text>{{pitchLevelConfig[pitchLevel].name}}</text>
             </view>
           </view>
-          <text class="pitch-side-label" wx:if="{{showKeyboardHelp}}">音高调节器</text>
+          <text class="pitch-side-label" wx:if="{{showKeyboardHelp && pitchBarEnabled}}">音高调节器</text>
         </view>
       </view>
 
@@ -2727,8 +2759,14 @@ module.exports = {
             </view>
             <text class="vk-settings-icon-label">自定义键盘</text>
           </view>
+          <!-- 音高调节开关 -->
+          <view class="vk-settings-icon-item {{!pitchBarEnabled ? 'vk-settings-icon-off' : ''}}" bindtap="togglePitchBar">
+            <view class="vk-settings-icon-box {{!pitchBarEnabled ? 'vk-settings-icon-box-off' : ''}}">
+              <image class="vk-settings-icon {{!pitchBarEnabled ? 'vk-settings-icon-dimmed' : ''}}" src="/assets/icons/keyboard/controler.png" mode="aspectFit"></image>
+            </view>
+            <text class="vk-settings-icon-label">{{pitchBarEnabled ? '音高条(开)' : '音高条(关)'}}</text>
+          </view>
           <!-- 占位 -->
-          <view class="vk-settings-icon-item vk-settings-icon-empty"></view>
           <view class="vk-settings-icon-item vk-settings-icon-empty"></view>
         </view>
         <!-- 第二行图标（预留） -->

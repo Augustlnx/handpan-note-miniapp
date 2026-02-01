@@ -88,6 +88,7 @@ Page({
     
     // 代码导出
     exportedCode: '',
+    exportCodeType: 'modules', // 'modules' 仅谱面代码, 'full' 完整曲谱JSON
     
     // PDF相关
     showPdfProgressModal: false,
@@ -735,7 +736,17 @@ Page({
   // 导出为代码
   exportAsCode() {
     try {
-      const code = this.generateNotationCode();
+      const { exportCodeType } = this.data;
+      let code;
+      
+      if (exportCodeType === 'full') {
+        // 导出完整曲谱JSON
+        code = this.generateFullNotationJSON();
+      } else {
+        // 导出仅谱面代码
+        code = this.generateNotationCode();
+      }
+      
       this.setData({
         exportedCode: code,
         currentStep: 'code'
@@ -746,6 +757,56 @@ Page({
         icon: 'none'
       });
     }
+  },
+
+  // 选择代码导出类型
+  selectExportCodeType(e) {
+    const type = e.currentTarget.dataset.type;
+    this.setData({ exportCodeType: type });
+  },
+
+  // 生成完整曲谱JSON
+  generateFullNotationJSON() {
+    const { notations } = this.data;
+    
+    if (!notations || notations.length === 0) {
+      throw new Error('当前谱面为空');
+    }
+    
+    // 生成谱面代码（LaTeX格式）
+    const modulesCode = this.generateCodeForNotations(notations);
+    
+    // 构建完整曲谱JSON对象
+    const fullNotation = {
+      format: 'handpan-notation',
+      version: '1.0',
+      metadata: {
+        title: this.data.mainTitle || '',
+        subtitle: this.data.subTitle || '',
+        composer: this.data.composer || '',
+        rootNote: this.data.rootNote || 'D',
+        scaleType: this.data.scaleType || 'Kurd',
+        noteCount: this.data.noteCount || 10,
+        difficulty: this.data.difficulty || 1,
+        introduction: this.data.introduction || '',
+        tempo: this.data.globalTempo || 60,
+        notationType: this.data.notationType || 'digital'
+      },
+      colors: {
+        mainTitleColor: this.data.mainTitleColor || '#314D63',
+        subTitleColor: this.data.subTitleColor || '#8FB9AB',
+        rightHandColor: this.data.rightHandColor || '#F4D096',
+        leftHandColor: this.data.leftHandColor || '#314D63'
+      },
+      layout: {
+        orientation: this.data.orientation || 'portrait',
+        measuresPerRow: this.data.measuresPerRow || 1
+      },
+      modules: modulesCode
+    };
+    
+    // 格式化输出JSON，使用2空格缩进
+    return JSON.stringify(fullNotation, null, 2);
   },
 
   // 生成代码

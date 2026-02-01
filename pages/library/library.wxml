@@ -192,6 +192,22 @@
       <scroll-view scroll-y class="new-file-scroll">
         <text class="modal-title">新建曲谱文件</text>
         
+        <!-- 导入完整曲谱入口 -->
+        <view class="import-json-entry" bindtap="openImportJsonModal">
+          <view class="import-json-icon-wrap">
+            <image class="import-json-icon" src="/assets/icons/上传_upload.svg" mode="aspectFit"></image>
+          </view>
+          <view class="import-json-text">
+            <text class="import-json-title">从代码导入</text>
+            <text class="import-json-desc">粘贴完整曲谱JSON代码快速创建</text>
+          </view>
+          <view class="import-json-arrow">›</view>
+        </view>
+        
+        <view class="form-divider-line">
+          <text class="divider-text">或手动填写信息</text>
+        </view>
+        
         <view class="form-group">
           <text class="form-label">文件名 *</text>
           <input class="form-input" placeholder="输入文件名" bindinput="onNewFileNameInput" value="{{newFileData.file_name}}" />
@@ -400,6 +416,63 @@
           <view wx:for="{{noteCountOptions}}" wx:key="*this" class="ios-picker-item">{{item}}音</view>
         </picker-view-column>
       </picker-view>
+    </view>
+  </view>
+
+  <!-- 导入JSON曲谱弹窗 -->
+  <view class="modal-mask" wx:if="{{showImportJsonModal}}" bindtap="closeImportJsonModal">
+    <view class="import-json-modal" catchtap="stopPropagation">
+      <view class="import-json-header">
+        <view class="import-json-header-icon">
+          <image src="/assets/icons/上传_upload.svg" mode="aspectFit"></image>
+        </view>
+        <text class="import-json-modal-title">导入完整曲谱</text>
+        <text class="import-json-modal-desc">粘贴通过"导出为代码 - 完整曲谱信息"生成的JSON代码</text>
+      </view>
+      
+      <view class="import-json-content">
+        <textarea 
+          class="import-json-textarea" 
+          placeholder='{"format": "handpan-notation", ...}'
+          bindinput="onImportJsonInput"
+          value="{{importJsonCode}}"
+          maxlength="-1"
+          auto-height="{{false}}"
+        ></textarea>
+        
+        <view class="import-json-error" wx:if="{{importJsonError}}">
+          <image class="error-icon" src="/assets/icons/star.svg" mode="aspectFit"></image>
+          <text>{{importJsonError}}</text>
+        </view>
+        
+        <view class="import-json-preview" wx:if="{{importJsonPreview}}">
+          <view class="preview-header">
+            <image class="preview-check" src="/assets/icons/校验_check-one.svg" mode="aspectFit"></image>
+            <text class="preview-title">识别成功</text>
+          </view>
+          <view class="preview-info">
+            <view class="preview-row">
+              <text class="preview-label">曲名</text>
+              <text class="preview-value">{{importJsonPreview.title || '未命名'}}</text>
+            </view>
+            <view class="preview-row">
+              <text class="preview-label">制谱人</text>
+              <text class="preview-value">{{importJsonPreview.composer || '未知'}}</text>
+            </view>
+            <view class="preview-row">
+              <text class="preview-label">调式</text>
+              <text class="preview-value">{{importJsonPreview.rootNote}} {{importJsonPreview.scaleType}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      
+      <view class="import-json-actions">
+        <button class="import-json-btn cancel" bindtap="closeImportJsonModal">取消</button>
+        <button class="import-json-btn confirm {{!importJsonPreview ? 'disabled' : ''}}" bindtap="confirmImportJson" disabled="{{!importJsonPreview}}">
+          <text>导入并打开</text>
+        </button>
+      </view>
     </view>
   </view>
 </view>

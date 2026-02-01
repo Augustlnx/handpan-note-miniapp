@@ -784,21 +784,26 @@ class SheetPlaybackManager {
   
   /**
    * 获取音符对应的音频文件路径
+   * 支持等音名：如 C#4 无文件时会查找 Db4 的路径
    * @param {string} spn - SPN格式的音符名
    * @returns {string} 音频文件路径
    */
   getAudioPath(spn) {
+    // 【修复】等音名解析：若 spn 无对应文件则用等音名（如 C#4 -> Db4）查找路径
+    const check = this.checkSpnAudioAvailable(spn);
+    const resolvedSpn = check.available ? check.actualSpn : spn;
+
     // 检查是否在扩展分包中
-    const subpackage = this.spnToSubpackage.get(spn);
+    const subpackage = this.spnToSubpackage.get(resolvedSpn);
     if (subpackage) {
       const config = this.subpackageAudioMappings[subpackage];
       if (config) {
-        return `${config.path}${spn}.mp3`;
+        return `${config.path}${resolvedSpn}.mp3`;
       }
     }
-    
+
     // 默认使用主分包路径
-    return `${this.audioBasePath}${spn}.mp3`;
+    return `${this.audioBasePath}${resolvedSpn}.mp3`;
   }
   
   /**
@@ -1031,8 +1036,19 @@ class SheetPlaybackManager {
     if (this.specialNoteMappings[mainNote]) {
       let spn;
       
-      // d/T/K 特殊处理：按优先级查找音频文件
-      if (mainNote === 'd') {
+      // 【修复】D 音符特殊处理：优先查自定义映射，否则动态计算 SPN
+      if (mainNote === 'D') {
+        // 先检查自定义映射表
+        if (this.customAudioMappings && Array.isArray(this.customAudioMappings)) {
+          const mapping = this.customAudioMappings.find(m => m.key === 'D');
+          if (mapping && mapping.spn) {
+            return { spn: mapping.spn, volume: this.specialNoteVolumes['D'] || 1.0 };
+          }
+        }
+        // 没有自定义映射，动态计算（按 "6," 低音6处理）
+        spn = this.calculateDynamicDSpn();
+      } else if (mainNote === 'd') {
+        // d/T/K 特殊处理：按优先级查找音频文件
         spn = this.availableAudioFiles.has('d') ? 'd' 
             : this.availableAudioFiles.has('T') ? 'T'
             : this.availableAudioFiles.has('K') ? 'K'
@@ -2215,38 +2231,29 @@ class SheetPlaybackManager {
 
   /**
    * 检查指定SPN音频是否可用（已加载或可从分包加载）
+   * 支持等音名：如 C#4 会同时视为 Db4 可用
    * @param {string} spn - SPN格式的音符名
    * @param {boolean} checkExtendedOnly - 是否只检查已加载的分包
    * @returns {boolean}
    */
   isAudioAvailable(spn, checkExtendedOnly = false) {
-    // 检查是否在已加载的音频文件中
-    if (this.availableAudioFiles.has(spn)) {
-      return true;
-    }
-    
-    // 如果只检查已加载的分包，则返回false
+    const check = this.checkSpnAudioAvailable(spn);
+    if (!check.available) return false;
+    // 若只检查已加载的，需用 actualSpn 查 availableAudioFiles
     if (checkExtendedOnly) {
-      return false;
+      return this.availableAudioFiles.has(check.actualSpn);
     }
-    
-    // 检查是否可以从扩展分包中加载
-    return this.spnToSubpackage.has(spn);
+    return true;
   }
-  
+
   /**
    * 检查指定SPN音频是否存在于任何分包中（包括未加载的）
+   * 支持等音名：如 C#4 会同时视为 Db4 存在
    * @param {string} spn - SPN格式的音符名
    * @returns {boolean}
    */
   canLoadAudio(spn) {
-    // 检查是否在主分包的可用文件中
-    if (this.availableAudioFiles.has(spn)) {
-      return true;
-    }
-    
-    // 检查是否在扩展分包映射中
-    return this.spnToSubpackage.has(spn);
+    return this.checkSpnAudioAvailable(spn).available;
   }
 
   /**
@@ -2274,11 +2281,14 @@ class SheetPlaybackManager {
   
   /**
    * 获取音符所在的分包名称
+   * 支持等音名：如 C#4 会返回 Db4 所在分包
    * @param {string} spn - SPN格式的音符名
    * @returns {string|null} 分包名称或null（如果在主分包中）
    */
   getAudioSubpackage(spn) {
-    return this.spnToSubpackage.get(spn) || null;
+    const check = this.checkSpnAudioAvailable(spn);
+    const resolvedSpn = check.available ? check.actualSpn : spn;
+    return this.spnToSubpackage.get(resolvedSpn) || null;
   }
 
   /**

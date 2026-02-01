@@ -23,9 +23,31 @@
       <view class="export-option {{exportMode === 'code' ? 'selected' : ''}}" bindtap="selectExportMode" data-mode="code">
         <view class="option-content">
           <text class="option-title">导出为代码</text>
-          <text class="option-desc">生成LaTeX风格代码，可复制分享</text>
+          <text class="option-desc">生成可复制分享的代码格式</text>
         </view>
         <image wx:if="{{exportMode === 'code'}}" class="option-check" src="../../icons/校验_check-one.svg"></image>
+      </view>
+
+      <!-- 代码导出子选项 -->
+      <view class="code-type-options" wx:if="{{exportMode === 'code'}}">
+        <view class="code-type-option {{exportCodeType === 'modules' ? 'selected' : ''}}" bindtap="selectExportCodeType" data-type="modules">
+          <view class="code-type-radio">
+            <view wx:if="{{exportCodeType === 'modules'}}" class="code-type-radio-inner"></view>
+          </view>
+          <view class="code-type-content">
+            <text class="code-type-title">仅谱面代码</text>
+            <text class="code-type-desc">LaTeX风格的module代码，适合谱面数据分享</text>
+          </view>
+        </view>
+        <view class="code-type-option {{exportCodeType === 'full' ? 'selected' : ''}}" bindtap="selectExportCodeType" data-type="full">
+          <view class="code-type-radio">
+            <view wx:if="{{exportCodeType === 'full'}}" class="code-type-radio-inner"></view>
+          </view>
+          <view class="code-type-content">
+            <text class="code-type-title">完整曲谱信息</text>
+            <text class="code-type-desc">JSON格式，包含标题、制谱人、颜色等全部信息</text>
+          </view>
+        </view>
       </view>
     </view>
     
@@ -291,7 +313,7 @@
   <!-- PDF导出进度弹窗 -->
   <view wx:if="{{showPdfProgressModal}}" class="modal-overlay" catchtouchmove="stopPropagation">
     <view class="modal-content pdf-progress-modal" catchtap="stopPropagation">
-      <image class="splash-logo" src="/subpackages/packageB/img/logo5.png"></image>
+      <image class="splash-logo" src="/subpackages/packageA/img/logo5.png"></image>
      
       <view class="pdf-progress-header">
         <image class="pdf-progress-icon" src="/assets/icons/文件-PDF_file-pdf.png" mode="aspectFit"></image>
@@ -356,7 +378,7 @@
   <!-- 加载中 -->
   <view wx:if="{{isLoading}}" class="loading-overlay">
     <view class="loading-content">
-      <image class="loading-logo" src="/subpackages/packageB/img/logo5.png" mode="aspectFit"></image>
+      <image class="loading-logo" src="/subpackages/packageA/img/logo5.png" mode="aspectFit"></image>
       <text class="loading-text">{{loadingText}}</text>
     </view>
   </view>

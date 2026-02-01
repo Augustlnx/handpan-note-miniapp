@@ -345,6 +345,7 @@ Page({
     showKeyboardSettings: false, // 是否显示更多设置界面
     insertDirection: 'right', // 插入方向: 'right' 向右插入, 'left' 向左插入
     showHelpBtnSetting: true, // 是否显示帮助按钮
+    pitchBarEnabled: true, // 是否启用音高条（数字键盘左侧）
     isCustomizingKeyboard: false, // 是否在自定义键盘模式
     customSymbolKeys: { // 自定义符号键（默认值与系统一致）
       key1: 'd', key2: 'D', key3: 'P',
@@ -1023,12 +1024,9 @@ Page({
     try {
       const playbackMgr = await getSheetPlaybackManager();
       
-      // 更新每个映射的音频可用状态
+      // 更新每个映射的音频可用状态（含等音名：如 C#4 视为 Db4 可用）
       const updatedMappings = mappings.map(m => {
-        const hasAudio = m.spn && (
-          playbackMgr.availableAudioFiles.has(m.spn) || 
-          playbackMgr.spnToSubpackage.has(m.spn)
-        );
+        const hasAudio = m.spn ? playbackMgr.checkSpnAudioAvailable(m.spn).available : false;
         return { ...m, hasAudio };
       });
       
@@ -8391,10 +8389,114 @@ Page({
     this._importCode = e.detail.value;
   },
 
+  // 检测是否为完整曲谱 JSON 格式
+  isFullNotationJSON(code) {
+    try {
+      const trimmed = code.trim();
+      // 检查是否以 { 开头且以 } 结尾
+      if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+        return false;
+      }
+      
+      const parsed = JSON.parse(trimmed);
+      // 检查是否包含必要的完整曲谱格式标识
+      return parsed.format === 'handpan-notation' && 
+             parsed.version && 
+             parsed.metadata && 
+             parsed.modules;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // 导入完整曲谱 JSON（替换整个曲谱的所有信息）
+  importFullNotationJSON(code) {
+    try {
+      const fullNotation = JSON.parse(code.trim());
+      
+      // 验证格式
+      if (fullNotation.format !== 'handpan-notation') {
+        throw new Error('无效的曲谱格式标识');
+      }
+      
+      const { metadata, colors, layout, modules } = fullNotation;
+      
+      // 解析谱面代码（LaTeX 格式的 modules）
+      const parsedModules = this.parseImportCode(modules);
+      
+      if (!parsedModules || parsedModules.length === 0) {
+        throw new Error('未能解析出有效的模块数据');
+      }
+      
+      // 转换为 notation 格式
+      const newNotations = parsedModules.map(module => this.convertToNotation(module));
+      const notationsWithOffsets = this.updateMeasureOffsets(newNotations);
+      
+      // 构建更新数据（曲谱信息 + 颜色 + 布局）
+      const updateData = {
+        // 元信息
+        mainTitle: metadata.title || '',
+        subTitle: metadata.subtitle || '',
+        composer: metadata.composer || 'Your Name',
+        rootNote: metadata.rootNote || 'D',
+        scaleType: metadata.scaleType || 'Kurd',
+        noteCount: metadata.noteCount || 10,
+        difficulty: metadata.difficulty || 1,
+        introduction: metadata.introduction || '',
+        globalTempo: metadata.tempo || 60,
+        notationType: metadata.notationType || 'digital',
+        // 颜色配置
+        mainTitleColor: (colors && colors.mainTitleColor) || '#314D63',
+        subTitleColor: (colors && colors.subTitleColor) || '#8FB9AB',
+        rightHandColor: (colors && colors.rightHandColor) || '#F4D096',
+        leftHandColor: (colors && colors.leftHandColor) || '#314D63',
+        // 布局配置
+        orientation: (layout && layout.orientation) || 'portrait',
+        measuresPerRow: (layout && layout.measuresPerRow) || 1
+      };
+      
+      // 更新页面数据
+      this.setData(updateData);
+      
+      // 保存谱面数据
+      this.saveNotationsScoped(notationsWithOffsets);
+      this.setNotations(notationsWithOffsets);
+      
+      // 保存标题到本地存储
+      this.saveTitles();
+      
+      // 保存颜色配置到本地存储
+      wx.setStorageSync('colorSettings', {
+        mainTitleColor: updateData.mainTitleColor,
+        subTitleColor: updateData.subTitleColor,
+        rightHandColor: updateData.rightHandColor,
+        leftHandColor: updateData.leftHandColor
+      });
+      
+      return {
+        success: true,
+        message: `完整曲谱已导入（${parsedModules.length}个模块）`,
+        isFullImport: true
+      };
+    } catch (err) {
+      console.error('完整曲谱JSON导入错误：', err);
+      return {
+        success: false,
+        message: err.message || '完整曲谱解析失败'
+      };
+    }
+  },
+
   // 执行导入（核心逻辑，由 confirmImport 和 performLoadExample 调用）
   performImport(code, importMode = 'add', importTargetModuleId = null) {
     try {
-      // 解析代码
+      // 【新增】检测是否为完整曲谱 JSON 格式
+      if (this.isFullNotationJSON(code)) {
+        // 完整曲谱导入会替换所有数据，忽略 importMode 和 importTargetModuleId
+        return this.importFullNotationJSON(code);
+      }
+      
+      // 原有逻辑：解析 LaTeX 格式代码
       const parsedModules = this.parseImportCode(code);
       
       if (!parsedModules || parsedModules.length === 0) {
@@ -9282,8 +9384,18 @@ Page({
     // 生成转换映射数组（三列）
     const conversionMappings = this.generateConversionMappings(noteSet, currentType);
     
-    // 检查是否有空的映射（检查simplified字段）
-    const hasEmpty = conversionMappings.some(m => !m.simplified || m.simplified.trim() === '');
+    // 检查是否有空的映射（根据转换方向检查目标字段）
+    // 数字谱转简谱：检查 simplified 字段
+    // 简谱转数字谱：检查 key 字段（数字谱列）
+    const hasEmpty = conversionMappings.some(m => {
+      if (currentType === 'digital') {
+        // 数字谱转简谱，检查简谱列是否为空
+        return !m.simplified || m.simplified.trim() === '';
+      } else {
+        // 简谱转数字谱，检查数字谱列是否为空
+        return !m.key || m.key.trim() === '';
+      }
+    });
     
     // 加载转换表库
     const library = wx.getStorageSync('conversionTableLibrary') || [];
@@ -9465,9 +9577,13 @@ Page({
 
   // 生成转换映射数组（三列：数字谱、简谱、SPN）
   // 支持带八度标记的音符（如 1'、5,,），会自动基于基础音符计算转换值
+  // 【修复】确保返回的数据结构中，key始终是"数字谱"列的值，simplified始终是"简谱"列的值
   generateConversionMappings(noteSet, currentType) {
     const defaultTable = this.data.defaultConversionTable;
     const mappings = [];
+    
+    // 特殊字符列表：在两种谱式中都保持不变
+    const specialChars = ['D', 'd', 's', 'P', 'H', 'T', 'F', 'B', 'O', 'x', '·', 'K', 'M', '0'];
     
     // 将Set转换为数组并排序
     const noteArray = Array.from(noteSet).sort((a, b) => {
@@ -9490,7 +9606,8 @@ Page({
     });
     
     noteArray.forEach(note => {
-      let simplified = '';
+      let digitalValue = '';  // 数字谱列的值
+      let simplifiedValue = '';  // 简谱列的值
       let spn = '';
       
       // 提取音符的八度修饰符
@@ -9498,75 +9615,94 @@ Page({
       const octaveDownCount = (note.match(/,/g) || []).length;
       const baseNote = note.replace(/['',_]/g, '');
       
+      // 检查是否是特殊字符（在两种谱式中都保持不变）
+      const isSpecialChar = specialChars.includes(baseNote);
+      
       if (currentType === 'digital') {
-        // 数字谱转简谱：查找默认转换值
-        // 首先尝试精确匹配（带修饰符的完整音符）
-        let tableValue = defaultTable[note];
+        // 数字谱转简谱：
+        // - digitalValue = 当前谱面的数字谱音符 (源)
+        // - simplifiedValue = 要转换成的简谱音符 (目标)
+        digitalValue = note;
         
-        // 如果精确匹配失败，尝试用基础音符查找
-        if (tableValue === undefined && baseNote !== note) {
-          tableValue = defaultTable[baseNote];
+        if (isSpecialChar) {
+          // 特殊字符保持不变
+          simplifiedValue = note;
+          // D 的 SPN 特殊处理
+          if (baseNote === 'D' || baseNote === 'd') {
+            spn = this.simplifiedToSPN('6,');
+          }
+        } else {
+          // 首先尝试精确匹配（带修饰符的完整音符）
+          let tableValue = defaultTable[note];
           
-          // 找到基础音符的转换值后，叠加八度修饰符
-          if (tableValue !== undefined) {
-            let baseSimplified = Array.isArray(tableValue) ? tableValue[0] : tableValue;
-            let baseSpn = Array.isArray(tableValue) ? (tableValue[1] || '') : '';
+          // 如果精确匹配失败，尝试用基础音符查找
+          if (tableValue === undefined && baseNote !== note) {
+            tableValue = defaultTable[baseNote];
             
-            // 叠加八度修饰符到简谱值
-            simplified = this.applyOctaveModifiers(baseSimplified, octaveUpCount, octaveDownCount);
-            // 计算新的SPN（基于带修饰符的简谱值）
-            spn = this.simplifiedToSPN(simplified);
+            // 找到基础音符的转换值后，叠加八度修饰符
+            if (tableValue !== undefined) {
+              let baseSimplified = Array.isArray(tableValue) ? tableValue[0] : tableValue;
+              
+              // 叠加八度修饰符到简谱值
+              simplifiedValue = this.applyOctaveModifiers(baseSimplified, octaveUpCount, octaveDownCount);
+              // 计算新的SPN（基于带修饰符的简谱值）
+              spn = this.simplifiedToSPN(simplifiedValue);
+            }
+            // 如果找不到，simplifiedValue 保持为空，让用户填写
+          } else if (tableValue !== undefined) {
+            // 精确匹配成功
+            if (Array.isArray(tableValue)) {
+              simplifiedValue = tableValue[0] || '';
+              spn = tableValue[1] || '';
+            } else if (typeof tableValue === 'string') {
+              simplifiedValue = tableValue;
+              spn = this.simplifiedToSPN(tableValue);
+            }
           }
-        } else if (tableValue !== undefined) {
-          // 精确匹配成功
-          if (Array.isArray(tableValue)) {
-            simplified = tableValue[0] || '';
-            spn = tableValue[1] || '';
-          } else if (typeof tableValue === 'string') {
-            simplified = tableValue;
-            spn = this.simplifiedToSPN(tableValue);
-          }
+          // 如果找不到，simplifiedValue 保持为空，让用户填写
         }
       } else {
-        // 简谱转数字谱：反向查找
-        // 首先尝试精确匹配
-        let found = false;
-        for (const key in defaultTable) {
-          const tableValue = defaultTable[key];
-          const simplifiedValue = Array.isArray(tableValue) ? tableValue[0] : tableValue;
-          if (simplifiedValue === note) {
-            simplified = key;
-            spn = Array.isArray(tableValue) ? (tableValue[1] || '') : '';
-            found = true;
-            break;
-          }
-        }
+        // 简谱转数字谱：
+        // - simplifiedValue = 当前谱面的简谱音符 (源)
+        // - digitalValue = 要转换成的数字谱音符 (目标)
+        simplifiedValue = note;
         
-        // 如果精确匹配失败，尝试用基础音符查找
-        if (!found && baseNote !== note) {
+        if (isSpecialChar) {
+          // 特殊字符保持不变
+          digitalValue = note;
+          // D 的 SPN 特殊处理
+          if (baseNote === 'D' || baseNote === 'd') {
+            spn = this.simplifiedToSPN('6,');
+          }
+        } else {
+          // 反向查找：仅使用默认表中的精确匹配
+          // 【修复】不再使用“基础音符”回退：若表中没有该简谱音符的精确对应项，则目标留空，由用户自行填写。
+          // 避免将例如 4' 错误推导为 2'（数字谱为纯数字位，不应靠八度修饰符推导）。
           for (const key in defaultTable) {
             const tableValue = defaultTable[key];
-            const simplifiedValue = Array.isArray(tableValue) ? tableValue[0] : tableValue;
-            // 去掉简谱值的修饰符进行匹配
-            const baseSimplifiedValue = simplifiedValue.replace(/['',_]/g, '');
-            if (baseSimplifiedValue === baseNote) {
-              // 找到基础音符的对应数字谱，叠加八度修饰符
-              simplified = this.applyOctaveModifiers(key, octaveUpCount, octaveDownCount);
-              // 计算新的SPN（基于带修饰符的简谱值）
-              spn = this.simplifiedToSPN(note);
-              found = true;
+            const tableSimplified = Array.isArray(tableValue) ? tableValue[0] : tableValue;
+            if (tableSimplified === note) {
+              digitalValue = key;
+              spn = Array.isArray(tableValue) ? (tableValue[1] || '') : '';
+              if (!spn) {
+                spn = this.simplifiedToSPN(note);
+              }
               break;
             }
           }
+          // 未在默认表中精确匹配到的简谱音符，digitalValue 保持为空，让用户填写
         }
       }
       
       mappings.push({
-        key: note,
-        simplified: simplified,
+        key: digitalValue,           // 数字谱列的值（固定显示列）
+        simplified: simplifiedValue, // 简谱列的值（可编辑列）
         spn: spn,
+        // 保存源音符（用于构建转换表）
+        sourceNote: note,
+        sourceType: currentType,
         // 兼容旧代码
-        value: simplified
+        value: simplifiedValue
       });
     });
     
@@ -9610,6 +9746,37 @@ Page({
       if (totalOctaveDown > 0) {
         result += ",".repeat(totalOctaveDown);
       }
+    }
+    
+    return result;
+  },
+  
+  /**
+   * 将八度修饰符差值应用到音符上（支持负数差值）
+   * @param {string} note - 原音符（可能已有修饰符）
+   * @param {number} deltaOctaveUp - 高八度差值（可能为负）
+   * @param {number} deltaOctaveDown - 低八度差值（可能为负）
+   * @returns {string} 带修饰符的音符
+   */
+  applyOctaveModifiersDelta(note, deltaOctaveUp, deltaOctaveDown) {
+    if (!note) return note;
+    
+    // 提取现有的八度修饰符
+    const existingOctaveUp = (note.match(/'/g) || []).length;
+    const existingOctaveDown = (note.match(/,/g) || []).length;
+    const baseNote = note.replace(/['',]/g, '');
+    
+    // 计算最终的净八度偏移
+    // existingUp - existingDown + deltaUp - deltaDown
+    const netOctave = (existingOctaveUp - existingOctaveDown) + (deltaOctaveUp - deltaOctaveDown);
+    
+    // 组装结果
+    let result = baseNote;
+    
+    if (netOctave > 0) {
+      result += "'".repeat(netOctave);
+    } else if (netOctave < 0) {
+      result += ",".repeat(-netOctave);
     }
     
     return result;
@@ -9836,19 +10003,46 @@ Page({
   
   /**
    * 应用转换表到当前映射
+   * 【修复】根据转换方向正确应用转换表值
    */
   applyConversionTable(table) {
+    const currentType = this.data.notationType;
+    
     const mappings = this.data.conversionMappings.map(m => {
-      const tableValue = table[m.key];
-      if (Array.isArray(tableValue)) {
-        return { ...m, simplified: tableValue[0] || '', spn: tableValue[1] || '', value: tableValue[0] || '' };
-      } else if (typeof tableValue === 'string') {
-        return { ...m, simplified: tableValue, spn: this.simplifiedToSPN(tableValue), value: tableValue };
+      // 获取源音符（谱面中的实际音符）
+      const sourceNote = m.sourceNote || (currentType === 'digital' ? m.key : m.simplified);
+      
+      if (currentType === 'digital') {
+        // 数字谱转简谱：用数字谱音符查找简谱值
+        const tableValue = table[sourceNote];
+        if (Array.isArray(tableValue)) {
+          return { ...m, simplified: tableValue[0] || '', spn: tableValue[1] || '', value: tableValue[0] || '' };
+        } else if (typeof tableValue === 'string') {
+          return { ...m, simplified: tableValue, spn: this.simplifiedToSPN(tableValue), value: tableValue };
+        }
+      } else {
+        // 简谱转数字谱：反向查找，用简谱音符找数字谱值
+        for (const key in table) {
+          const tableValue = table[key];
+          const simplifiedValue = Array.isArray(tableValue) ? tableValue[0] : tableValue;
+          if (simplifiedValue === sourceNote) {
+            const spn = Array.isArray(tableValue) ? (tableValue[1] || '') : this.simplifiedToSPN(sourceNote);
+            return { ...m, key: key, spn: spn, value: m.simplified };
+          }
+        }
       }
       return m;
     });
     
-    const hasEmpty = mappings.some(m => !m.simplified || m.simplified.trim() === '');
+    // 检查是否有空的映射（根据转换方向）
+    const hasEmpty = mappings.some(m => {
+      if (currentType === 'digital') {
+        return !m.simplified || m.simplified.trim() === '';
+      } else {
+        return !m.key || m.key.trim() === '';
+      }
+    });
+    
     this.setData({
       conversionMappings: mappings,
       hasEmptyConversionMapping: hasEmpty,
@@ -9881,12 +10075,19 @@ Page({
     }
     
     // 构建转换表（从映射数组）
-    // 优先使用 value 字段（用户可能已修改），否则使用 simplified 字段
+    // 【修复】转换表格式：{源音符: 目标音符}
+    // - 数字谱转简谱：{数字谱音符: 简谱音符}
+    // - 简谱转数字谱：{简谱音符: 数字谱音符}
     const conversionTable = {};
     this.data.conversionMappings.forEach(m => {
-      const targetValue = (m.value && m.value.trim()) || (m.simplified && m.simplified.trim());
-      if (m.key && targetValue) {
-        conversionTable[m.key] = targetValue;
+      // 获取源音符和目标音符
+      const sourceNote = m.sourceNote || (currentType === 'digital' ? m.key : m.simplified);
+      const targetValue = currentType === 'digital' 
+        ? (m.simplified && m.simplified.trim())  // 数字谱转简谱，目标是简谱值
+        : (m.key && m.key.trim());               // 简谱转数字谱，目标是数字谱值
+      
+      if (sourceNote && targetValue) {
+        conversionTable[sourceNote] = targetValue;
       }
     });
     
@@ -10059,18 +10260,19 @@ Page({
   
   /**
    * 转换表单元格点击（唤起虚拟键盘）
+   * 【修复】使用 sourceNote 作为唯一标识符
    */
   onConversionCellTap(e) {
     const { key, field } = e.currentTarget.dataset;
-    // 找到对应的映射
-    const mapping = this.data.conversionMappings.find(m => m.key === key);
+    // key 参数实际传的是 sourceNote，使用它来查找映射
+    const mapping = this.data.conversionMappings.find(m => m.sourceNote === key);
     if (!mapping) return;
     
     // 设置虚拟键盘编辑状态，重置原生输入状态
     this.setData({
       showVirtualKeyboard: true,
       virtualKeyboardDisplay: mapping[field] || '',
-      conversionEditingKey: key,
+      conversionEditingKey: key, // 存储的是 sourceNote
       conversionEditingField: field,
       conversionUseNativeInput: false // 点击单元格时优先使用虚拟键盘
     }, () => {
@@ -10739,7 +10941,7 @@ Page({
     }
     
     // 2. 尝试去掉下划线后匹配（保留八度标记）
-    // 这对于简谱转数字谱很重要，如 1'_ -> 查找 1' -> 得到 6 -> 返回 6_
+    // 下划线是时值标记，不影响音符本身，如 1'_ -> 查找 1' -> 得到 6 -> 返回 6_
     if (underscoreCount > 0 && conversionTable[noteWithoutUnderscore] !== undefined) {
       let converted = conversionTable[noteWithoutUnderscore];
       if (Array.isArray(converted)) {
@@ -10750,54 +10952,11 @@ Page({
       return converted + "_".repeat(underscoreCount);
     }
     
-    // 3. 尝试基础音符匹配（用于数字谱转简谱，如 4_ -> 4 -> 6）
-    let converted = conversionTable[baseNote];
-    
-    if (converted === undefined) {
-      // 转换表中没有对应值，返回原值
-      return noteStr;
-    }
-    
-    // 处理数组格式 [简谱, SPN]
-    if (Array.isArray(converted)) {
-      converted = converted[0] || baseNote;
-    }
-    
-    // 解析转换值中的八度修饰符
-    const convertedOctaveUp = (converted.match(/'/g) || []).length;
-    const convertedOctaveDown = (converted.match(/,/g) || []).length;
-    const convertedBase = converted.replace(/[_',]/g, '');
-    
-    // 计算最终的八度修饰符（原音符修饰符 + 转换值修饰符）
-    const finalOctaveUp = octaveUpCount + convertedOctaveUp;
-    const finalOctaveDown = octaveDownCount + convertedOctaveDown;
-    
-    // 组装最终结果
-    let result = convertedBase;
-    
-    // 添加八度修饰符（高低八度抵消）
-    if (finalOctaveUp > 0 && finalOctaveDown > 0) {
-      const netOctave = finalOctaveUp - finalOctaveDown;
-      if (netOctave > 0) {
-        result += "'".repeat(netOctave);
-      } else if (netOctave < 0) {
-        result += ",".repeat(-netOctave);
-      }
-    } else {
-      if (finalOctaveUp > 0) {
-        result += "'".repeat(finalOctaveUp);
-      }
-      if (finalOctaveDown > 0) {
-        result += ",".repeat(finalOctaveDown);
-      }
-    }
-    
-    // 保留下划线（时值标记）
-    if (underscoreCount > 0) {
-      result += "_".repeat(underscoreCount);
-    }
-    
-    return result;
+    // 【修复】移除第3步的基础音符匹配逻辑
+    // 原来的逻辑会导致未在转换表中配置的音符被"智能"转换（如 1' 通过 1 匹配转换为 3'）
+    // 根据用户需求，只有在转换表中明确配置的映射才应该生效
+    // 如果转换表中没有对应值，返回原值（保持不变）
+    return noteStr;
   },
 
   // 转换为简谱
@@ -11324,7 +11483,7 @@ Page({
     });
   },
 
-  // 计算分页：根据24小节分割，创建分页数组
+  // 计算分页：1页最多64小节，创建分页数组
   calculatePages() {
     const notations = this.data.notations || [];
     if (!Array.isArray(notations) || notations.length === 0) {
@@ -11337,7 +11496,7 @@ Page({
       return;
     }
 
-    const MEASURES_PER_PAGE = 24;
+    const MEASURES_PER_PAGE = 64; // 1页最多64小节
     const pages = [];
     let currentPageModules = [];
     let currentMeasureCount = 0;
@@ -11348,7 +11507,7 @@ Page({
       const moduleId = notation.id || `module-${i}`;
       const moduleMeasureCount = (notation.measures && notation.measures.length) || 0;
 
-      // 如果加入当前module会超过24小节，且已有module在页面中，则开启新页面
+      // 如果加入当前module会超过每页小节上限，且已有module在页面中，则开启新页面
       if (currentMeasureCount > 0 && currentMeasureCount + moduleMeasureCount > MEASURES_PER_PAGE) {
         // 保存当前页
         pages.push({
@@ -12175,6 +12334,14 @@ Page({
     wx.setStorageSync('keyboard_show_help_btn', show);
   },
   
+  // 切换音高条显示
+  togglePitchBar() {
+    const newValue = !this.data.pitchBarEnabled;
+    this.setData({ pitchBarEnabled: newValue });
+    // 保存到本地存储
+    wx.setStorageSync('keyboard_pitch_bar_enabled', newValue);
+  },
+  
   // 从更多设置界面插入注记
   insertNoteAnnotationFromSettings() {
     this.closeKeyboardSettings();
@@ -12262,6 +12429,12 @@ Page({
       this.setData({ showHelpBtnSetting: savedShowHelpBtn });
     }
     
+    // 加载音高条显示设置
+    const savedPitchBarEnabled = wx.getStorageSync('keyboard_pitch_bar_enabled');
+    if (savedPitchBarEnabled !== '' && savedPitchBarEnabled !== undefined) {
+      this.setData({ pitchBarEnabled: savedPitchBarEnabled });
+    }
+    
     // 加载自定义符号键设置
     const savedCustomKeys = wx.getStorageSync('custom_symbol_keys');
     if (savedCustomKeys && typeof savedCustomKeys === 'object') {
@@ -12333,14 +12506,15 @@ Page({
   
   /**
    * 处理转换弹窗中的键盘输入
+   * 【修复】使用 sourceNote 作为标识符
    */
   handleConversionInput(key) {
-    const { conversionEditingKey, conversionEditingField, conversionMappings, virtualKeyboardDisplay } = this.data;
+    const { conversionEditingKey, conversionEditingField, conversionMappings, virtualKeyboardDisplay, notationType } = this.data;
     const currentValue = virtualKeyboardDisplay || '';
     const newValue = currentValue + key;
     
-    // 更新映射数组
-    const mappingIndex = conversionMappings.findIndex(m => m.key === conversionEditingKey);
+    // 使用 sourceNote 查找映射（conversionEditingKey 存储的是 sourceNote）
+    const mappingIndex = conversionMappings.findIndex(m => m.sourceNote === conversionEditingKey);
     if (mappingIndex === -1) return;
     
     const updatedMappings = [...conversionMappings];
@@ -12354,11 +12528,17 @@ Page({
       updatedMappings[mappingIndex].spn = this.simplifiedToSPN(newValue);
     }
     
-    // 同时更新value字段（用于转换）
+    // 同时更新value字段（用于兼容）
     updatedMappings[mappingIndex].value = updatedMappings[mappingIndex].simplified;
     
-    // 检查是否有空映射
-    const hasEmpty = updatedMappings.some(m => !m.simplified || m.simplified.trim() === '');
+    // 检查是否有空映射（根据转换方向）
+    const hasEmpty = updatedMappings.some(m => {
+      if (notationType === 'digital') {
+        return !m.simplified || m.simplified.trim() === '';
+      } else {
+        return !m.key || m.key.trim() === '';
+      }
+    });
     
     this.setData({
       conversionMappings: updatedMappings,
@@ -12396,17 +12576,18 @@ Page({
   
   /**
    * 处理转换弹窗中的删除操作
+   * 【修复】使用 sourceNote 作为标识符
    */
   handleConversionBackspace() {
-    const { conversionEditingKey, conversionEditingField, conversionMappings, virtualKeyboardDisplay } = this.data;
+    const { conversionEditingKey, conversionEditingField, conversionMappings, virtualKeyboardDisplay, notationType } = this.data;
     const currentValue = virtualKeyboardDisplay || '';
     
     if (currentValue.length === 0) return;
     
     const newValue = currentValue.slice(0, -1);
     
-    // 更新映射数组
-    const mappingIndex = conversionMappings.findIndex(m => m.key === conversionEditingKey);
+    // 使用 sourceNote 查找映射（conversionEditingKey 存储的是 sourceNote）
+    const mappingIndex = conversionMappings.findIndex(m => m.sourceNote === conversionEditingKey);
     if (mappingIndex === -1) return;
     
     const updatedMappings = [...conversionMappings];
@@ -12420,11 +12601,17 @@ Page({
       updatedMappings[mappingIndex].spn = this.simplifiedToSPN(newValue);
     }
     
-    // 同时更新value字段（用于转换）
+    // 同时更新value字段（用于兼容）
     updatedMappings[mappingIndex].value = updatedMappings[mappingIndex].simplified;
     
-    // 检查是否有空映射
-    const hasEmpty = updatedMappings.some(m => !m.simplified || m.simplified.trim() === '');
+    // 检查是否有空映射（根据转换方向）
+    const hasEmpty = updatedMappings.some(m => {
+      if (notationType === 'digital') {
+        return !m.simplified || m.simplified.trim() === '';
+      } else {
+        return !m.key || m.key.trim() === '';
+      }
+    });
     
     this.setData({
       conversionMappings: updatedMappings,
@@ -12466,26 +12653,34 @@ Page({
   /**
    * 处理音频映射弹窗中的键盘输入
    */
-  handleAudioMappingInput(key) {
+  async handleAudioMappingInput(key) {
     const { audioMappingEditingIndex, audioMappingEditingField, audioMappings, virtualKeyboardDisplay } = this.data;
     const currentValue = virtualKeyboardDisplay || '';
     const newValue = currentValue + key;
-    
+
     if (audioMappingEditingIndex === null || audioMappingEditingIndex < 0 || audioMappingEditingIndex >= audioMappings.length) return;
-    
+
     const updatedMappings = [...audioMappings];
     updatedMappings[audioMappingEditingIndex] = {
       ...updatedMappings[audioMappingEditingIndex],
       [audioMappingEditingField]: newValue
     };
-    
-    // 如果编辑的是simplified字段，需要重新计算SPN
+
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
+
+    // 如果编辑的是simplified字段，需要重新计算SPN（含等音名）
     if (audioMappingEditingField === 'simplified') {
       const newSpn = this.calculateSpnFromSimplified(newValue);
       updatedMappings[audioMappingEditingIndex].spn = newSpn;
-      updatedMappings[audioMappingEditingIndex].hasAudio = newSpn ? this.data.availableAudioFiles.includes(newSpn) : false;
+      updatedMappings[audioMappingEditingIndex].hasAudio = checkHasAudio(newSpn);
     }
-    
+
     this.setData({
       audioMappings: updatedMappings,
       virtualKeyboardDisplay: newValue,
@@ -12497,29 +12692,37 @@ Page({
   /**
    * 处理音频映射弹窗中的删除操作
    */
-  handleAudioMappingBackspace() {
+  async handleAudioMappingBackspace() {
     const { audioMappingEditingIndex, audioMappingEditingField, audioMappings, virtualKeyboardDisplay } = this.data;
     const currentValue = virtualKeyboardDisplay || '';
-    
+
     if (currentValue.length === 0) return;
-    
+
     const newValue = currentValue.slice(0, -1);
-    
+
     if (audioMappingEditingIndex === null || audioMappingEditingIndex < 0 || audioMappingEditingIndex >= audioMappings.length) return;
-    
+
     const updatedMappings = [...audioMappings];
     updatedMappings[audioMappingEditingIndex] = {
       ...updatedMappings[audioMappingEditingIndex],
       [audioMappingEditingField]: newValue
     };
-    
-    // 如果编辑的是simplified字段，需要重新计算SPN
+
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
+
+    // 如果编辑的是simplified字段，需要重新计算SPN（含等音名）
     if (audioMappingEditingField === 'simplified') {
       const newSpn = this.calculateSpnFromSimplified(newValue);
       updatedMappings[audioMappingEditingIndex].spn = newSpn;
-      updatedMappings[audioMappingEditingIndex].hasAudio = newSpn ? this.data.availableAudioFiles.includes(newSpn) : false;
+      updatedMappings[audioMappingEditingIndex].hasAudio = checkHasAudio(newSpn);
     }
-    
+
     this.setData({
       audioMappings: updatedMappings,
       virtualKeyboardDisplay: newValue,
@@ -12531,27 +12734,34 @@ Page({
   /**
    * 处理新建音频转换表弹窗中的键盘输入
    */
-  handleNewAudioTableInput(key) {
+  async handleNewAudioTableInput(key) {
     const { newAudioTableEditingIndex, newAudioTableEditingField, newAudioMappingTableData, virtualKeyboardDisplay, newAudioTableRootNote } = this.data;
     const currentValue = virtualKeyboardDisplay || '';
     const newValue = currentValue + key;
-    const availableAudio = new Set(this.data.availableAudioFiles);
-    
+
     if (newAudioTableEditingIndex === null || newAudioTableEditingIndex < 0 || newAudioTableEditingIndex >= newAudioMappingTableData.length) return;
-    
+
     const updatedData = [...newAudioMappingTableData];
     updatedData[newAudioTableEditingIndex] = {
       ...updatedData[newAudioTableEditingIndex],
       [newAudioTableEditingField]: newValue
     };
-    
-    // 如果编辑的是simplified字段，需要重新计算SPN
+
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
+
+    // 如果编辑的是simplified字段，需要重新计算SPN（含等音名）
     if (newAudioTableEditingField === 'simplified') {
       const newSpn = this.calculateSpnFromSimplifiedWithRoot(newValue, newAudioTableRootNote);
       updatedData[newAudioTableEditingIndex].spn = newSpn;
-      updatedData[newAudioTableEditingIndex].hasAudio = newSpn ? availableAudio.has(newSpn) : false;
+      updatedData[newAudioTableEditingIndex].hasAudio = checkHasAudio(newSpn);
     }
-    
+
     this.setData({
       newAudioMappingTableData: updatedData,
       virtualKeyboardDisplay: newValue,
@@ -12563,30 +12773,37 @@ Page({
   /**
    * 处理新建音频转换表弹窗中的删除操作
    */
-  handleNewAudioTableBackspace() {
+  async handleNewAudioTableBackspace() {
     const { newAudioTableEditingIndex, newAudioTableEditingField, newAudioMappingTableData, virtualKeyboardDisplay, newAudioTableRootNote } = this.data;
     const currentValue = virtualKeyboardDisplay || '';
-    
+
     if (currentValue.length === 0) return;
-    
+
     const newValue = currentValue.slice(0, -1);
-    const availableAudio = new Set(this.data.availableAudioFiles);
-    
+
     if (newAudioTableEditingIndex === null || newAudioTableEditingIndex < 0 || newAudioTableEditingIndex >= newAudioMappingTableData.length) return;
-    
+
     const updatedData = [...newAudioMappingTableData];
     updatedData[newAudioTableEditingIndex] = {
       ...updatedData[newAudioTableEditingIndex],
       [newAudioTableEditingField]: newValue
     };
-    
-    // 如果编辑的是simplified字段，需要重新计算SPN
+
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
+
+    // 如果编辑的是simplified字段，需要重新计算SPN（含等音名）
     if (newAudioTableEditingField === 'simplified') {
       const newSpn = this.calculateSpnFromSimplifiedWithRoot(newValue, newAudioTableRootNote);
       updatedData[newAudioTableEditingIndex].spn = newSpn;
-      updatedData[newAudioTableEditingIndex].hasAudio = newSpn ? availableAudio.has(newSpn) : false;
+      updatedData[newAudioTableEditingIndex].hasAudio = checkHasAudio(newSpn);
     }
-    
+
     this.setData({
       newAudioMappingTableData: updatedData,
       virtualKeyboardDisplay: newValue,
@@ -12597,12 +12814,15 @@ Page({
   
   /**
    * 处理转换弹窗中的原生输入
+   * 【修复】使用 sourceNote 作为唯一标识符来查找 mapping
    */
   onConversionNativeInput(e) {
     const { key, field } = e.currentTarget.dataset;
     const value = e.detail.value;
+    const currentType = this.data.notationType;
     
-    const mappingIndex = this.data.conversionMappings.findIndex(m => m.key === key);
+    // 使用 sourceNote 作为标识符（key 参数实际传的是 sourceNote）
+    const mappingIndex = this.data.conversionMappings.findIndex(m => m.sourceNote === key);
     if (mappingIndex === -1) return;
     
     const updatedMappings = [...this.data.conversionMappings];
@@ -12616,11 +12836,19 @@ Page({
       updatedMappings[mappingIndex].spn = this.simplifiedToSPN(value);
     }
     
-    // 同时更新value字段（用于转换）
+    // 同时更新value字段（用于兼容）
     updatedMappings[mappingIndex].value = updatedMappings[mappingIndex].simplified;
     
-    // 检查是否有空映射
-    const hasEmpty = updatedMappings.some(m => !m.simplified || m.simplified.trim() === '');
+    // 检查是否有空映射（根据转换方向）
+    const hasEmpty = updatedMappings.some(m => {
+      if (currentType === 'digital') {
+        // 数字谱转简谱，检查简谱列是否为空
+        return !m.simplified || m.simplified.trim() === '';
+      } else {
+        // 简谱转数字谱，检查数字谱列是否为空
+        return !m.key || m.key.trim() === '';
+      }
+    });
     
     this.setData({
       conversionMappings: updatedMappings,
@@ -14326,62 +14554,64 @@ Page({
    * 设置音高档位并应用到当前编辑的音符
    * @param {number} level 档位 0-4: 倍低音、低音、原音、高音、倍高音
    */
-  setPitchLevel(level) {
+  async setPitchLevel(level) {
     // 边界检查
     if (level < 0) level = 0;
     if (level > 4) level = 4;
-    
+
     const { editingValue, superscriptMode, superscriptContent, pitchLevel: prevLevel,
             conversionEditingKey, conversionEditingField, virtualKeyboardDisplay,
             newTableEditingIndex, newTableEditingField,
             audioMappingEditingIndex, audioMappingEditingField } = this.data;
-    
+
     // 如果档位没变化，不做处理
     if (level === prevLevel) return;
-    
+
     // 更新档位显示
-    this.setData({ 
+    this.setData({
       pitchLevel: level,
-      pitchToastVisible: true 
+      pitchToastVisible: true
     });
-    
+
     // 显示toast提示
     this.showPitchToast();
-    
+
     // 计算相对于原音(level=2)的音高偏移
-    // level 0: -2 (两个逗号)
-    // level 1: -1 (一个逗号)
-    // level 2: 0 (原音，无符号)
-    // level 3: +1 (一个撇号)
-    // level 4: +2 (两个撇号)
     const offset = level - 2;
-    
+
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
+
     // 如果在新建音频转换表编辑模式中，调整表中的值
     const { newAudioTableEditingIndex, newAudioTableEditingField } = this.data;
     if (newAudioTableEditingIndex !== null && newAudioTableEditingField !== null) {
       const currentValue = virtualKeyboardDisplay || '';
       let basePart = currentValue.replace(/['',]+/g, '');
       let newValue = basePart;
-      
+
       if (offset > 0) {
         newValue = basePart + "'".repeat(offset);
       } else if (offset < 0) {
         newValue = basePart + ','.repeat(-offset);
       }
-      
-      const availableAudio = new Set(this.data.availableAudioFiles);
+
       const updatedData = [...this.data.newAudioMappingTableData];
       updatedData[newAudioTableEditingIndex] = {
         ...updatedData[newAudioTableEditingIndex],
         [newAudioTableEditingField]: newValue
       };
-      
+
       if (newAudioTableEditingField === 'simplified') {
         const newSpn = this.calculateSpnFromSimplifiedWithRoot(newValue, this.data.newAudioTableRootNote);
         updatedData[newAudioTableEditingIndex].spn = newSpn;
-        updatedData[newAudioTableEditingIndex].hasAudio = newSpn ? availableAudio.has(newSpn) : false;
+        updatedData[newAudioTableEditingIndex].hasAudio = checkHasAudio(newSpn);
       }
-      
+
       this.setData({
         newAudioMappingTableData: updatedData,
         virtualKeyboardDisplay: newValue,
@@ -14390,34 +14620,31 @@ Page({
       });
       return;
     }
-    
+
     // 如果在音频映射弹窗编辑模式中，调整映射表中的值
     if (audioMappingEditingIndex !== null && audioMappingEditingField !== null) {
       const currentValue = virtualKeyboardDisplay || '';
-      // 移除音高符号，然后根据档位添加新的
       let basePart = currentValue.replace(/['',]+/g, '');
       let newValue = basePart;
-      
+
       if (offset > 0) {
         newValue = basePart + "'".repeat(offset);
       } else if (offset < 0) {
         newValue = basePart + ','.repeat(-offset);
       }
-      
-      // 更新音频映射表
+
       const updatedMappings = [...this.data.audioMappings];
       updatedMappings[audioMappingEditingIndex] = {
         ...updatedMappings[audioMappingEditingIndex],
         [audioMappingEditingField]: newValue
       };
-      
-      // 如果编辑的是simplified字段，需要重新计算SPN
+
       if (audioMappingEditingField === 'simplified') {
         const newSpn = this.calculateSpnFromSimplified(newValue);
         updatedMappings[audioMappingEditingIndex].spn = newSpn;
-        updatedMappings[audioMappingEditingIndex].hasAudio = newSpn ? this.data.availableAudioFiles.includes(newSpn) : false;
+        updatedMappings[audioMappingEditingIndex].hasAudio = checkHasAudio(newSpn);
       }
-      
+
       this.setData({
         audioMappings: updatedMappings,
         virtualKeyboardDisplay: newValue,
@@ -16468,9 +16695,12 @@ Page({
   async checkSingleSpnSubpackage(spn) {
     try {
       const playbackMgr = await getSheetPlaybackManager();
-      
+      // 等音名解析：C#4 等可能实际从 Db4 所在分包加载
+      const check = playbackMgr.checkSpnAudioAvailable(spn);
+      const resolvedSpn = check.available ? check.actualSpn : spn;
+
       // 如果在扩展分包中但分包未加载
-      const subpackage = playbackMgr.spnToSubpackage.get(spn);
+      const subpackage = playbackMgr.spnToSubpackage.get(resolvedSpn);
       if (subpackage && !playbackMgr.isSubpackageLoaded(subpackage)) {
         const config = playbackMgr.subpackageAudioMappings[subpackage];
         const displayName = config?.displayName || subpackage;
@@ -16645,14 +16875,11 @@ Page({
     }
     
     if (mappings) {
-      // 【修复】使用播放管理器检查音频可用性（包括主分包和次分包）
+      // 【修复】使用播放管理器检查音频可用性（含等音名：如 C#4 视为 Db4 可用）
       if (playbackMgr) {
         mappings = mappings.map(item => ({
           ...item,
-          hasAudio: item.spn ? (
-            playbackMgr.mainPackageAudioFiles.has(item.spn) || 
-            playbackMgr.spnToSubpackage.has(item.spn)
-          ) : false
+          hasAudio: item.spn ? playbackMgr.checkSpnAudioAvailable(item.spn).available : false
         }));
       }
       
@@ -16688,13 +16915,12 @@ Page({
       console.warn('[Notation] 获取播放管理器失败:', e);
     }
     
-    // 检查音频可用性的辅助函数
+    // 检查音频可用性（含等音名：如 C#4 视为 Db4 可用）
     const checkAudioAvailable = (spn) => {
       if (!spn || !playbackMgr) return false;
-      return playbackMgr.mainPackageAudioFiles.has(spn) || 
-             playbackMgr.spnToSubpackage.has(spn);
+      return playbackMgr.checkSpnAudioAvailable(spn).available;
     };
-    
+
     if (tableId === null) {
       // 使用默认表作为模板打开
       const defaultTable = this.data.defaultConversionTable;
@@ -16753,13 +16979,12 @@ Page({
       console.warn('[Notation] 获取播放管理器失败:', e);
     }
     
-    // 检查音频可用性的辅助函数
+    // 检查音频可用性（含等音名）
     const checkAudioAvailable = (spn) => {
       if (!spn || !playbackMgr) return false;
-      return playbackMgr.mainPackageAudioFiles.has(spn) || 
-             playbackMgr.spnToSubpackage.has(spn);
+      return playbackMgr.checkSpnAudioAvailable(spn).available;
     };
-    
+
     // 使用默认转换表作为模板
     const tableData = Object.keys(defaultTable).map(key => {
       const [simplified, spn] = defaultTable[key];
@@ -16770,7 +16995,7 @@ Page({
         hasAudio: checkAudioAvailable(spn)
       };
     });
-    
+
     // 生成唯一名称
     const library = this.data.conversionTableLibrary || [];
     let nameIndex = 1;
@@ -16878,29 +17103,36 @@ Page({
   /**
    * 新建转换表的原生输入处理
    */
-  onNewAudioTableNativeInput(e) {
+  async onNewAudioTableNativeInput(e) {
     const { index, field } = e.currentTarget.dataset;
     const value = e.detail.value;
-    const availableAudio = new Set(this.data.availableAudioFiles);
-    
+
     const updatedData = [...this.data.newAudioMappingTableData];
     updatedData[index] = {
       ...updatedData[index],
       [field]: value
     };
-    
+
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
+
     // 如果修改了simplified，自动更新SPN
     if (field === 'simplified') {
       const newSpn = this.calculateSpnFromSimplifiedWithRoot(value, this.data.newAudioTableRootNote);
       updatedData[index].spn = newSpn;
-      updatedData[index].hasAudio = newSpn ? availableAudio.has(newSpn) : false;
+      updatedData[index].hasAudio = checkHasAudio(newSpn);
     }
-    
-    // 如果手动修改了SPN，更新hasAudio状态
+
+    // 如果手动修改了SPN，更新hasAudio状态（含等音名）
     if (field === 'spn') {
-      updatedData[index].hasAudio = value ? availableAudio.has(value) : false;
+      updatedData[index].hasAudio = checkHasAudio(value);
     }
-    
+
     this.setData({ newAudioMappingTableData: updatedData });
   },
 
@@ -16974,28 +17206,28 @@ Page({
   /**
    * 应用新建的音频映射转换表
    */
-  applyNewAudioMappingTable() {
-    const { newAudioMappingTableName, newAudioMappingTableData, newAudioTableRootNote, 
+  async applyNewAudioMappingTable() {
+    const { newAudioMappingTableName, newAudioMappingTableData, newAudioTableRootNote,
             editingAudioMappingTableId } = this.data;
-    
+
     if (!newAudioMappingTableName || newAudioMappingTableName.trim() === '') {
       wx.showToast({ title: '请输入转换表名称', icon: 'none' });
       return;
     }
-    
+
     // 过滤掉空行
-    const validData = newAudioMappingTableData.filter(item => 
+    const validData = newAudioMappingTableData.filter(item =>
       item.key || item.simplified || item.spn
     );
-    
+
     if (validData.length === 0) {
       wx.showToast({ title: '转换表不能为空', icon: 'none' });
       return;
     }
-    
+
     // 保存到库
     let library = wx.getStorageSync('conversionTableLibrary') || [];
-    
+
     if (editingAudioMappingTableId) {
       // 更新已有的表
       const index = library.findIndex(t => t.id === editingAudioMappingTableId);
@@ -17019,14 +17251,20 @@ Page({
       };
       library.push(newTable);
     }
-    
+
     wx.setStorageSync('conversionTableLibrary', library);
-    
-    // 应用到音频映射弹窗
-    const availableAudio = new Set(this.data.availableAudioFiles);
+
+    // 应用到音频映射弹窗（含等音名检查）
+    let playbackMgr = null;
+    try {
+      playbackMgr = await getSheetPlaybackManager();
+    } catch (e) {
+      console.warn('[Notation] 获取播放管理器失败:', e);
+    }
+    const checkHasAudio = (spn) => spn && playbackMgr ? playbackMgr.checkSpnAudioAvailable(spn).available : false;
     const mappings = validData.map(item => ({
       ...item,
-      hasAudio: item.spn ? availableAudio.has(item.spn) : false,
+      hasAudio: checkHasAudio(item.spn),
       isUsed: true
     }));
     
@@ -17277,10 +17515,11 @@ Page({
   
   /**
    * 为播放模式收起所有notations（单页模式）
-   * 【优化】使用 PlaybackCanvasCacheManager 实现增量渲染：
-   * 1. 比较每个 module 的内容哈希，决定是否复用缓存
-   * 2. 对于内容未变化的 module，直接使用缓存的图片
-   * 3. 对于内容变化的 module，重新渲染并缓存
+   * 【Bug修复】播放模式下必须为所有 module 初始化 Canvas 渲染器，否则切页后再次进入播放时
+   * 非本页 module 无渲染器，导致无法点击定位、光标不出现（渲染器不存在）。
+   * 原因：切页后仅当前页在 DOM 中，退出播放恢复分页时非当前页 canvas 被销毁；再次进入播放时
+   * 若仅对 toRender 初始化，则“来自缓存”的 module 未初始化渲染器，且其 canvas 被 tempImagePath 隐藏不在 DOM，
+   * 无法后续初始化。因此播放模式下统一不使用缓存显示，所有 module 显示 canvas 并全部初始化渲染器。
    */
   collapseAllNotationsForPlayback() {
     // 确保 _canvasRenderers 存在
@@ -17295,7 +17534,6 @@ Page({
     const currentFileId = this.data.libraryFileId || this.data.libraryFileName || 'local_editing';
     PlaybackCanvasCacheManager.setCurrentFile(currentFileId);
     
-    // 【优化】分析哪些 module 可以复用缓存
     const orientation = this.data.orientation || 'portrait';
     const measuresPerRow = this.data.measuresPerRow || 1;
     const { toRender, fromCache } = PlaybackCanvasCacheManager.analyzeModules(
@@ -17304,46 +17542,36 @@ Page({
       measuresPerRow
     );
     
-    // 为所有notations设置collapsed状态
+    // 【Bug修复】播放模式下不使用缓存图片显示（tempImagePath 一律为 null），
+    // 使所有 module 的 canvas 都在 DOM 中，从而能为每个 module 初始化渲染器，保证光标与点击定位可用
     const notations = this.data.notations.map((notation, index) => {
-      // 检查是否有可用缓存
       const cachedInfo = fromCache.find(c => c.moduleId === notation.id);
-      
       return {
         ...notation,
         collapsed: true,
         canvasHeight: this.calculateCanvasHeight(notation),
-        // 【优化】如果有缓存，直接使用缓存的图片路径
-        tempImagePath: cachedInfo ? cachedInfo.imagePath : null,
+        tempImagePath: null, // 播放模式统一不用缓存图，保证 canvas 存在并初始化渲染器
         isCanvasEditing: false,
         cursorVisible: false,
-        // 【优化】记录当前哈希值，用于后续缓存
-        _contentHash: cachedInfo ? cachedInfo.hash : 
+        _contentHash: cachedInfo ? cachedInfo.hash :
           PlaybackCanvasCacheManager.generateModuleHash(notation, orientation, measuresPerRow)
       };
     });
     
-    // 记录需要渲染的 module 索引
-    this._modulesToRender = toRender.map(t => t.index);
+    this._modulesToRender = this.data.notations.map((_, i) => i);
     this._moduleHashes = {};
-    toRender.forEach(t => {
-      this._moduleHashes[t.moduleId] = t.hash;
+    this.data.notations.forEach((n, i) => {
+      this._moduleHashes[n.id] = PlaybackCanvasCacheManager.generateModuleHash(n, orientation, measuresPerRow);
     });
     
-    console.log(`[Playback] Canvas缓存优化: ${fromCache.length}个复用缓存, ${toRender.length}个需要渲染`);
+    console.log(`[Playback] 播放模式：为全部 ${notations.length} 个 module 初始化渲染器（含原缓存 ${fromCache.length} 个）`);
     
     this.setData({ notations }, () => {
-      // 延迟初始化需要渲染的Canvas渲染器
       setTimeout(() => {
-        // 【优化】只初始化需要重新渲染的 module
-        toRender.forEach(({ index, moduleId }) => {
-          this.initCanvasRendererWithRetry(moduleId, index, 3);
+        // 【Bug修复】为所有 module 初始化渲染器，确保非本页 module 也有渲染器，光标与点击定位可用
+        this.data.notations.forEach((notation, index) => {
+          this.initCanvasRendererWithRetry(notation.id, index, 5);
         });
-        
-        // 如果所有 module 都从缓存加载，快速通知就绪
-        if (toRender.length === 0) {
-          console.log('[Playback] 所有module从缓存加载，无需渲染');
-        }
       }, 100);
     });
   },

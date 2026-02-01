@@ -16,6 +16,10 @@ Page({
     showFabMenu: false, // 悬浮按钮菜单
     showImportModal: false, // 导入弹窗
     showNewFileModal: false, // 新建文件弹窗
+    showImportJsonModal: false, // 导入JSON曲谱弹窗
+    importJsonCode: '', // 导入的JSON代码
+    importJsonError: '', // JSON解析错误
+    importJsonPreview: null, // 解析预览数据
     
     // 数据状态
     currentPath: [], // 当前文件夹路径
@@ -445,7 +449,7 @@ Page({
     const item = e.currentTarget.dataset.item;
     wx.showModal({
       title: '覆盖当前谱面？',
-      content: '打开该乐谱会覆盖记谱页当前内容，是否继续？',
+      content: '打开该乐谱会覆盖记谱页当前内容，请在切换前及时保存当前谱面数据，是否继续？',
       confirmText: '继续',
       cancelText: '取消',
       success: (res) => {
@@ -663,6 +667,172 @@ Page({
 
   closeNewFileModal() {
     this.setData({ showNewFileModal: false });
+  },
+
+  // ========== 导入JSON曲谱方法 ==========
+  
+  // 打开导入JSON弹窗
+  openImportJsonModal() {
+    this.setData({
+      showNewFileModal: false,
+      showImportJsonModal: true,
+      importJsonCode: '',
+      importJsonError: '',
+      importJsonPreview: null
+    });
+  },
+  
+  // 关闭导入JSON弹窗
+  closeImportJsonModal() {
+    this.setData({
+      showImportJsonModal: false,
+      importJsonCode: '',
+      importJsonError: '',
+      importJsonPreview: null
+    });
+  },
+  
+  // 输入JSON代码
+  onImportJsonInput(e) {
+    const code = e.detail.value;
+    this.setData({ importJsonCode: code });
+    
+    // 实时解析验证
+    this._parseImportJson(code);
+  },
+  
+  // 解析导入的JSON
+  _parseImportJson(code) {
+    if (!code || !code.trim()) {
+      this.setData({
+        importJsonError: '',
+        importJsonPreview: null
+      });
+      return;
+    }
+    
+    try {
+      const trimmed = code.trim();
+      
+      // 检查是否为JSON格式
+      if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+        this.setData({
+          importJsonError: '请输入有效的JSON格式代码',
+          importJsonPreview: null
+        });
+        return;
+      }
+      
+      const parsed = JSON.parse(trimmed);
+      
+      // 检查是否为完整曲谱格式
+      if (parsed.format !== 'handpan-notation') {
+        this.setData({
+          importJsonError: '不是有效的曲谱格式，请确认代码来源',
+          importJsonPreview: null
+        });
+        return;
+      }
+      
+      if (!parsed.metadata || !parsed.modules) {
+        this.setData({
+          importJsonError: '缺少必要的曲谱数据',
+          importJsonPreview: null
+        });
+        return;
+      }
+      
+      // 解析成功，显示预览
+      this.setData({
+        importJsonError: '',
+        importJsonPreview: {
+          title: parsed.metadata.title || '未命名',
+          composer: parsed.metadata.composer || '未知',
+          rootNote: parsed.metadata.rootNote || 'D',
+          scaleType: parsed.metadata.scaleType || 'Kurd'
+        }
+      });
+      
+    } catch (e) {
+      this.setData({
+        importJsonError: 'JSON格式错误：' + (e.message || '解析失败'),
+        importJsonPreview: null
+      });
+    }
+  },
+  
+  // 确认导入JSON
+  confirmImportJson() {
+    const code = this.data.importJsonCode.trim();
+    
+    if (!this.data.importJsonPreview) {
+      wx.showToast({ title: '请先输入有效的曲谱代码', icon: 'none' });
+      return;
+    }
+    
+    try {
+      const parsed = JSON.parse(code);
+      const { metadata, colors, layout, modules } = parsed;
+      
+      // 生成文件名（使用标题或默认值）
+      const fileName = metadata.title || '导入的曲谱';
+      
+      // 构建新文件数据
+      const newFile = {
+        type: 'file',
+        file_name: fileName,
+        title: metadata.title || '',
+        subtitle: metadata.subtitle || 'Author: Unknown',
+        composer: metadata.composer || 'Your Name',
+        rootNote: metadata.rootNote || 'D',
+        scaleType: metadata.scaleType || 'Kurd',
+        noteCount: metadata.noteCount || 10,
+        tempo: metadata.tempo || 60,
+        timing: '4/4',
+        notationType: metadata.notationType || 'digital',
+        difficulty: metadata.difficulty || 1,
+        introduction: metadata.introduction || '',
+        // 颜色配置
+        colors: colors || {
+          mainTitleColor: '#314D63',
+          subTitleColor: '#8FB9AB',
+          rightHandColor: '#F4D096',
+          leftHandColor: '#314D63'
+        },
+        // 布局配置
+        layout: layout || {
+          orientation: 'portrait',
+          measuresPerRow: 1
+        },
+        // 谱面代码
+        code: modules,
+        createTime: Date.now(),
+        modifyTime: Date.now()
+      };
+      
+      // 添加到当前目录
+      const created = libraryManager.addFile(this.data.currentPath, newFile);
+      
+      // 关闭弹窗
+      this.setData({ 
+        showImportJsonModal: false,
+        importJsonCode: '',
+        importJsonError: '',
+        importJsonPreview: null
+      });
+      
+      wx.showToast({ title: '导入成功', icon: 'success' });
+      this.loadLibraryData();
+      
+      // 自动打开导入的文件
+      setTimeout(() => {
+        this._loadFileToNotation(created);
+      }, 300);
+      
+    } catch (e) {
+      console.error('导入JSON失败:', e);
+      wx.showToast({ title: '导入失败: ' + e.message, icon: 'none' });
+    }
   },
 
   // ========== iOS风格选择器方法 ==========

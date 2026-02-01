@@ -5997,6 +5997,56 @@
   opacity: 1;
 }
 
+/* 音高条关闭时的替代按键区域 */
+.pitch-alt-keys {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  gap: 10rpx;
+  padding: 4rpx 0;
+  box-sizing: border-box;
+}
+
+.pitch-alt-key {
+  width: 80rpx;
+  flex: 1;
+  max-height: 84rpx;
+  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);
+  border: 1rpx solid #dee2e6;
+  transition: all 0.1s ease;
+}
+
+.pitch-alt-key:active {
+  background: #e9ecef;
+  transform: scale(0.95);
+  box-shadow: 0 1rpx 4rpx rgba(0,0,0,0.1);
+}
+
+.pitch-alt-key text {
+  font-size: 32rpx;
+  color: #212529;
+  font-weight: 600;
+}
+
+/* 符号键盘下音高条禁用状态 */
+.vk-pitch-bar-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pitch-capsule-disabled {
+  opacity: 0.5;
+  filter: grayscale(30%);
+}
+
 /* 旧的切换按钮样式保留 */
 .vk-switch-btn {
   flex: 1;
@@ -6495,6 +6545,20 @@
   font-size: 22rpx;
   color: #314D63;
   font-weight: 500;
+}
+
+/* 音高条关闭状态的图标样式 */
+.vk-settings-icon-off {
+  opacity: 0.7;
+}
+
+.vk-settings-icon-box-off {
+  background: linear-gradient(145deg, #f0f2f5 0%, #e0e2e5 100%);
+}
+
+.vk-settings-icon-dimmed {
+  opacity: 0.4;
+  filter: grayscale(30%);
 }
 
 /* 设置界面切换区域 */

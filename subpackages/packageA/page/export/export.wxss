@@ -897,3 +897,71 @@
   color: #314D63;
   font-weight: 500;
 }
+
+/* 代码导出类型子选项 */
+.code-type-options {
+  margin-top: 16rpx;
+  padding: 20rpx 24rpx;
+  background: rgba(49, 77, 99, 0.06);
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.code-type-option {
+  display: flex;
+  align-items: flex-start;
+  padding: 16rpx 12rpx;
+  border-radius: 10rpx;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.code-type-option.selected {
+  background: rgba(49, 77, 99, 0.08);
+}
+
+.code-type-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border: 3rpx solid #ccc;
+  border-radius: 50%;
+  margin-right: 16rpx;
+  margin-top: 4rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.2s ease;
+}
+
+.code-type-option.selected .code-type-radio {
+  border-color: #314D63;
+}
+
+.code-type-radio-inner {
+  width: 18rpx;
+  height: 18rpx;
+  background: #314D63;
+  border-radius: 50%;
+}
+
+.code-type-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.code-type-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.code-type-desc {
+  font-size: 24rpx;
+  color: #888;
+  line-height: 1.4;
+}
