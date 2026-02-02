@@ -15,7 +15,9 @@
         "pages/category-list/index",
         "pages/artists/index",
         "pages/artist-profile/index",
-        "pages/sheet-preview/index"
+        "pages/sheet-preview/index",
+        "pages/profile/index",
+        "pages/playlist-detail/index"
       ]
     },
     {

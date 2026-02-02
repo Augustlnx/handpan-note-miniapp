@@ -1008,22 +1008,22 @@ Page({
     return code;
   },
 
-  // 生成单个subdivision的代码
+  // 生成单个subdivision的代码（含琶音标记 ~）
   generateSubdivisionCode(subdivision) {
     const rightHand = subdivision.rightHand || ['', ''];
     const leftHand = subdivision.leftHand || ['', ''];
     
     // 检查是否为空音符
     const hasAnyNote = rightHand[0] || rightHand[1] || leftHand[0] || leftHand[1];
-    if (!hasAnyNote) {
-      return '-';
-    }
+    const noteCode = !hasAnyNote ? '-' : (() => {
+      const rightStr = this.generateHandCode(rightHand, 'right');
+      const leftStr = this.generateHandCode(leftHand, 'left');
+      return `(${rightStr})/(${leftStr})`;
+    })();
     
-    // 生成右手和左手字符串（自动为特殊音符添加包裹）
-    const rightStr = this.generateHandCode(rightHand, 'right');
-    const leftStr = this.generateHandCode(leftHand, 'left');
-    
-    return `(${rightStr})/(${leftStr})`;
+    // 琶音列在谱面数据前加 ~，如 ~(1,2)/(3)（防御性判断，避免传参丢失 hasArpeggio）
+    const hasArpeggio = subdivision && (subdivision.hasArpeggio === true || subdivision.hasArpeggio === 'true');
+    return hasArpeggio ? `~${noteCode}` : noteCode;
   },
 
   // 检查音符是否需要用<>包裹（包含特殊修饰符 ' , ^ _）

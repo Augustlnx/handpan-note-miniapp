@@ -655,10 +655,14 @@ class WorkerManager {
               subdivisions: [{ rightHand: rh, leftHand: lh }]
             };
           }
-          const subs = (beat.subdivisions || []).map(sub => ({
-            rightHand: ensureArray2(sub.rightHand),
-            leftHand: ensureArray2(sub.leftHand)
-          }));
+          const subs = (beat.subdivisions || []).map(sub => {
+            const normalized = {
+              rightHand: ensureArray2(sub.rightHand),
+              leftHand: ensureArray2(sub.leftHand)
+            };
+            if (sub.hasArpeggio === true) normalized.hasArpeggio = true;
+            return normalized;
+          });
           return { subdivisions: subs };
         });
         return { beats };

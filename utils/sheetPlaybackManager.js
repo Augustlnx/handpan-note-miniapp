@@ -973,8 +973,8 @@ class SheetPlaybackManager {
     const rootName = rootMatch[1];
     const rootOctave = parseInt(rootMatch[2]);
     
-    // 解析简谱音符
-    let baseNote = simplified.replace(/[',_]/g, '');
+    // 解析简谱音符（附点 * 不参与音高，去掉）
+    let baseNote = simplified.replace(/[',_]/g, '').replace(/\*$/g, '');
     const octaveUp = (simplified.match(/'/g) || []).length;
     const octaveDown = (simplified.match(/,/g) || []).length;
     
@@ -1021,8 +1021,8 @@ class SheetPlaybackManager {
     let cleaned = note.replace(/[()]/g, '').trim();
     if (!cleaned || cleaned === '-' || cleaned === '+') return null;
     
-    // 去掉下划线（时值标记）
-    cleaned = cleaned.replace(/_/g, '');
+    // 去掉下划线（时值标记）和附点（*，仅用于时值，不参与音高）
+    cleaned = cleaned.replace(/_/g, '').replace(/\*$/g, '');
     if (!cleaned) return null;
     
     // 处理左上标 ^{...} - 提取主音符部分
@@ -1436,7 +1436,7 @@ class SheetPlaybackManager {
           
           this.subdivisionsPerBeat = beat.subdivisions.length;
           
-          // ===== 第一遍：分析这一拍内的所有subdivision，检测下划线 =====
+          // ===== 第一遍：分析这一拍内的所有subdivision，检测下划线和附点 =====
           // 检测函数：判断一个subdivision是否包含带下划线的音符
           const checkSubdivisionHasUnderline = (sub) => {
             const checkNoteArray = (noteArray) => {
@@ -1455,30 +1455,67 @@ class SheetPlaybackManager {
             return checkNoteArray(sub.rightHand) || checkNoteArray(sub.leftHand);
           };
           
-          // 预先分析每个subdivision是否带下划线
+          // 检测函数：判断一个subdivision是否包含带附点的音符（以'*'结尾）
+          const checkSubdivisionHasDot = (sub) => {
+            const checkNoteArray = (noteArray) => {
+              if (!Array.isArray(noteArray)) return false;
+              return noteArray.some(noteStr => {
+                if (!noteStr || typeof noteStr !== 'string') return false;
+                const cleaned = noteStr.replace(/[()]/g, '').trim();
+                if (!cleaned || cleaned === '-' || cleaned === '+') return false;
+                // 检查附点标记（在末尾的*）
+                return cleaned.endsWith('*');
+              });
+            };
+            return checkNoteArray(sub.rightHand) || checkNoteArray(sub.leftHand);
+          };
+          
+          // 预先分析每个subdivision是否带下划线或附点
           const subdivisionInfo = beat.subdivisions.map((sub, subIndex) => ({
             sub,
             subIndex,
-            hasUnderline: checkSubdivisionHasUnderline(sub)
+            hasUnderline: checkSubdivisionHasUnderline(sub),
+            hasDot: checkSubdivisionHasDot(sub)
           }));
           
-          // 统计普通音符（1个单位时值）和32分音符（0.5个单位时值）的数量
-          const normalCount = subdivisionInfo.filter(info => !info.hasUnderline).length;
-          const underlineCount = subdivisionInfo.filter(info => info.hasUnderline).length;
+          // 统计不同时值类型的音符数量
+          // 普通音符：1个单位时值
+          // 下划线音符（32分音符）：0.5个单位时值
+          // 附点音符：1.5个单位时值
+          // 下划线+附点：0.75个单位时值
+          let totalUnits = 0;
+          subdivisionInfo.forEach(info => {
+            if (info.hasUnderline && info.hasDot) {
+              totalUnits += 0.75; // 下划线+附点
+            } else if (info.hasUnderline) {
+              totalUnits += 0.5; // 仅下划线
+            } else if (info.hasDot) {
+              totalUnits += 1.5; // 仅附点
+            } else {
+              totalUnits += 1; // 普通
+            }
+          });
           
           // 计算单位时值
-          // 公式：normalCount * x + underlineCount * (x/2) = beatDuration
-          // 解得：x = beatDuration / (normalCount + underlineCount/2)
-          const unitDivisor = normalCount + underlineCount / 2;
-          const normalDuration = unitDivisor > 0 ? beatDuration / unitDivisor : beatDuration / beat.subdivisions.length;
-          const underlineDuration = normalDuration / 2;
+          // 总时长 = beatDuration，totalUnits 单位 * 单位时值 = beatDuration
+          const unitDuration = totalUnits > 0 ? beatDuration / totalUnits : beatDuration / beat.subdivisions.length;
           
           // ===== 第二遍：生成时间线事件 =====
-          subdivisionInfo.forEach(({ sub, subIndex, hasUnderline }) => {
+          subdivisionInfo.forEach(({ sub, subIndex, hasUnderline, hasDot }) => {
             const columnId = `${moduleIndex}-${measureIndex}-${beatIndex}-${subIndex}`;
             
             // 计算当前音符的时值
-            const currentDuration = hasUnderline ? underlineDuration : normalDuration;
+            // 根据下划线和附点的组合计算时值
+            let currentDuration;
+            if (hasUnderline && hasDot) {
+              currentDuration = unitDuration * 0.75; // 下划线+附点
+            } else if (hasUnderline) {
+              currentDuration = unitDuration * 0.5; // 仅下划线（半时值）
+            } else if (hasDot) {
+              currentDuration = unitDuration * 1.5; // 仅附点（1.5倍时值）
+            } else {
+              currentDuration = unitDuration; // 普通音符
+            }
             
             // 提取该列的所有音符和装饰音
             const soundKeys = []; // 主音符

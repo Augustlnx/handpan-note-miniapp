@@ -1,0 +1,144 @@
+<!--歌单详情页面-->
+<view class="page-container">
+  <!-- 顶部背景区 -->
+  <view 
+    class="header-bg" 
+    style="background: linear-gradient(135deg, {{playlist.coverGradient[0] || '#667eea'}} 0%, {{playlist.coverGradient[1] || '#764ba2'}} 100%); height: {{headerHeight}}px;"
+    wx:if="{{playlist}}"
+  >
+    <!-- 返回按钮 -->
+    <view class="nav-back" style="top: {{statusBarHeight}}px;" bindtap="goBack">
+      <image class="icon-back-img" src="../../assets/icons/back.svg" mode="aspectFit"/>
+    </view>
+    <!-- 更多操作 -->
+    <view class="nav-more" style="top: {{statusBarHeight}}px;" bindtap="showMoreActions">
+      <text class="more-icon">⋮</text>
+    </view>
+  </view>
+
+  <!-- 主内容区 -->
+  <view class="main-content" style="margin-top: {{headerHeight - 60}}px;" wx:if="{{playlist}}">
+    <!-- 歌单信息卡片 -->
+    <view class="playlist-card">
+      <!-- 封面 -->
+      <view class="cover-wrap">
+        <view class="playlist-cover" style="background: linear-gradient(135deg, {{playlist.coverGradient[0] || '#667eea'}} 0%, {{playlist.coverGradient[1] || '#764ba2'}} 100%);">
+          <text class="cover-text">{{playlist.name[0]}}{{playlist.name[1] || ''}}</text>
+        </view>
+      </view>
+      
+      <!-- 信息 -->
+      <view class="playlist-info">
+        <view class="name-row">
+          <text class="playlist-name">{{playlist.name}}</text>
+          <view class="default-badge" wx:if="{{playlist.isDefault}}">默认</view>
+        </view>
+        <text class="playlist-desc" wx:if="{{playlist.description}}">{{playlist.description}}</text>
+        
+        <!-- 统计 -->
+        <view class="stats-row">
+          <view class="stat-item">
+            <text class="stat-value">{{playlist.songCount || 0}}</text>
+            <text class="stat-label">首歌曲</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 工具栏 -->
+    <view class="toolbar">
+      <view class="toolbar-left">
+        <text class="song-count">共 {{songs.length}} 首</text>
+      </view>
+      <view class="toolbar-right">
+        <view class="toolbar-btn" bindtap="toggleEditMode">
+          <text>{{editMode ? '完成' : '管理'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 编辑模式工具栏 -->
+    <view class="edit-toolbar" wx:if="{{editMode}}">
+      <view class="edit-left">
+        <text class="selected-count">已选 {{selectedSongs.length}} 首</text>
+      </view>
+      <view class="edit-right">
+        <view class="edit-btn" bindtap="selectAll">全选</view>
+        <view class="edit-btn" bindtap="deselectAll">取消</view>
+        <view class="edit-btn danger" bindtap="batchRemove">移除</view>
+      </view>
+    </view>
+
+    <!-- 歌曲列表 -->
+    <view class="song-list">
+      <view 
+        class="song-item {{editMode ? 'edit-mode' : ''}}" 
+        wx:for="{{songs}}" 
+        wx:key="id"
+        bindtap="{{editMode ? 'toggleSelectSong' : 'goToSongDetail'}}"
+        data-item="{{item}}"
+        data-id="{{item.id}}"
+      >
+        <!-- 选择框 -->
+        <view class="checkbox-wrap" wx:if="{{editMode}}">
+          <view class="checkbox {{selectedSongs.indexOf(item.id) > -1 ? 'checked' : ''}}">
+            <text wx:if="{{selectedSongs.indexOf(item.id) > -1}}">✓</text>
+          </view>
+        </view>
+        
+        <!-- 序号 -->
+        <text class="song-index" wx:if="{{!editMode}}">{{index + 1}}</text>
+        
+        <!-- 歌曲信息 -->
+        <view class="song-info">
+          <view class="song-title-row">
+            <text class="song-title">{{item.title}}</text>
+            <view class="song-tags">
+              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}}</text>
+            </view>
+          </view>
+          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+        </view>
+        
+        <!-- 操作按钮 -->
+        <view class="song-actions" wx:if="{{!editMode}}">
+          <view class="action-btn heart {{item.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}">
+            <image wx:if="{{item.isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+            <text wx:else>🤍</text>
+          </view>
+          <view class="action-btn more" catchtap="showSongActions" data-item="{{item}}">
+            <text>⋮</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 空状态 -->
+      <view class="empty-list" wx:if="{{songs.length === 0}}">
+        <view class="empty-icon">🎵</view>
+        <text class="empty-text">歌单还没有歌曲</text>
+        <text class="empty-hint">在曲谱详情页点击"添加到歌单"</text>
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="bottom-space"></view>
+  </view>
+</view>
+
+<!-- 重命名弹窗 -->
+<view class="modal-mask" wx:if="{{showRenameModal}}" bindtap="closeRenameModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <text class="modal-title">重命名歌单</text>
+    <input 
+      class="modal-input" 
+      placeholder="请输入新名称" 
+      bindinput="onRenameInput" 
+      value="{{newName}}"
+      focus="{{showRenameModal}}"
+    />
+    <view class="modal-buttons">
+      <button class="modal-btn cancel" bindtap="closeRenameModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmRename">确定</button>
+    </view>
+  </view>
+</view>

@@ -17,6 +17,9 @@ App({
     preloadedLibraryInfo: null, // 库文件关联信息
     preloadedSettings: null,  // 其他设置（谱式类型、背景透明度）
     
+    // 从library打开新文件的标记（用于通知metronome页面关闭谱面模式）
+    libraryFileJustOpened: false,
+    
     // 示例数据（Urban 曲谱）
     exampleData: {
       "title": "Urban",

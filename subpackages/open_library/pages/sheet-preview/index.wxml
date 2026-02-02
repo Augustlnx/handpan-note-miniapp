@@ -3,11 +3,9 @@
   <!-- 导航栏 -->
   <view class="nav-bar">
     <view class="nav-back" bindtap="goBack">
-      <text class="icon-back">‹</text>
+      <image class="icon-back-img" src="../../assets/icons/back.svg" mode="aspectFit"/>
     </view>
-    <view class="nav-title-wrap">
-      <text class="nav-title">{{song.title || '曲谱详情'}}</text>
-    </view>
+    
     <view class="nav-action" bindtap="showMoreActions">
       <text class="icon-more">⋯</text>
     </view>
@@ -22,8 +20,13 @@
       
       <view class="song-meta">
         <view class="meta-item">
+          <text class="meta-label">发布者</text>
+          <text class="meta-value clickable" bindtap="goToArtist">{{song.publisherName}}</text>
+        </view>
+        <view class="meta-divider">|</view>
+        <view class="meta-item">
           <text class="meta-label">制谱人</text>
-          <text class="meta-value clickable" bindtap="goToArtist">{{song.artistName}}</text>
+          <text class="meta-value">{{song.artistName}}</text>
         </view>
         <view class="meta-divider">|</view>
         <view class="meta-item">
@@ -69,10 +72,11 @@
         
         <!-- Canvas 绘制谱面第一页 -->
         <view class="sheet-canvas-wrap">
+          <!-- Canvas 始终存在，只是可能隐藏 -->
           <canvas 
             id="sheetCanvas" 
             type="2d" 
-            class="sheet-canvas"
+            class="sheet-canvas {{previewImage ? 'hidden' : ''}}"
             style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
           ></canvas>
           
@@ -82,42 +86,20 @@
             <text class="loading-text">生成预览中...</text>
           </view>
           
-          <!-- 预览图片（用于更好的展示） -->
+          <!-- 预览图片（生成后显示，叠加在Canvas上方） -->
           <image 
             wx:if="{{previewImage}}"
             class="preview-image"
             src="{{previewImage}}"
-            mode="aspectFit"
+            mode="widthFix"
+            binderror="onPreviewImageError"
+            bindload="onPreviewImageLoad"
           />
         </view>
         
         <!-- 简介 -->
         <view class="introduction" wx:if="{{song.introduction}}">
           <text class="intro-text">{{song.introduction}}</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 相关推荐 -->
-    <view class="related-section" wx:if="{{relatedSongs.length > 0}}">
-      <view class="section-header">
-        <text class="section-title">相关推荐</text>
-      </view>
-      <view class="related-list">
-        <view 
-          class="related-item" 
-          wx:for="{{relatedSongs}}" 
-          wx:key="id"
-          bindtap="goToRelatedSong"
-          data-item="{{item}}"
-        >
-          <view class="related-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
-            <text class="cover-text">{{item.title[0]}}</text>
-          </view>
-          <view class="related-info">
-            <text class="related-title">{{item.title}}</text>
-            <text class="related-artist">{{item.artistName}}</text>
-          </view>
         </view>
       </view>
     </view>
@@ -140,6 +122,7 @@
 
   <!-- 收藏按钮 -->
   <view class="favorite-btn {{isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
-    <text class="fav-icon">{{isFavorite ? '❤️' : '🤍'}}</text>
+    <image wx:if="{{isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+    <text wx:else class="fav-icon">🤍</text>
   </view>
 </view>

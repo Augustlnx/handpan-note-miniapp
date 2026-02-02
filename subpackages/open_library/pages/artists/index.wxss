@@ -14,46 +14,53 @@ page {
   background: var(--bg-light);
 }
 
-/* 导航栏 */
-.nav-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 88rpx;
-  padding: 0 24rpx;
-  background: #FFFFFF;
-  border-bottom: 1rpx solid #EEEEEE;
+/* 滚动区域（无顶部导航栏，留出状态栏即可） */
+.artists-scroll {
+  height: 100vh;
+  padding: 24rpx;
+  padding-top: calc(24rpx + env(safe-area-inset-top));
+  box-sizing: border-box;
 }
 
-.nav-back {
-  width: 70rpx;
-  height: 70rpx;
+/* 自定义底部 TabBar（与首页一致） */
+.custom-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120rpx;
+  background: #FFFFFF;
   display: flex;
+  align-items: center;
+  justify-content: space-around;
+  box-shadow: 0 -2rpx 16rpx rgba(0, 0, 0, 0.06);
+  z-index: 100;
+}
+
+.tabbar-item {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  height: 100%;
 }
 
-.icon-back {
-  font-size: 48rpx;
+.tabbar-icon-img {
+  width: 44rpx;
+  height: 44rpx;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.tabbar-text {
+  font-size: 22rpx;
+  color: var(--text-light);
+}
+
+.tabbar-item.active .tabbar-text {
   color: var(--primary-color);
-  font-weight: 300;
-}
-
-.nav-title {
-  font-size: 34rpx;
   font-weight: 600;
-  color: var(--text-primary);
-}
-
-.nav-placeholder {
-  width: 70rpx;
-}
-
-/* 滚动区域 */
-.artists-scroll {
-  height: calc(100vh - 88rpx);
-  padding: 24rpx;
-  box-sizing: border-box;
 }
 
 .artists-list {
@@ -105,6 +112,13 @@ page {
   position: relative;
   flex-shrink: 0;
   border: 4rpx solid rgba(255,255,255,0.5);
+  overflow: hidden;
+}
+
+.artist-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .avatar-text {

@@ -4,7 +4,7 @@ page {
   --primary-color: #314D63;
   --accent-gold: #F2C94C;
   --accent-cyan: #56CCF2;
-  --bg-dark: #1A1A2E;
+  --bg-dark: #1a2a3a;
   --bg-card: rgba(255, 255, 255, 0.08);
   --text-white: #FFFFFF;
   --text-light: rgba(255, 255, 255, 0.7);
@@ -13,7 +13,13 @@ page {
 
 .page-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%);
+  /* 基于#314D63主题的深色高级渐变 */
+  background: linear-gradient(180deg, 
+    #1a2a3a 0%, 
+    #243447 25%, 
+    #314D63 50%, 
+    #2a4055 75%, 
+    #1e3244 100%);
   position: relative;
 }
 
@@ -35,6 +41,14 @@ page {
   justify-content: center;
 }
 
+.icon-back,
+.icon-back-img {
+  width: 56rpx;
+  height: 56rpx;
+}
+.icon-back-img {
+  display: block;
+}
 .icon-back {
   font-size: 56rpx;
   color: var(--text-white);
@@ -211,7 +225,7 @@ page {
 .sheet-canvas-wrap {
   position: relative;
   width: 100%;
-  min-height: 400rpx;
+  min-height: 200rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,9 +234,26 @@ page {
 }
 
 .sheet-canvas {
+  width: 100% !important;
   background: #FFFFFF;
   border-radius: 16rpx;
   box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.3);
+}
+
+/* Canvas 隐藏状态（保留在DOM中但不可见） */
+.sheet-canvas.hidden {
+  position: absolute;
+  left: -9999rpx;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preview-image {
+  width: 100%;
+  height: auto;
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.3);
+  background: #FFFFFF;
 }
 
 .canvas-loading {
@@ -260,11 +291,6 @@ page {
   color: var(--text-light);
 }
 
-.preview-image {
-  width: 100%;
-  border-radius: 16rpx;
-}
-
 .introduction {
   padding: 24rpx 32rpx;
   border-top: 1rpx solid rgba(255, 255, 255, 0.1);
@@ -274,74 +300,6 @@ page {
   font-size: 26rpx;
   color: var(--text-light);
   line-height: 1.6;
-}
-
-/* 相关推荐 */
-.related-section {
-  padding: 32rpx 24rpx;
-}
-
-.section-header {
-  padding: 0 8rpx 20rpx;
-}
-
-.section-title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: var(--text-white);
-}
-
-.related-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20rpx;
-}
-
-.related-item {
-  width: calc(50% - 10rpx);
-  display: flex;
-  align-items: center;
-  background: var(--bg-card);
-  border-radius: 16rpx;
-  padding: 16rpx;
-}
-
-.related-cover {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 12rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.cover-text {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.related-info {
-  flex: 1;
-  margin-left: 16rpx;
-  overflow: hidden;
-}
-
-.related-title {
-  display: block;
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--text-white);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4rpx;
-}
-
-.related-artist {
-  font-size: 22rpx;
-  color: var(--text-muted);
 }
 
 /* 底部间距 */
@@ -358,7 +316,8 @@ page {
   display: flex;
   gap: 24rpx;
   padding: 20rpx 32rpx;
-  background: linear-gradient(to top, rgba(26, 26, 46, 0.98) 0%, rgba(26, 26, 46, 0.9) 100%);
+  /* 基于#314D63主题 */
+  background: linear-gradient(to top, rgba(26, 42, 58, 0.98) 0%, rgba(36, 52, 71, 0.95) 100%);
   backdrop-filter: blur(20rpx);
 }
 
@@ -419,8 +378,14 @@ page {
   background: rgba(255, 107, 107, 0.2);
 }
 
-.fav-icon {
+.fav-icon,
+.fav-icon-img {
   font-size: 44rpx;
+}
+.fav-icon-img {
+  width: 44rpx;
+  height: 44rpx;
+  display: block;
 }
 
 /* 响应式适配 */

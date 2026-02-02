@@ -346,6 +346,8 @@ Page({
     insertDirection: 'right', // 插入方向: 'right' 向右插入, 'left' 向左插入
     showHelpBtnSetting: true, // 是否显示帮助按钮
     pitchBarEnabled: true, // 是否启用音高条（数字键盘左侧）
+    addDotActive: false, // 附点模式是否激活
+    addArpeggioActive: false, // 琶音模式是否激活
     isCustomizingKeyboard: false, // 是否在自定义键盘模式
     customSymbolKeys: { // 自定义符号键（默认值与系统一致）
       key1: 'd', key2: 'D', key3: 'P',
@@ -578,6 +580,31 @@ Page({
   },
 
   /**
+   * 根据当前编辑位置同步虚拟键盘「附点」「琶音」按钮状态
+   * 附点：当前音符格是否以 * 结尾；琶音：当前音符列（subdivision）是否有 ~
+   */
+  syncVkDotAndArpeggioState() {
+    const editInfo = this.getCurrentEditingInfo();
+    const { notations } = this.data;
+    
+    if (!editInfo || !notations) {
+      this.setData({ addDotActive: false, addArpeggioActive: false });
+      return;
+    }
+    
+    const currentValue = this.data.canvasEditing
+      ? (this.data.canvasEditingValue || '')
+      : (this.data.editingValue || '');
+    const notation = notations.find(n => n.id === editInfo.sheet);
+    const subdivision = notation?.measures[editInfo.measure]?.beats?.[editInfo.beat]?.subdivisions?.[editInfo.subdivision];
+    
+    const addDotActive = (currentValue || '').endsWith('*');
+    const addArpeggioActive = !!subdivision?.hasArpeggio;
+    
+    this.setData({ addDotActive, addArpeggioActive });
+  },
+
+  /**
    * 【性能优化】获取缓存的音符显示文本
    * @param {string} note - 音符字符串
    * @returns {string} 渲染后的显示文本
@@ -711,6 +738,7 @@ Page({
       
       this.setData(updateData, () => {
         this.updatePitchLevelFromNote();
+        this.syncVkDotAndArpeggioState();
       });
       
       // 【优化】Canvas 重绘移到 nextTick，不阻塞视觉反馈
@@ -769,6 +797,7 @@ Page({
         }
       });
       
+      this.syncVkDotAndArpeggioState();
       this.prevEditing = this.data.editing;
       this.prevEditingValue = currentValue;
     }
@@ -1782,11 +1811,15 @@ Page({
               ]
             };
           } else {
-            // 已有 subdivisions，则逐个规范化，不补齐数量
-            const subs = (beat.subdivisions || []).map(sub => ({
-              rightHand: ensureArray2(sub.rightHand),
-              leftHand: ensureArray2(sub.leftHand)
-            }));
+            // 已有 subdivisions，则逐个规范化，不补齐数量；保留 hasArpeggio 等扩展字段
+            const subs = (beat.subdivisions || []).map(sub => {
+              const normalized = {
+                rightHand: ensureArray2(sub.rightHand),
+                leftHand: ensureArray2(sub.leftHand)
+              };
+              if (sub.hasArpeggio === true) normalized.hasArpeggio = true;
+              return normalized;
+            });
             out = { subdivisions: subs };
           }
           // 【修复】保留占位拍标记，确保重新进入/刷新后尾行占位拍绘制正确
@@ -3513,7 +3546,9 @@ Page({
         const lh = Array.isArray(sub.leftHand) ? sub.leftHand : ['', ''];
         const rhText = [rh[0] || '', rh[1] || ''].filter(Boolean).join(',');
         const lhText = [lh[0] || '', lh[1] || ''].filter(Boolean).join(',');
-        return `(${rhText})/(${lhText})`;
+        const noteCode = `(${rhText})/(${lhText})`;
+        // 如果有琶音标记，在音符列前添加'~'
+        return sub.hasArpeggio ? `~${noteCode}` : noteCode;
       });
       return subStrings.join('+');
     });
@@ -5061,6 +5096,42 @@ Page({
   /**
    * 初始化Canvas渲染器
    */
+  // 获取 Canvas 渲染器构造选项（含已缓存的琶音图）
+  getCanvasRendererOptions() {
+    return {
+      colors: {
+        rightHand: this.data.rightHandColor,
+        leftHand: this.data.leftHandColor
+      },
+      arpeggioImage: this._arpeggioImage || undefined
+    };
+  },
+  
+  // 预加载琶音符号图 arpeggio.svg，加载完成后注入所有渲染器并重绘
+  loadArpeggioImageIfNeeded(canvas) {
+    if (this._arpeggioImage) return;
+    if (!canvas || typeof canvas.createImage !== 'function') return;
+    const self = this;
+    const img = canvas.createImage();
+    img.onload = function () {
+      self._arpeggioImage = img;
+      const renderers = self._canvasRenderers || {};
+      Object.keys(renderers).forEach(notationId => {
+        const r = renderers[notationId];
+        if (r && r.setArpeggioImage) {
+          r.setArpeggioImage(img);
+          r.render();
+        }
+      });
+      Object.keys(renderers).forEach(notationId => {
+        const notationIndex = (self.data.notations || []).findIndex(n => n && n.id === notationId);
+        if (notationIndex >= 0) self.convertCanvasToImage(notationId, notationIndex);
+      });
+    };
+    img.onerror = function () { /* 加载失败时继续使用波浪线占位 */ };
+    img.src = '/assets/icons/keyboard/arpeggio.svg';
+  },
+  
   initCanvasRenderer(notationId, notationIndex) {
     const notation = this.data.notations[notationIndex];
     if (!notation) return;
@@ -5079,13 +5150,8 @@ Page({
       const width = res[0].width;
       const height = res[0].height;
       
-      // 创建渲染器实例
-      const renderer = new CanvasNotationRenderer({
-        colors: {
-          rightHand: this.data.rightHandColor,
-          leftHand: this.data.leftHandColor
-        }
-      });
+      // 创建渲染器实例（含已缓存的琶音图）
+      const renderer = new CanvasNotationRenderer(this.getCanvasRendererOptions());
       
       // 初始化Canvas
       renderer.init(canvas, width, height);
@@ -5105,6 +5171,9 @@ Page({
       this._columnRectsCache[notationId] = columnRects;
       
       console.log('[Canvas] 渲染器初始化完成:', notationId, 'size:', width, 'x', height);
+      
+      // 预加载琶音图（若尚未加载），加载完成后会重绘并转图
+      this.loadArpeggioImageIfNeeded(canvas);
       
       // 延迟转换为图片（解决层级和延迟问题）
       setTimeout(() => {
@@ -5276,18 +5345,15 @@ Page({
       
       // 创建并初始化渲染器
       const CanvasNotationRenderer = require('../../utils/canvasRenderer').CanvasNotationRenderer;
-      const renderer = new CanvasNotationRenderer({
-        colors: {
-          rightHand: this.data.rightHandColor,
-          leftHand: this.data.leftHandColor
-        }
-      });
+      const renderer = new CanvasNotationRenderer(this.getCanvasRendererOptions());
       
       renderer.init(canvas, width, height);
       renderer.setData(notation, this.data.orientation, notation.measuresPerRow || this.data.measuresPerRow);
       renderer.render();
       
       this._canvasRenderers[notationId] = renderer;
+      
+      this.loadArpeggioImageIfNeeded(canvas);
       
       // 进入选中模式
       this._enterSelectionModeFromStaticImage(renderer, notationId, notationIndex, relativeX, relativeY, touchX, touchY);
@@ -5582,18 +5648,15 @@ Page({
       }
       
       // 创建新渲染器
-      const renderer = new CanvasNotationRenderer({
-        colors: {
-          rightHand: this.data.rightHandColor,
-          leftHand: this.data.leftHandColor
-        }
-      });
+      const renderer = new CanvasNotationRenderer(this.getCanvasRendererOptions());
       
       renderer.init(canvas, width, height);
       renderer.setData(notation, this.data.orientation, this.data.measuresPerRow);
       renderer.render();
       
       this._canvasRenderers[notationId] = renderer;
+      
+      this.loadArpeggioImageIfNeeded(canvas);
       
       // 如果有点击事件，处理点击
       if (tapEvent) {
@@ -5911,6 +5974,7 @@ Page({
     }, () => {
       // 更新音高档位
       this.updatePitchLevelFromNote();
+      this.syncVkDotAndArpeggioState();
       // 隐藏tabBar
       wx.hideTabBar({ animation: true });
       
@@ -6390,6 +6454,7 @@ Page({
         }
       });
       
+      this.syncVkDotAndArpeggioState();
       // 根据当前音符更新音高档位显示
       this.updatePitchLevelFromNote();
       
@@ -6643,7 +6708,7 @@ Page({
         showVirtualKeyboard: false,
         superscriptMode: null,
         superscriptContent: ''
-      });
+      }, () => { this.syncVkDotAndArpeggioState(); });
       wx.showTabBar({ animation: true });
       return;
     }
@@ -6659,7 +6724,7 @@ Page({
         showVirtualKeyboard: false,
         superscriptMode: null,
         superscriptContent: ''
-      });
+      }, () => { this.syncVkDotAndArpeggioState(); });
       this.prevEditing = null;
       this.prevEditingValue = '';
 
@@ -6668,12 +6733,36 @@ Page({
     }
   },
 
+  // 深拷贝 notations 并显式保留 subdivision 的 hasArpeggio（避免传参/序列化丢失）
+  cloneNotationsForExport(notations) {
+    return (notations || []).map(n => {
+      const notation = { ...n };
+      notation.measures = (n.measures || []).map(m => {
+        const measure = { ...m };
+        measure.beats = (m.beats || []).map(b => {
+          const beat = { ...b };
+          beat.subdivisions = (b.subdivisions || []).map(sub => {
+            const cloned = {
+              rightHand: Array.isArray(sub.rightHand) ? [...sub.rightHand] : ['', ''],
+              leftHand: Array.isArray(sub.leftHand) ? [...sub.leftHand] : ['', '']
+            };
+            if (sub.hasArpeggio === true) cloned.hasArpeggio = true;
+            return cloned;
+          });
+          return beat;
+        });
+        return measure;
+      });
+      return notation;
+    });
+  },
+
   // 导出选择
   exportPDF() {
-    // 将谱面数据存储到全局，供导出页面使用
+    // 将谱面数据存储到全局，供导出页面使用（深拷贝并保留 hasArpeggio）
     const app = getApp();
     app.globalData.exportData = {
-      notations: this.data.notations,
+      notations: this.cloneNotationsForExport(this.data.notations),
       mainTitle: this.data.mainTitle,
       subTitle: this.data.subTitle,
       globalTempo: this.data.globalTempo,
@@ -7089,7 +7178,7 @@ Page({
     return note;
   },
 
-  // 生成单个subdivision的代码
+  // 生成单个subdivision的代码（含琶音 ~ 前缀）
   generateSubdivisionCode(subdivision) {
     const rightHand = subdivision.rightHand || ['', ''];
     const leftHand = subdivision.leftHand || ['', ''];
@@ -7103,8 +7192,8 @@ Page({
     // 生成右手和左手字符串（自动为特殊音符添加包裹）
     const rightStr = this.generateHandCode(rightHand, 'right');
     const leftStr = this.generateHandCode(leftHand, 'left');
-    
-    return `(${rightStr})/(${leftStr})`;
+    const noteCode = `(${rightStr})/(${leftStr})`;
+    return subdivision.hasArpeggio ? `~${noteCode}` : noteCode;
   },
 
   // 生成单手的代码
@@ -8922,6 +9011,13 @@ Page({
 
   // 解析单个subdivision（音符组）
   parseSubdivision(subStr) {
+    // 检测并处理琶音标记 '~' - 在音符列前面
+    let hasArpeggio = false;
+    if (subStr.startsWith('~')) {
+      hasArpeggio = true;
+      subStr = subStr.slice(1); // 移除'~'前缀
+    }
+    
     // 音符修饰符模式：支持 ' , _ 以及 ^{...} 格式
     const modifierPatternNotes = "['',,_]*(?:\\^\\{[^}]*\\})?['',,_]*";
     
@@ -8939,10 +9035,12 @@ Page({
         const leftToken = slashMatch[2];
         const rightHand = this.parseHandNotes(this.unwrapBracket(rightToken), 'right');
         const leftHand = this.parseHandNotes(this.unwrapBracket(leftToken), 'left');
-        return {
+        const result = {
           rightHand: [rightHand[0] || '', rightHand[1] || ''],
           leftHand: [leftHand[0] || '', leftHand[1] || '']
         };
+        if (hasArpeggio) result.hasArpeggio = true;
+        return result;
       }
     }
     
@@ -8957,10 +9055,12 @@ Page({
       const leftToken = fullShorthandMatch[2];
       const rightHand = this.parseHandNotes(this.unwrapBracket(rightToken), 'right');
       const leftHand = this.parseHandNotes(this.unwrapBracket(leftToken), 'left');
-      return {
+      const result = {
         rightHand: [rightHand[0] || '', rightHand[1] || ''],
         leftHand: [leftHand[0] || '', leftHand[1] || '']
       };
+      if (hasArpeggio) result.hasArpeggio = true;
+      return result;
     }
     
 // 处理手动指定左右手的格式：数字/ 和 /数字 以及 {token}/、/{token}、<token>/、/<token>
@@ -8975,10 +9075,12 @@ Page({
       const token = rightHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
       const rightHand = this.parseHandNotes(unwrapped, 'right');
-      return {
+      const result = {
         rightHand: [rightHand[0] || '', rightHand[1] || ''],
         leftHand: ['', '']
       };
+      if (hasArpeggio) result.hasArpeggio = true;
+      return result;
     }
     
     // 匹配 /<token> 或 /{token} 或 /单个数字/字母 形式（左手指定）
@@ -8989,10 +9091,12 @@ Page({
       const token = leftHandSpecificMatch[1];
       const unwrapped = this.unwrapBracket(token);
       const leftHand = this.parseHandNotes(unwrapped, 'left');
-      return {
+      const result = {
         rightHand: ['', ''],
         leftHand: [leftHand[0] || '', leftHand[1] || '']
       };
+      if (hasArpeggio) result.hasArpeggio = true;
+      return result;
     }
     
     // 处理 <12> 或 {12} 形式的多位数或其他token（不包含/，否则已在上面处理）
@@ -9007,23 +9111,29 @@ Page({
         if (!Number.isNaN(n)) {
           if (n % 2 === 0) {
             const leftHand = this.parseHandNotes(content, 'left');
-            return {
+            const result = {
               rightHand: ['', ''],
               leftHand: [leftHand[0] || '', leftHand[1] || '']
             };
+            if (hasArpeggio) result.hasArpeggio = true;
+            return result;
           }
           const rightHand = this.parseHandNotes(content, 'right');
-          return {
+          const result = {
             rightHand: [rightHand[0] || '', rightHand[1] || ''],
             leftHand: ['', '']
           };
+          if (hasArpeggio) result.hasArpeggio = true;
+          return result;
         }
         // 字母和·视作偶数，放在左手
         const leftHand = this.parseHandNotes(content, 'left');
-        return {
+        const result = {
           rightHand: ['', ''],
           leftHand: [leftHand[0] || '', leftHand[1] || '']
         };
+        if (hasArpeggio) result.hasArpeggio = true;
+        return result;
       }
     }
     
@@ -9067,10 +9177,12 @@ Page({
       });
       const rightHandArr = odds;
       const leftHandArr = evens;
-      return {
+      const result = {
         rightHand: [rightHandArr[0] || '', rightHandArr[1] || ''],
         leftHand: [leftHandArr[0] || '', leftHandArr[1] || '']
       };
+      if (hasArpeggio) result.hasArpeggio = true;
+      return result;
     };
 
     if (!match) {
@@ -9090,31 +9202,39 @@ Page({
         if (!Number.isNaN(n)) {
           if (n % 2 === 0) {
             const leftHand = this.parseHandNotes(subStr, 'left');
-            return {
+            const result = {
               rightHand: ['', ''],
               leftHand: [leftHand[0] || '', leftHand[1] || '']
             };
+            if (hasArpeggio) result.hasArpeggio = true;
+            return result;
           }
           const rightHand = this.parseHandNotes(subStr, 'right');
-          return {
+          const result = {
             rightHand: [rightHand[0] || '', rightHand[1] || ''],
             leftHand: ['', '']
           };
+          if (hasArpeggio) result.hasArpeggio = true;
+          return result;
         }
         // 字母和·视作偶数，放在左手
         const leftHand = this.parseHandNotes(subStr, 'left');
-        return {
+        const result = {
           rightHand: ['', ''],
           leftHand: [leftHand[0] || '', leftHand[1] || '']
         };
+        if (hasArpeggio) result.hasArpeggio = true;
+        return result;
       }
 
       // 空字符串或无法匹配时返回空占位，避免整段失败
       if (!subStr) {
-        return {
+        const result = {
           rightHand: ['', ''],
           leftHand: ['', '']
         };
+        if (hasArpeggio) result.hasArpeggio = true;
+        return result;
       }
       throw new Error(`无效的音符格式: ${subStr}`);
     }
@@ -9126,10 +9246,12 @@ Page({
     const rightHand = this.parseHandNotes(rightHandStr, 'right');
     const leftHand = this.parseHandNotes(leftHandStr, 'left');
     
-    return {
+    const result = {
       rightHand: [rightHand[0] || '', rightHand[1] || ''],
       leftHand: [leftHand[0] || '', leftHand[1] || '']
     };
+    if (hasArpeggio) result.hasArpeggio = true;
+    return result;
   },
 
   // 解析单手音符（返回数组 [slot0, slot1]）
@@ -11216,13 +11338,8 @@ Page({
         this._canvasRenderers[notationId].destroy();
       }
       
-      // 创建渲染器实例
-      const renderer = new CanvasNotationRenderer({
-        colors: {
-          rightHand: this.data.rightHandColor,
-          leftHand: this.data.leftHandColor
-        }
-      });
+      // 创建渲染器实例（含已缓存的琶音图）
+      const renderer = new CanvasNotationRenderer(this.getCanvasRendererOptions());
       
       // 初始化Canvas
       renderer.init(canvas, width, height);
@@ -11235,6 +11352,8 @@ Page({
       
       // 保存渲染器实例
       this._canvasRenderers[notationId] = renderer;
+      
+      this.loadArpeggioImageIfNeeded(canvas);
       
       // 预计算并缓存列坐标（用于播放光标）
       const columnRects = renderer.getAllColumnRects();
@@ -11313,14 +11432,9 @@ Page({
         delete this._canvasRenderers[notationId];
       }
       
-      // 创建渲染器实例
+      // 创建渲染器实例（含已缓存的琶音图）
       const CanvasNotationRenderer = require('../../utils/canvasRenderer').CanvasNotationRenderer;
-      const renderer = new CanvasNotationRenderer({
-        colors: {
-          rightHand: this.data.rightHandColor,
-          leftHand: this.data.leftHandColor
-        }
-      });
+      const renderer = new CanvasNotationRenderer(this.getCanvasRendererOptions());
       
       // 初始化Canvas
       renderer.init(canvas, width, height);
@@ -11333,6 +11447,8 @@ Page({
       
       // 保存渲染器实例
       this._canvasRenderers[notationId] = renderer;
+      
+      this.loadArpeggioImageIfNeeded(canvas);
       
       // 预计算并缓存列坐标（用于播放光标）
       const columnRects = renderer.getAllColumnRects();
@@ -12342,6 +12458,150 @@ Page({
     wx.setStorageSync('keyboard_pitch_bar_enabled', newValue);
   },
   
+  // 切换附点模式
+  toggleAddDot() {
+    const newValue = !this.data.addDotActive;
+    this.setData({ addDotActive: newValue });
+    
+    if (newValue) {
+      // 激活附点模式时，对当前选中的音符添加附点
+      this.applyDotToCurrentNote();
+    } else {
+      // 关闭附点模式时，移除当前选中音符的附点
+      this.removeDotFromCurrentNote();
+    }
+  },
+  
+  // 对当前选中的音符添加附点标记 '*'
+  applyDotToCurrentNote() {
+    const { editingValue, canvasEditing, canvasEditingValue } = this.data;
+    let currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    
+    // 如果没有内容，不处理
+    if (!currentValue || currentValue === '' || currentValue === '-') {
+      return;
+    }
+    
+    // 检查是否已有附点标记
+    if (currentValue.endsWith('*')) {
+      return; // 已有附点，不重复添加
+    }
+    
+    // 在音符末尾添加 '*' 标记
+    const newValue = currentValue + '*';
+    this.updateEditingValue(newValue);
+  },
+  
+  // 移除当前选中音符的附点标记
+  removeDotFromCurrentNote() {
+    const { editingValue, canvasEditing, canvasEditingValue } = this.data;
+    let currentValue = canvasEditing ? (canvasEditingValue || '') : (editingValue || '');
+    
+    // 如果没有内容，不处理
+    if (!currentValue || currentValue === '') {
+      return;
+    }
+    
+    // 移除末尾的 '*' 标记
+    if (currentValue.endsWith('*')) {
+      const newValue = currentValue.slice(0, -1);
+      this.updateEditingValue(newValue);
+    }
+  },
+  
+  // 切换琶音模式
+  toggleAddArpeggio() {
+    const newValue = !this.data.addArpeggioActive;
+    this.setData({ addArpeggioActive: newValue });
+    
+    if (newValue) {
+      // 激活琶音模式时，对当前选中的音符列添加琶音
+      this.applyArpeggioToCurrentColumn();
+    } else {
+      // 关闭琶音模式时，移除当前选中音符列的琶音
+      this.removeArpeggioFromCurrentColumn();
+    }
+  },
+  
+  // 对当前选中的音符列添加琶音标记
+  applyArpeggioToCurrentColumn() {
+    const editInfo = this.getCurrentEditingInfo();
+    if (!editInfo) {
+      return;
+    }
+    
+    const { notations } = this.data;
+    const { sheet, measure, beat, subdivision } = editInfo;
+    
+    const notationsClone = JSON.parse(JSON.stringify(notations));
+    const notation = notationsClone.find(n => n.id === sheet);
+    if (!notation) return;
+    
+    const currentSubdivision = notation.measures[measure]?.beats?.[beat]?.subdivisions?.[subdivision];
+    if (!currentSubdivision) return;
+    
+    // 检查是否已有琶音标记
+    if (currentSubdivision.hasArpeggio) {
+      return; // 已有琶音，不重复添加
+    }
+    
+    // 添加琶音标记到音符列
+    currentSubdivision.hasArpeggio = true;
+    
+    this.setData({ notations: notationsClone });
+    this.markNotationChanged();
+    this.throttledSaveNotations();
+    
+    // 重新渲染 Canvas
+    this.refreshCurrentCanvasRenderer(editInfo);
+  },
+  
+  // 移除当前选中音符列的琶音标记
+  removeArpeggioFromCurrentColumn() {
+    const editInfo = this.getCurrentEditingInfo();
+    if (!editInfo) {
+      return;
+    }
+    
+    const { notations } = this.data;
+    const { sheet, measure, beat, subdivision } = editInfo;
+    
+    const notationsClone = JSON.parse(JSON.stringify(notations));
+    const notation = notationsClone.find(n => n.id === sheet);
+    if (!notation) return;
+    
+    const currentSubdivision = notation.measures[measure]?.beats?.[beat]?.subdivisions?.[subdivision];
+    if (!currentSubdivision) return;
+    
+    // 移除琶音标记
+    if (currentSubdivision.hasArpeggio) {
+      delete currentSubdivision.hasArpeggio;
+      
+      this.setData({ notations: notationsClone });
+      this.markNotationChanged();
+      this.throttledSaveNotations();
+      
+      // 重新渲染 Canvas
+      this.refreshCurrentCanvasRenderer(editInfo);
+    }
+  },
+  
+  // 刷新当前Canvas渲染器
+  refreshCurrentCanvasRenderer(editInfo) {
+    if (!editInfo) return;
+    
+    const { isCanvas, notationIndex, sheet } = editInfo;
+    if (isCanvas && notationIndex !== null && notationIndex !== undefined) {
+      setTimeout(() => {
+        if (this.data.canvasEditing) {
+          this.initCanvasRendererForEdit(sheet, notationIndex, null);
+        } else {
+          this.initCanvasRenderer(sheet, notationIndex);
+        }
+      }, 50);
+    }
+  },
+  
   // 从更多设置界面插入注记
   insertNoteAnnotationFromSettings() {
     this.closeKeyboardSettings();
@@ -12881,7 +13141,7 @@ Page({
     if (canvasEditing) {
       // Canvas模式：更新canvasEditingValue
       updateData.canvasEditingValue = value;
-      this.setData(updateData);
+      this.setData(updateData, () => this.syncVkDotAndArpeggioState());
       
       // 实时更新Canvas显示（脏矩形刷新）
       const renderer = this._canvasRenderers[canvasEditing.notationId];
@@ -12899,7 +13159,7 @@ Page({
     } else {
       // View模式：更新editingValue
       updateData.editingValue = value;
-      this.setData(updateData);
+      this.setData(updateData, () => this.syncVkDotAndArpeggioState());
       this.prevEditingValue = value;
     }
     
@@ -13527,7 +13787,7 @@ Page({
           index: 1
         },
         canvasEditingValue: subdivision.rightHand?.[1] || ''
-      });
+      }, () => { this.syncVkDotAndArpeggioState(); });
     } else {
       // View模式
       this.setData({
@@ -13540,7 +13800,7 @@ Page({
           index: 1
         },
         editingValue: subdivision.rightHand?.[1] || ''
-      });
+      }, () => { this.syncVkDotAndArpeggioState(); });
     }
   },
   
@@ -18769,14 +19029,9 @@ Page({
         return;
       }
       
-      // 创建渲染器实例
+      // 创建渲染器实例（含已缓存的琶音图）
       const CanvasNotationRenderer = require('../../utils/canvasRenderer').CanvasNotationRenderer;
-      const renderer = new CanvasNotationRenderer({
-        colors: {
-          rightHand: this.data.rightHandColor,
-          leftHand: this.data.leftHandColor
-        }
-      });
+      const renderer = new CanvasNotationRenderer(this.getCanvasRendererOptions());
       
       // 初始化Canvas
       renderer.init(canvas, width, height);
@@ -18789,6 +19044,8 @@ Page({
       
       // 保存渲染器实例
       this._canvasRenderers[notationId] = renderer;
+      
+      this.loadArpeggioImageIfNeeded(canvas);
       
       // 获取列坐标并缓存
       const columnRects = renderer.getAllColumnRects();

@@ -80,6 +80,7 @@ function migrateNotations(notations) {
           out = { subdivisions: [{ rightHand: rh, leftHand: lh }] };
         } else {
           const subs = (beat.subdivisions || []).map(sub => ({
+            ...sub,
             rightHand: ensureArray2(sub.rightHand),
             leftHand: ensureArray2(sub.leftHand)
           }));

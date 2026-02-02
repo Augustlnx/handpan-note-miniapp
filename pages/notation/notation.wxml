@@ -2766,12 +2766,23 @@ module.exports = {
             </view>
             <text class="vk-settings-icon-label">{{pitchBarEnabled ? '音高条(开)' : '音高条(关)'}}</text>
           </view>
-          <!-- 占位 -->
-          <view class="vk-settings-icon-item vk-settings-icon-empty"></view>
+          <!-- 加附点 -->
+          <view class="vk-settings-icon-item {{addDotActive ? '' : 'vk-settings-icon-off'}}" bindtap="toggleAddDot">
+            <view class="vk-settings-icon-box {{addDotActive ? '' : 'vk-settings-icon-box-off'}}">
+              <image class="vk-settings-icon {{addDotActive ? '' : 'vk-settings-icon-dimmed'}}" src="/assets/icons/keyboard/add_dot.png" mode="aspectFit"></image>
+            </view>
+            <text class="vk-settings-icon-label">{{addDotActive ? '附点(开)' : '附点(关)'}}</text>
+          </view>
         </view>
-        <!-- 第二行图标（预留） -->
+        <!-- 第二行图标 -->
         <view class="vk-settings-icon-row">
-          <view class="vk-settings-icon-item vk-settings-icon-empty"></view>
+          <!-- 加琶音 -->
+          <view class="vk-settings-icon-item {{addArpeggioActive ? '' : 'vk-settings-icon-off'}}" bindtap="toggleAddArpeggio">
+            <view class="vk-settings-icon-box {{addArpeggioActive ? '' : 'vk-settings-icon-box-off'}}">
+              <image class="vk-settings-icon {{addArpeggioActive ? '' : 'vk-settings-icon-dimmed'}}" src="/assets/icons/keyboard/add_arpeggio.png" mode="aspectFit"></image>
+            </view>
+            <text class="vk-settings-icon-label">{{addArpeggioActive ? '琶音(开)' : '琶音(关)'}}</text>
+          </view>
           <view class="vk-settings-icon-item vk-settings-icon-empty"></view>
           <view class="vk-settings-icon-item vk-settings-icon-empty"></view>
           <view class="vk-settings-icon-item vk-settings-icon-empty"></view>

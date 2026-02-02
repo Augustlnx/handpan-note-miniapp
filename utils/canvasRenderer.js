@@ -42,12 +42,13 @@ try {
  */
 function parseSimplifiedNote(note) {
   if (!note || note === '') {
-    return { baseNote: '', octaveUp: 0, octaveDown: 0, underline: false, leftSup: '', rightSup: '' };
+    return { baseNote: '', octaveUp: 0, octaveDown: 0, underline: false, leftSup: '', rightSup: '', hasDot: false };
   }
   
   let octaveUp = 0;
   let octaveDown = 0;
   let underline = false;
+  let hasDot = false; // 附点标记
   let baseNote = '';
   let leftSup = '';
   let rightSup = '';
@@ -72,6 +73,12 @@ function parseSimplifiedNote(note) {
     }
   }
   
+  // 检查是否有 * （附点标记）- 在末尾
+  if (remaining.endsWith('*')) {
+    hasDot = true;
+    remaining = remaining.slice(0, -1);
+  }
+  
   // 统计 ' 的数量（高八度）
   for (let i = 0; i < remaining.length; i++) {
     if (remaining[i] === "'") octaveUp++;
@@ -87,14 +94,14 @@ function parseSimplifiedNote(note) {
     underline = true;
   }
   
-  // 提取基础音符
+  // 提取基础音符（移除修饰符）
   for (let i = 0; i < remaining.length; i++) {
     if (remaining[i] !== "'" && remaining[i] !== ',' && remaining[i] !== '_') {
       baseNote += remaining[i];
     }
   }
   
-  return { baseNote, octaveUp, octaveDown, underline, leftSup, rightSup };
+  return { baseNote, octaveUp, octaveDown, underline, leftSup, rightSup, hasDot };
 }
 
 /**
@@ -122,6 +129,19 @@ class CanvasNotationRenderer {
     
     // 【任务2】选中拍位信息
     this.selectionInfo = {};
+    
+    // 琶音符号图片（可选，来自 assets/icons/keyboard/arpeggio.svg）
+    this.arpeggioImage = options.arpeggioImage || null;
+  }
+  
+  /**
+   * 设置琶音符号图片（用于异步加载后注入）
+   * @param {HTMLImageElement|WechatMiniprogram.Image} img - 已加载的图片对象
+   */
+  setArpeggioImage(img) {
+    if (img && (img.width > 0 || img.naturalWidth > 0)) {
+      this.arpeggioImage = img;
+    }
   }
   
   /**
@@ -632,9 +652,21 @@ class CanvasNotationRenderer {
           this.drawAnnotation(subX, y, subWidth, subdivision.annotation);
         }
         
+        // 计算音符绘制的偏移量（用于琶音）
+        let noteOffsetX = 0;
+        const hasArpeggio = subdivision.hasArpeggio;
+        
+        // 如果有琶音标记，绘制琶音符号并偏移音符（宽度不变，高度按原比例，与小节线垂直居中）
+        if (hasArpeggio) {
+          const arpeggioWidth = this.rpx2px(12); // 琶音符号宽度
+          noteOffsetX = arpeggioWidth;
+          
+          this.drawArpeggioSymbol(subX + 2, y, arpeggioWidth - 2, height);
+        }
+        
         // 绘制右手音符（上半部分）
         this.drawNoteSlots(
-          subX, y, subWidth, height / 2,
+          subX + noteOffsetX, y, subWidth - noteOffsetX, height / 2,
           subdivision.rightHand,
           'right',
           measureIndex, beatIndex, subIndex
@@ -642,13 +674,63 @@ class CanvasNotationRenderer {
         
         // 绘制左手音符（下半部分）
         this.drawNoteSlots(
-          subX, y + height / 2, subWidth, height / 2,
+          subX + noteOffsetX, y + height / 2, subWidth - noteOffsetX, height / 2,
           subdivision.leftHand,
           'left',
           measureIndex, beatIndex, subIndex
         );
       });
     });
+  }
+  
+  /**
+   * 绘制琶音符号：优先使用 arpeggio.svg 图片，否则绘制波浪线占位
+   * 宽度保持传入不变，高度按原图比例；在小节内垂直居中（与小节线水平对齐居中）
+   * @param {number} x - 符号左上角x坐标
+   * @param {number} measureY - 小节顶部y坐标
+   * @param {number} width - 符号宽度（保持不变）
+   * @param {number} measureHeight - 小节高度（用于垂直居中）
+   */
+  drawArpeggioSymbol(x, measureY, width, measureHeight) {
+    const ctx = this.ctx;
+    // 高度维持原比例：原图 86×715
+    const symbolHeight = width * (715 / 86);
+    const symbolY = measureY + (measureHeight - symbolHeight) / 2;
+    
+    const img = this.arpeggioImage;
+    const imgW = img && (img.width || img.naturalWidth);
+    const imgH = img && (img.height || img.naturalHeight);
+    
+    if (img && imgW > 0 && imgH > 0) {
+      ctx.save();
+      ctx.drawImage(img, x, symbolY, width, symbolHeight);
+      ctx.restore();
+      return;
+    }
+    
+    // 无图片时绘制波浪线占位（同样居中、同比例）
+    const centerX = x + width / 2;
+    const startY = symbolY;
+    const endY = symbolY + symbolHeight;
+    const waveHeight = symbolHeight;
+    const amplitude = width * 0.35;
+    
+    ctx.save();
+    ctx.strokeStyle = this.colors.barLine || '#333333';
+    ctx.lineWidth = this.rpx2px(2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(centerX, startY);
+    const steps = 40;
+    for (let i = 1; i <= steps; i++) {
+      const progress = i / steps;
+      const cy = startY + progress * waveHeight;
+      const cx = centerX + Math.sin(progress * Math.PI * 8) * amplitude;
+      ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
   
   /**
@@ -885,6 +967,22 @@ class CanvasNotationRenderer {
         parsed.rightSup, 
         color
       );
+      currentX += rightSupWidth;
+    }
+    
+    // 绘制附点（如果有）
+    // 附点位于整个音符组合的右侧，垂直居中
+    if (parsed.hasDot) {
+      const augmentationDotSize = dotSize * 0.8; // 附点大小略小于八度点
+      const augmentationDotGap = fontSize * 0.15; // 附点与音符的间距
+      ctx.beginPath();
+      ctx.arc(
+        currentX + augmentationDotGap + augmentationDotSize / 2,
+        centerY,
+        augmentationDotSize / 2,
+        0, Math.PI * 2
+      );
+      ctx.fill();
     }
   }
   

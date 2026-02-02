@@ -1,16 +1,9 @@
-<!--制谱人列表页-->
+<!--制谱人列表页（与首页共用 TabBar，无顶部导航栏）-->
 <view class="page-container" style="padding-top: {{statusBarHeight}}px;">
-  <!-- 导航栏 -->
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">
-      <text class="icon-back">‹</text>
-    </view>
-    <text class="nav-title">制谱人</text>
-    <view class="nav-placeholder"></view>
-  </view>
+  <!-- 仅保留状态栏占位，无导航栏文字和返回键 -->
 
   <!-- 列表 -->
-  <scroll-view class="artists-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+  <scroll-view class="artists-scroll" scroll-y enhanced show-scrollbar="{{false}}" style="padding-bottom: {{tabbarBottom}}px;">
     <view class="artists-list">
       <view 
         class="artist-card" 
@@ -26,7 +19,8 @@
         <!-- 内容 -->
         <view class="card-content">
           <view class="artist-avatar" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);">
-            <text class="avatar-text">{{item.name[0]}}</text>
+            <image wx:if="{{item.avatar}}" class="artist-avatar-img" src="{{item.avatar}}" mode="aspectFill"/>
+            <text wx:else class="avatar-text">{{item.name[0]}}</text>
             <view class="verified-badge" wx:if="{{item.isVerified}}">✓</view>
           </view>
           <view class="artist-info">
@@ -62,4 +56,20 @@
       <text class="empty-text">暂无制谱人</text>
     </view>
   </scroll-view>
+
+  <!-- 自定义底部 TabBar（与首页一致） -->
+  <view class="custom-tabbar" style="padding-bottom: {{safeAreaBottom}}px;">
+    <view class="tabbar-item" bindtap="goToIndex">
+      <image class="tabbar-icon-img" src="../../assets/icons/library.svg" mode="aspectFit"/>
+      <text class="tabbar-text">曲谱库</text>
+    </view>
+    <view class="tabbar-item active">
+      <image class="tabbar-icon-img" src="../../assets/icons/musician.svg" mode="aspectFit"/>
+      <text class="tabbar-text">制谱人</text>
+    </view>
+    <view class="tabbar-item" bindtap="goToSettings">
+      <image class="tabbar-icon-img" src="../../assets/icons/user.svg" mode="aspectFit"/>
+      <text class="tabbar-text">我的</text>
+    </view>
+  </view>
 </view>

@@ -138,55 +138,6 @@
     </view>
   </view>
 
-  <!-- 公开曲库入口 -->
-      <view class="library-content public-library" wx:if="{{activeTab === 'public'}}">
-        <view class="public-library-entry" bindtap="goToPublicLibrary">
-          <view class="entry-card">
-            <view class="entry-bg" style="background: linear-gradient(135deg, #314D63 0%, #1E3A4C 100%);"></view>
-            <view class="entry-content">
-              <view class="entry-icon">🎵</view>
-              <view class="entry-info">
-                <text class="entry-title">星轨乐库</text>
-                <text class="entry-subtitle">探索优质手碟曲谱</text>
-              </view>
-              <view class="entry-arrow">›</view>
-            </view>
-          </view>
-          
-          <!-- 特色介绍 -->
-          <view class="features-grid">
-            <view class="feature-item">
-              <view class="feature-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <text>🎼</text>
-              </view>
-              <text class="feature-text">精选曲谱</text>
-            </view>
-            <view class="feature-item">
-              <view class="feature-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <text>👤</text>
-              </view>
-              <text class="feature-text">优秀制谱人</text>
-            </view>
-            <view class="feature-item">
-              <view class="feature-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <text>📚</text>
-              </view>
-              <text class="feature-text">精选合集</text>
-            </view>
-            <view class="feature-item">
-              <view class="feature-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-                <text>🔍</text>
-              </view>
-              <text class="feature-text">智能搜索</text>
-            </view>
-          </view>
-          
-          <view class="entry-hint">
-            <text>点击上方卡片进入星轨乐库</text>
-          </view>
-        </view>
-      </view>
-
       <view class="fab-container" wx:if="{{!editMode}}">
         <view class="fab-menu" wx:if="{{showFabMenu}}">
           <view class="fab-menu-item" bindtap="addNewFile">

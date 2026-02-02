@@ -1,0 +1,242 @@
+<!--个人中心页面-->
+<view class="page-container">
+  <!-- 顶部背景区 -->
+  <view class="header-bg" style="background: linear-gradient(135deg, {{userInfo.backgroundGradient[0] || '#667eea'}} 0%, {{userInfo.backgroundGradient[1] || '#764ba2'}} 100%); height: {{headerHeight}}px;">
+    <!-- 返回按钮 -->
+    <view class="nav-back" style="top: {{statusBarHeight}}px;" bindtap="goBack">
+      <image class="icon-back-img" src="../../assets/icons/back.svg" mode="aspectFit"/>
+    </view>
+  </view>
+
+  <!-- 主内容区 -->
+  <view class="main-content" style="margin-top: {{headerHeight - 60}}px;">
+    <!-- 个人信息卡片 -->
+    <view class="profile-card">
+      <!-- 头像 -->
+      <view class="avatar-wrap">
+        <view class="user-avatar" style="background: linear-gradient(135deg, {{userInfo.backgroundGradient[0] || '#667eea'}} 0%, {{userInfo.backgroundGradient[1] || '#764ba2'}} 100%);">
+          <image class="avatar-icon" src="../../assets/icons/user.svg" mode="aspectFit"/>
+        </view>
+      </view>
+      
+      <!-- 信息 -->
+      <view class="profile-info">
+        <view class="name-row">
+          <text class="user-name">{{userInfo.name}}</text>
+        </view>
+        <text class="user-bio">{{userInfo.bio}}</text>
+        
+        <!-- 统计数据 -->
+        <view class="stats-row">
+          <view class="stat-item">
+            <text class="stat-value">{{stats.playlistCount || 0}}</text>
+            <text class="stat-label">歌单</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{stats.favoriteCount || 0}}</text>
+            <text class="stat-label">收藏曲谱</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{stats.collectionCount || 0}}</text>
+            <text class="stat-label">收藏合集</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Tab导航 -->
+    <view class="tab-nav">
+      <view 
+        class="tab-item {{activeTab === 'home' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="home"
+      >
+        <text>主页</text>
+        <text class="tab-count">{{playlists.length}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'songs' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="songs"
+      >
+        <text>歌曲</text>
+        <text class="tab-count">{{favoriteSongs.length}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'collections' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="collections"
+      >
+        <text>合集</text>
+        <text class="tab-count">{{favoriteCollections.length}}</text>
+      </view>
+    </view>
+
+    <!-- 主页：歌单列表 -->
+    <view class="playlist-section" wx:if="{{activeTab === 'home'}}">
+      <!-- 新建歌单按钮 -->
+      <view class="create-playlist-btn" bindtap="showCreatePlaylist">
+        <view class="create-icon">+</view>
+        <text class="create-text">新建歌单</text>
+      </view>
+      
+      <!-- 歌单列表 -->
+      <view class="playlist-list">
+        <view 
+          class="playlist-item" 
+          wx:for="{{playlists}}" 
+          wx:key="id"
+          bindtap="goToPlaylistDetail"
+          data-item="{{item}}"
+        >
+          <!-- 左侧圆角矩形封面 -->
+          <view class="playlist-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+            <text class="cover-text">{{item.name[0]}}{{item.name[1] || ''}}</text>
+          </view>
+          
+          <!-- 中间信息 -->
+          <view class="playlist-info">
+            <view class="playlist-title-row">
+              <text class="playlist-title">{{item.name}}</text>
+              <view class="default-badge" wx:if="{{item.isDefault}}">默认</view>
+            </view>
+            <view class="playlist-meta">
+              <text class="meta-count">{{item.songCount || 0}}首</text>
+              <text class="meta-divider">|</text>
+              <text class="meta-source">{{item.source}}</text>
+            </view>
+          </view>
+          
+          <!-- 右侧管理按钮 -->
+          <view class="playlist-actions" catchtap="showPlaylistMenu" data-item="{{item}}">
+            <text class="more-icon">⋮</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="empty-list" wx:if="{{playlists.length === 0}}">
+        <text>暂无歌单</text>
+      </view>
+    </view>
+
+    <!-- 歌曲列表 -->
+    <view class="song-list" wx:if="{{activeTab === 'songs'}}">
+      <view 
+        class="song-item" 
+        wx:for="{{favoriteSongs}}" 
+        wx:key="id"
+        bindtap="goToSongDetail"
+        data-item="{{item}}"
+      >
+        <text class="song-index">{{index + 1}}</text>
+        <view class="song-info">
+          <view class="song-title-row">
+            <text class="song-title">{{item.title}}</text>
+            <view class="song-tags">
+              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}}</text>
+            </view>
+          </view>
+          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+        </view>
+        <view class="song-actions">
+          <view class="action-btn heart active" catchtap="toggleFavorite" data-id="{{item.id}}">
+            <image class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+          </view>
+          <view class="action-btn more" catchtap="showSongActions" data-item="{{item}}">
+            <text>⋮</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="empty-list" wx:if="{{favoriteSongs.length === 0}}">
+        <view class="empty-icon">🎵</view>
+        <text>暂无收藏的歌曲</text>
+        <text class="empty-hint">在曲谱详情页点击爱心即可收藏</text>
+      </view>
+    </view>
+
+    <!-- 合集列表 -->
+    <view class="collection-list" wx:if="{{activeTab === 'collections'}}">
+      <view 
+        class="collection-item" 
+        wx:for="{{favoriteCollections}}" 
+        wx:key="id"
+        bindtap="goToCollectionDetail"
+        data-item="{{item}}"
+      >
+        <view class="collection-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+          <text class="cover-text">{{item.title[0]}}{{item.title[1]}}</text>
+          <text class="cover-count">{{item.songCount}}首</text>
+        </view>
+        <view class="collection-info">
+          <text class="collection-title">{{item.title}}</text>
+          <text class="collection-desc">{{item.description}}</text>
+        </view>
+        <view class="collection-actions" catchtap="toggleCollectionFavorite" data-id="{{item.id}}">
+          <image class="favorite-icon-img active" src="../../assets/icons/like.svg" mode="aspectFit"/>
+        </view>
+      </view>
+      
+      <view class="empty-list" wx:if="{{favoriteCollections.length === 0}}">
+        <view class="empty-icon">📚</view>
+        <text>暂无收藏的合集</text>
+        <text class="empty-hint">在合集页面点击收藏即可添加</text>
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="bottom-space"></view>
+  </view>
+</view>
+
+<!-- 创建歌单弹窗 -->
+<view class="modal-mask" wx:if="{{showCreateModal}}" bindtap="closeCreateModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <text class="modal-title">新建歌单</text>
+    <input 
+      class="modal-input" 
+      placeholder="请输入歌单名称" 
+      bindinput="onPlaylistNameInput" 
+      value="{{newPlaylistName}}"
+      focus="{{showCreateModal}}"
+    />
+    <view class="modal-buttons">
+      <button class="modal-btn cancel" bindtap="closeCreateModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmCreatePlaylist">创建</button>
+    </view>
+  </view>
+</view>
+
+<!-- 歌单管理菜单 -->
+<view class="modal-mask" wx:if="{{showManageMenu}}" bindtap="closeManageMenu">
+  <view class="action-sheet" catchtap="stopPropagation">
+    <view class="sheet-title">{{currentPlaylist.name}}</view>
+    <view class="sheet-item" bindtap="renamePlaylist">
+      <image class="sheet-icon" src="/assets/icons/folder-rename.png" mode="aspectFit"/>
+      <text>重命名</text>
+    </view>
+    <view class="sheet-item danger" bindtap="deletePlaylist" wx:if="{{!currentPlaylist.isDefault}}">
+      <image class="sheet-icon" src="/assets/icons/file_delete.svg" mode="aspectFit"/>
+      <text>删除歌单</text>
+    </view>
+    <view class="sheet-cancel" bindtap="closeManageMenu">取消</view>
+  </view>
+</view>
+
+<!-- 输入弹窗 -->
+<view class="modal-mask" wx:if="{{showInputModal}}" bindtap="closeInputModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <text class="modal-title">{{inputModalTitle}}</text>
+    <input 
+      class="modal-input" 
+      placeholder="请输入" 
+      bindinput="onModalInputChange" 
+      value="{{inputModalValue}}"
+      focus="{{showInputModal}}"
+    />
+    <view class="modal-buttons">
+      <button class="modal-btn cancel" bindtap="closeInputModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmInputModal">确定</button>
+    </view>
+  </view>
+</view>

@@ -101,18 +101,19 @@ function readableError(err, fallback) {
   return fallback || '未知错误';
 }
 
-// 解析简谱音符，提取基础音符、八度标记、下划线和上标
-// 支持格式: 1' (高八度), 1,, (低两个八度), 1_ (带下划线), ^{H}1, 1^{H}
+// 解析简谱音符，提取基础音符、八度标记、下划线、上标和附点
+// 支持格式: 1' (高八度), 1,, (低两个八度), 1_ (带下划线), ^{H}1, 1^{H}, 1* (附点)
 // @param {string} note - 音符字符串
-// @returns {Object} {baseNote, octaveUp, octaveDown, underline, leftSup, rightSup}
+// @returns {Object} {baseNote, octaveUp, octaveDown, underline, leftSup, rightSup, hasDot}
 function parseSimplifiedNote(note) {
   if (!note || typeof note !== 'string') {
-    return { baseNote: '', octaveUp: 0, octaveDown: 0, underline: false, leftSup: '', rightSup: '' };
+    return { baseNote: '', octaveUp: 0, octaveDown: 0, underline: false, leftSup: '', rightSup: '', hasDot: false };
   }
   
   let octaveUp = 0;
   let octaveDown = 0;
   let underline = false;
+  let hasDot = false; // 附点标记
   let baseNote = '';
   let leftSup = '';
   let rightSup = '';
@@ -135,6 +136,12 @@ function parseSimplifiedNote(note) {
       rightSup = remaining.substring(rightSupIdx + 2, endBrace);
       remaining = remaining.substring(0, rightSupIdx);
     }
+  }
+  
+  // 检查是否有 * （附点标记）- 在末尾
+  if (remaining.endsWith('*')) {
+    hasDot = true;
+    remaining = remaining.slice(0, -1);
   }
   
   // 统计 ' 的数量（高八度）
@@ -170,6 +177,7 @@ function parseSimplifiedNote(note) {
     underline,
     leftSup,
     rightSup,
+    hasDot,
     // 兼容旧版本的属性
     hasOctaveUp: octaveUp > 0,
     hasOctaveDown: octaveDown > 0
@@ -241,6 +249,43 @@ function drawUnderline(ctx, x, y, width, thickness, color) {
   ctx.moveTo(x - width / 2, y);
   ctx.lineTo(x + width / 2, y);
   ctx.stroke();
+}
+
+// 绘制琶音符号（竖向波浪线）
+// @param {CanvasRenderingContext2D} ctx - Canvas 上下文
+// @param {number} x - 左上角x坐标
+// @param {number} y - 左上角y坐标  
+// @param {number} width - 符号宽度
+// @param {number} height - 符号高度
+function drawArpeggioSymbol(ctx, x, y, width, height) {
+  const centerX = x + width / 2;
+  const startY = y + height * 0.1;
+  const endY = y + height * 0.9;
+  const waveHeight = endY - startY;
+  
+  // 波浪线参数
+  const amplitude = width * 0.35; // 波浪振幅
+  
+  ctx.save();
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  ctx.beginPath();
+  ctx.moveTo(centerX, startY);
+  
+  // 绘制波浪曲线（使用正弦波）
+  const steps = 30;
+  for (let i = 1; i <= steps; i++) {
+    const progress = i / steps;
+    const cy = startY + progress * waveHeight;
+    const cx = centerX + Math.sin(progress * Math.PI * 8) * amplitude;
+    ctx.lineTo(cx, cy);
+  }
+  
+  ctx.stroke();
+  ctx.restore();
 }
 
 // 弹窗提示导出失败原因，方便调试
@@ -478,7 +523,7 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
       notations.forEach((notation, idx) => {
         const measuresPerRow = resolveMeasuresPerRow(notation);
         currentY = drawNotationSection(ctx, notation, leftMargin, currentY, contentWidth, 
-                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode, modeConfig, adjustParams);
+                                       rightHandColor, leftHandColor, measuresPerRow, isLandscape, exportLayoutMode, modeConfig, adjustParams, images.arpeggioIcon);
       });
       
       // 叠加绘制水印与背景后导出
@@ -552,7 +597,8 @@ function drawNotationOnCanvas(canvas, data, resolve, reject, isPaged) {
         timingIcon: images.timingIcon,
         noteChangeIcon: images.noteChangeIcon,
         crownIcon: images.crownIcon,
-        starIcon: images.starIcon
+        starIcon: images.starIcon,
+        arpeggioIcon: images.arpeggioIcon
       };
       generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights, 
         mainTitle, subTitle, globalTempo, mainTitleColor, subTitleColor,
@@ -902,7 +948,7 @@ function drawStar(ctx, x, y, size, color) {
  * @param {Object} modeConfig - 当前模式的配置参数（可选）
  * @param {Object} adjustParams - 用户调整参数（可选）{lineSpacingAdjust, measureHeightAdjust}
  */
-function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false, exportLayoutMode = 'compact', modeConfig = null, adjustParams = null) {
+function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, isLandscape = false, exportLayoutMode = 'compact', modeConfig = null, adjustParams = null, arpeggioIcon = null) {
   // 获取配置
   const config = modeConfig || exportConfig.getExportConfig({
     exportMode: 'long', // 默认使用长图模式配置
@@ -969,7 +1015,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
     const measureY = currentY + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, measure, measureX, measureY, measureWidth, rightHandColor, leftHandColor, 
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config, adjustParams);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config, adjustParams, arpeggioIcon);
   });
   
   const sectionHeight = config.moduleContentOffsetY + (rowCount * measureHeight) + Math.max(0, rowCount - 1) * rowGap + config.sectionBottomPadding;
@@ -984,7 +1030,7 @@ function drawNotationSection(ctx, notation, x, y, width, rightHandColor, leftHan
  * @param {Object} modeConfig - 当前模式的配置参数（可选）
  * @param {Object} adjustParams - 用户调整参数（可选）{lineSpacingAdjust, measureHeightAdjust}
  */
-function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false, exportLayoutMode = 'compact', modeConfig = null, adjustParams = null) {
+function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, leftHandColor, measuresPerRow, rowStart, rows, showLabel, isLandscape = false, exportLayoutMode = 'compact', modeConfig = null, adjustParams = null, arpeggioIcon = null) {
   // 获取配置
   const config = modeConfig || exportConfig.getExportConfig({
     exportMode: 'paged',
@@ -1056,7 +1102,7 @@ function drawNotationSectionPartial(ctx, notation, x, y, width, rightHandColor, 
     const measureY = y + (rowIdx * (measureHeight + rowGap));
     const measureDisplayIndex = measureOffset + mIdx + 1; // 小节编号从1开始
     drawMeasure(ctx, notation.measures[mIdx], measureX, measureY, measureWidth, rightHandColor, leftHandColor,
-                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config, adjustParams);
+                measureHeight, noteFontSizePx, measureDisplayIndex, measuresPerRow, exportLayoutMode, config, adjustParams, arpeggioIcon);
   }
 
   const sectionHeight = (drawRows * measureHeight) + Math.max(0, drawRows - 1) * rowGap + config.sectionBottomPadding;
@@ -1272,7 +1318,8 @@ function generatePagedImages(canvas, ctx, dpr, data, notations, notationHeights,
         isLandscape,
         exportLayoutMode,
         modeConfig,
-        adjustParams
+        adjustParams,
+        icons && icons.arpeggioIcon ? icons.arpeggioIcon : null
       );
     });
     
@@ -1323,7 +1370,8 @@ var IMAGE_KEYS = {
   TIMING: 'timing',
   NOTE_CHANGE: 'noteChange',
   CROWN: 'crown',
-  STAR: 'star'
+  STAR: 'star',
+  ARPEGGIO: 'arpeggio'
 };
 
 // 图片候选路径配置
@@ -1362,6 +1410,11 @@ var IMAGE_CANDIDATES = {
     '/subpackages/packageA/icons/star.png',
     'subpackages/packageA/icons/star.png',
     '../../icons/star.png'
+  ],
+  arpeggio: [
+    '/assets/icons/keyboard/arpeggio.svg',
+    'assets/icons/keyboard/arpeggio.svg',
+    '../../assets/icons/keyboard/arpeggio.svg'
   ]
 };
 
@@ -1383,6 +1436,7 @@ function preloadWatermarkImages(canvas) {
       allCached = false;
     }
   }
+  if (!cachedImages.arpeggio) cachedImages.arpeggio = null;
   
   // 如果所有图片都已缓存，直接返回
   if (allCached) {
@@ -1394,13 +1448,14 @@ function preloadWatermarkImages(canvas) {
       timingIcon: cachedImages.timing,
       noteChangeIcon: cachedImages.noteChange,
       crownIcon: cachedImages.crown,
-      starIcon: cachedImages.star
+      starIcon: cachedImages.star,
+      arpeggioIcon: cachedImages.arpeggio || null
     });
   }
   
   // 否则，加载缺失的图片
   var loadPromises = [];
-  var imageKeyOrder = ['watermark', 'bg', 'branding', 'timing', 'noteChange', 'crown', 'star'];
+  var imageKeyOrder = ['watermark', 'bg', 'branding', 'timing', 'noteChange', 'crown', 'star', 'arpeggio'];
   
   imageKeyOrder.forEach(function(imageKey) {
     if (_imageObjCache[imageKey] && _imageObjCache[imageKey].width > 0) {
@@ -1434,6 +1489,7 @@ function preloadWatermarkImages(canvas) {
     console.log('  ' + checkImg(results[4], 'noteChange'));
     console.log('  ' + checkImg(results[5], 'crown'));
     console.log('  ' + checkImg(results[6], 'star'));
+    console.log('  ' + checkImg(results[7], 'arpeggio'));
     
     return { 
       watermarkImg: results[0], 
@@ -1442,7 +1498,8 @@ function preloadWatermarkImages(canvas) {
       timingIcon: results[3],
       noteChangeIcon: results[4],
       crownIcon: results[5],
-      starIcon: results[6]
+      starIcon: results[6],
+      arpeggioIcon: results[7] || null
     };
   });
 }
@@ -1680,6 +1737,36 @@ function resolveImageFromCandidates(canvas, candidates, imageKey) {
           var errMsg = err.errMsg || JSON.stringify(err);
           console.warn('[resolveImageFromCandidates] getImageInfo 失败:', src, errMsg);
           errors.push(src + ' -> getImageInfo: ' + errMsg);
+          // SVG 在部分环境下 getImageInfo 不可用，直接读文件转 Base64 再 createImage
+          if (src && (src.toLowerCase().indexOf('.svg') !== -1)) {
+            var fs = wx.getFileSystemManager();
+            var mimeType = 'image/svg+xml';
+            fs.readFile({
+              filePath: src,
+              encoding: 'base64',
+              success: function(readRes) {
+                if (resolved) return;
+                var dataUrl = 'data:' + mimeType + ';base64,' + readRes.data;
+                _imageBase64Cache[cacheKey] = dataUrl;
+                createImageFromDataUrl(dataUrl, function(imgErr, img) {
+                  if (resolved) return;
+                  if (imgErr) {
+                    errors.push(src + ' -> SVG createImage失败: ' + (imgErr.message || imgErr));
+                    tryNext();
+                  } else {
+                    if (imageKey) _imageObjCache[imageKey] = img;
+                    safeResolve(img);
+                  }
+                });
+              },
+              fail: function(readErr) {
+                if (resolved) return;
+                errors.push(src + ' -> readFile(SVG)失败: ' + (readErr.errMsg || readErr));
+                tryNext();
+              }
+            });
+            return;
+          }
           tryNext();
         }
       });
@@ -2043,7 +2130,7 @@ function addBottomCenterBranding(ctx, brandingImg, pageWidth, pageHeight, modeCo
  * 音符位置轨道：
  * @param {Object} config - 当前模式的配置参数（可选）
  */
-function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode, config = null, adjustParams = null) {
+function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, measureHeight, noteFontSizePx, measureIndex, measuresPerRow, exportLayoutMode, config = null, adjustParams = null, arpeggioIcon = null) {
   // 获取配置
   const modeConfig = config || exportConfig.getExportConfig({
     exportMode: 'long',
@@ -2136,6 +2223,32 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
         ctx.stroke();
       }
       
+      // 计算音符绘制的偏移量（用于琶音）
+      let noteOffsetX = 0;
+      const hasArpeggio = subdivision.hasArpeggio;
+      
+      // 如果有琶音标记，绘制琶音符号并偏移音符
+      if (hasArpeggio) {
+        const arpeggioWidth = 6; // 琶音符号宽度（保持不变）
+        noteOffsetX = arpeggioWidth;
+        const symbolWidth = arpeggioWidth - 1;
+        // 高度维持原比例：arpeggio.svg 86×715
+        const symbolHeight = symbolWidth * (715 / 86);
+        const symbolY = y + (lineHeight - symbolHeight) / 2;
+        
+        // 优先使用 arpeggio.svg 图片，否则绘制波浪线；与小节线垂直居中
+        const img = arpeggioIcon;
+        const imgW = img && (img.width || img.naturalWidth);
+        const imgH = img && (img.height || img.naturalHeight);
+        if (img && imgW > 0 && imgH > 0) {
+          ctx.save();
+          ctx.drawImage(img, subX + 1, symbolY, symbolWidth, symbolHeight);
+          ctx.restore();
+        } else {
+          drawArpeggioSymbol(ctx, subX + 1, symbolY, symbolWidth, symbolHeight);
+        }
+      }
+      
       // 获取音符连携比例系数（用于整体缩放音符相关参数）
       const noteScaleFactor = modeConfig.noteScaleFactor || 1.0;
       
@@ -2146,7 +2259,7 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      const noteX = subX + subdivisionWidth / 2;
+      const noteX = subX + noteOffsetX + (subdivisionWidth - noteOffsetX) / 2;
       
       // 判断是否为紧凑模式
       const isCompactMode = exportLayoutMode !== 'loose';
@@ -2284,6 +2397,20 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
           if (supParsed.octaveDown > 0) {
             drawOctaveDots(ctx, supX, supY + supOctaveDownOffset, false, supParsed.octaveDown, supDotSize, supDotGap, color);
           }
+        }
+        
+        // 绘制附点（如果有）
+        if (parsed.hasDot) {
+          const augmentationDotSize = dotSize * 0.8; // 附点大小略小于八度点
+          const augmentationDotGap = fontSize * 0.4; // 附点与音符的间距
+          ctx.beginPath();
+          ctx.arc(
+            noteX + augmentationDotGap + augmentationDotSize / 2,
+            noteY,
+            augmentationDotSize / 2,
+            0, Math.PI * 2
+          );
+          ctx.fill();
         }
       };
       

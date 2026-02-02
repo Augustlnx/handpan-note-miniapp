@@ -3,7 +3,7 @@
   <!-- 导航栏 -->
   <view class="nav-bar">
     <view class="nav-back" bindtap="goBack">
-      <text class="icon-back">‹</text>
+      <image class="icon-back-img" src="/assets/icons/keyboard/左_left.svg" mode="aspectFit"/>
     </view>
     <text class="nav-title">{{pageTitle}}</text>
     <view class="nav-placeholder"></view>
@@ -21,7 +21,7 @@
         <view 
           class="filter-item {{currentFilter === item ? 'active' : ''}}" 
           wx:for="{{filterOptions}}" 
-          wx:key="*this"
+          wx:key="index"
           bindtap="onFilterChange"
           data-value="{{item}}"
         >{{item}}</view>
@@ -38,6 +38,14 @@
         <text>{{collection.songCount}}首曲谱</text>
         <text class="meta-divider">·</text>
         <text>{{collection.playCount}}播放</text>
+      </view>
+      <!-- 收藏按钮 -->
+      <view class="collection-actions">
+        <view class="favorite-btn {{collection.isFavorite ? 'active' : ''}}" bindtap="toggleCollectionFavorite">
+          <image wx:if="{{collection.isFavorite}}" class="favorite-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+          <text wx:else class="favorite-icon">🤍</text>
+          <text class="favorite-text">{{collection.isFavorite ? '已收藏' : '收藏合集'}}</text>
+        </view>
       </view>
     </view>
   </view>
@@ -72,7 +80,8 @@
         </view>
         <view class="song-actions">
           <view class="action-btn heart {{item.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}">
-            <text>{{item.isFavorite ? '❤️' : '🤍'}}</text>
+            <image wx:if="{{item.isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+            <text wx:else>🤍</text>
           </view>
         </view>
       </view>

@@ -264,6 +264,10 @@ Page({
   // ========== 标签切换 ==========
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
+    if (tab === 'public') {
+      this.goToPublicLibrary();
+      return;
+    }
     this.setData({ activeTab: tab });
   },
 

@@ -1,17 +1,17 @@
-<!--公开曲库首页-->
+<!--公开曲库首页 - 三合一 TabBar 布局-->
 <view class="page-container">
-  <!-- 自定义导航栏 -->
-  <view class="custom-nav" style="padding-top: {{statusBarHeight}}px;">
+  <!-- 自定义导航栏 (仅曲谱库Tab显示) -->
+  <view class="custom-nav" style="padding-top: {{statusBarHeight}}px;" wx:if="{{activeTabIndex === 0}}">
     <view class="nav-content">
       <view class="nav-back" bindtap="goBack">
-        <text class="icon-back">‹</text>
+        <image class="icon-back-img" src="../../assets/icons/back.svg" mode="aspectFit"/>
       </view>
-      <view class="nav-title">星轨乐库</view>
+      <view class="nav-title">公开曲谱库</view>
       <view class="nav-placeholder"></view>
     </view>
   </view>
 
-  <!-- 主内容区域 -->
+  <!-- ================= Tab 0: 曲谱库 ================= -->
   <scroll-view 
     class="main-scroll" 
     scroll-y 
@@ -21,11 +21,12 @@
     refresher-enabled="{{true}}"
     refresher-triggered="{{isRefreshing}}"
     bindrefresherrefresh="onPullDownRefresh"
+    wx:if="{{activeTabIndex === 0}}"
   >
     <!-- 搜索入口 -->
     <view class="search-entry" bindtap="goToSearch">
       <view class="search-box">
-        <text class="search-icon">🔍</text>
+        <image class="search-icon-img" src="../../assets/icons/searh.svg" mode="aspectFit"/>
         <text class="search-placeholder">搜索曲谱、制谱人</text>
       </view>
     </view>
@@ -34,9 +35,7 @@
     <view class="banner-section">
       <swiper 
         class="banner-swiper" 
-        indicator-dots="{{banners.length > 1}}"
-        indicator-color="rgba(255,255,255,0.4)"
-        indicator-active-color="#F2C94C"
+        indicator-dots="{{false}}"
         autoplay="{{true}}"
         circular="{{true}}"
         interval="5000"
@@ -47,7 +46,9 @@
         bindchange="onBannerChange"
       >
         <swiper-item wx:for="{{banners}}" wx:key="id" bindtap="onBannerTap" data-item="{{item}}">
-          <view class="banner-card {{currentBanner === index ? 'active' : ''}}" style="background: linear-gradient(135deg, {{item.gradient[0]}} 0%, {{item.gradient[1]}} 100%);">
+          <view class="banner-card {{currentBanner === index ? 'active' : ''}}">
+            <image wx:if="{{item.img_path}}" class="banner-bg-img" src="{{item.img_path}}" mode="aspectFill"/>
+            <view wx:else class="banner-bg-gradient" style="background: linear-gradient(135deg, {{item.gradient[0]}} 0%, {{item.gradient[1]}} 100%);"></view>
             <view class="banner-content">
               <text class="banner-title">{{item.title}}</text>
               <text class="banner-subtitle">{{item.subtitle}}</text>
@@ -55,37 +56,33 @@
           </view>
         </swiper-item>
       </swiper>
+      <!-- 自定义指示点：白色，卡片底部水平居中 -->
+      <view class="banner-indicator" wx:if="{{banners.length > 1}}">
+        <view class="banner-dot {{currentBanner === index ? 'active' : ''}}" wx:for="{{banners}}" wx:key="id"/>
+      </view>
     </view>
 
     <!-- 金刚区快捷入口 -->
     <view class="quick-access">
       <view class="quick-item" bindtap="goToCategory" data-type="rootNote">
-        <view class="quick-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-          <text>🎵</text>
-        </view>
+        <image class="quick-icon-img" src="../../assets/icons/music.svg" mode="aspectFit"/>
         <text class="quick-text">调式</text>
       </view>
-      <view class="quick-item" bindtap="goToCategory" data-type="artist">
-        <view class="quick-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-          <text>👤</text>
-        </view>
+      <view class="quick-item" bindtap="goToCategory" data-type="singer">
+        <image class="quick-icon-img" src="../../assets/icons/singer.svg" mode="aspectFit"/>
+        <text class="quick-text">歌手</text>
+      </view>
+      <view class="quick-item" bindtap="goToCategory" data-type="artistName">
+        <image class="quick-icon-img" src="../../assets/icons/musician.svg" mode="aspectFit"/>
         <text class="quick-text">制谱人</text>
       </view>
-      <view class="quick-item" bindtap="goToCategory" data-type="scaleType">
-        <view class="quick-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-          <text>🎹</text>
-        </view>
-        <text class="quick-text">音阶</text>
-      </view>
-      <view class="quick-item" bindtap="goToCategory" data-type="tag">
-        <view class="quick-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-          <text>🏷️</text>
-        </view>
-        <text class="quick-text">风格</text>
+      <view class="quick-item" bindtap="goToCategory" data-type="noteCount">
+        <image class="quick-icon-img" src="../../assets/icons/notenum.svg" mode="aspectFit"/>
+        <text class="quick-text">音位数</text>
       </view>
     </view>
 
-    <!-- 精选歌曲板块 -->
+    <!-- 精选歌曲板块：列表形式，每页3行，左右滑动切换 -->
     <view class="section">
       <view class="section-header">
         <text class="section-title">精选歌曲</text>
@@ -94,24 +91,39 @@
           <text class="arrow">›</text>
         </view>
       </view>
-      <scroll-view class="song-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-        <view class="song-list horizontal">
-          <view class="song-card" wx:for="{{featuredSongs}}" wx:key="id" bindtap="goToSongDetail" data-item="{{item}}">
-            <view class="song-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
-              <text class="cover-text">{{item.title[0]}}</text>
-              <view class="vip-badge" wx:if="{{item.isVip}}">VIP</view>
+      <view class="section-swiper-wrap" wx:if="{{featuredSongsGroups.length > 0}}">
+        <swiper class="section-swiper" indicator-dots="{{false}}" autoplay="{{false}}" circular="{{featuredSongsGroups.length > 1}}" bindchange="onFeaturedSwiperChange">
+          <swiper-item wx:for="{{featuredSongsGroups}}" wx:key="index">
+            <view class="section-song-list">
+              <view class="section-song-item" wx:for="{{item}}" wx:for-item="song" wx:key="id" bindtap="goToSongDetail" data-item="{{song}}">
+                <view class="section-file-icon">♪</view>
+                <view class="section-item-info">
+                  <view class="section-song-title-row">
+                    <text class="section-item-name">{{song.title}}</text>
+                    <text class="section-tag-badge">{{song.rootNote || 'D'}}-{{song.scaleType || 'Kurd'}} {{song.noteCount || 10}}音</text>
+                  </view>
+                  <text class="section-item-detail">{{song.artistName || ''}}{{song.artistName && song.subtitle ? ' | ' : ''}}{{song.subtitle || ''}}</text>
+                </view>
+                <view class="section-song-actions">
+                  <view class="action-btn heart {{song.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{song.id}}">
+                    <image wx:if="{{song.isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+                    <text wx:else>🤍</text>
+                  </view>
+                </view>
+              </view>
             </view>
-            <view class="song-info">
-              <text class="song-title">{{item.title}}</text>
-              <text class="song-artist">{{item.artistName}}</text>
-            </view>
+          </swiper-item>
+        </swiper>
+        <view class="section-swiper-indicator" wx:if="{{featuredSongsGroups.length > 1}}">
+          <view class="section-indicator-track">
+            <view class="section-indicator-slider {{currentFeaturedPage === index ? 'active' : ''}}" wx:for="{{featuredSongsGroups}}" wx:key="index"/>
           </view>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
-    <!-- 最近上新板块 -->
-    <view class="section" wx:if="{{recentSongs.length > 0}}">
+    <!-- 最近上新板块：列表形式，每页3行，左右滑动切换 -->
+    <view class="section" wx:if="{{recentSongsGroups.length > 0}}">
       <view class="section-header">
         <text class="section-title">最近上新</text>
         <view class="section-more" bindtap="goToMore" data-type="recent">
@@ -119,20 +131,35 @@
           <text class="arrow">›</text>
         </view>
       </view>
-      <scroll-view class="song-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-        <view class="song-list horizontal">
-          <view class="song-card" wx:for="{{recentSongs}}" wx:key="id" bindtap="goToSongDetail" data-item="{{item}}">
-            <view class="song-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
-              <text class="cover-text">{{item.title[0]}}</text>
-              <view class="new-badge">NEW</view>
+      <view class="section-swiper-wrap">
+        <swiper class="section-swiper" indicator-dots="{{false}}" autoplay="{{false}}" circular="{{recentSongsGroups.length > 1}}" bindchange="onRecentSwiperChange">
+          <swiper-item wx:for="{{recentSongsGroups}}" wx:key="index">
+            <view class="section-song-list">
+              <view class="section-song-item" wx:for="{{item}}" wx:for-item="song" wx:key="id" bindtap="goToSongDetail" data-item="{{song}}">
+                <view class="section-file-icon">♪</view>
+                <view class="section-item-info">
+                  <view class="section-song-title-row">
+                    <text class="section-item-name">{{song.title}}</text>
+                    <text class="section-tag-badge">{{song.rootNote || 'D'}}-{{song.scaleType || 'Kurd'}} {{song.noteCount || 10}}音</text>
+                  </view>
+                  <text class="section-item-detail">{{song.artistName || ''}}{{song.artistName && song.subtitle ? ' | ' : ''}}{{song.subtitle || ''}}</text>
+                </view>
+                <view class="section-song-actions">
+                  <view class="action-btn heart {{song.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{song.id}}">
+                    <image wx:if="{{song.isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+                    <text wx:else>🤍</text>
+                  </view>
+                </view>
+              </view>
             </view>
-            <view class="song-info">
-              <text class="song-title">{{item.title}}</text>
-              <text class="song-artist">{{item.artistName}}</text>
-            </view>
+          </swiper-item>
+        </swiper>
+        <view class="section-swiper-indicator" wx:if="{{recentSongsGroups.length > 1}}">
+          <view class="section-indicator-track">
+            <view class="section-indicator-slider {{currentRecentPage === index ? 'active' : ''}}" wx:for="{{recentSongsGroups}}" wx:key="index"/>
           </view>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
     <!-- 精选合集板块 -->
@@ -147,7 +174,7 @@
       <scroll-view class="song-scroll" scroll-x enhanced show-scrollbar="{{false}}">
         <view class="song-list horizontal">
           <view class="collection-card" wx:for="{{collections}}" wx:key="id" bindtap="goToCollectionDetail" data-item="{{item}}">
-            <view class="collection-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+            <view class="collection-cover" style="background: linear-gradient(135deg, #314D63 0%, #5a7a92 100%);">
               <text class="cover-text">{{item.title[0]}}{{item.title[1]}}</text>
               <view class="collection-count">{{item.songCount}}首</view>
             </view>
@@ -164,7 +191,7 @@
     <view class="section">
       <view class="section-header">
         <text class="section-title">宝藏制谱人</text>
-        <view class="section-more" bindtap="goToArtists">
+        <view class="section-more" bindtap="switchToTab" data-index="1">
           <text>更多</text>
           <text class="arrow">›</text>
         </view>
@@ -173,7 +200,8 @@
         <view class="artist-list">
           <view class="artist-card" wx:for="{{artists}}" wx:key="id" bindtap="goToArtistDetail" data-item="{{item}}">
             <view class="artist-avatar" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);">
-              <text class="avatar-text">{{item.name[0]}}</text>
+              <image wx:if="{{item.avatar}}" class="artist-avatar-img" src="{{item.avatar}}" mode="aspectFill"/>
+              <text wx:else class="avatar-text">{{item.name[0]}}</text>
               <view class="verified-badge" wx:if="{{item.isVerified}}">✓</view>
             </view>
             <text class="artist-name">{{item.name}}</text>
@@ -186,7 +214,7 @@
     <!-- 热度飙升排行榜 -->
     <view class="section ranking-section">
       <view class="section-header">
-        <text class="section-title">热度飙升</text>
+        <text class="section-title">排行榜</text>
         <view class="section-more" bindtap="goToMore" data-type="hot">
           <text>更多</text>
           <text class="arrow">›</text>
@@ -199,7 +227,7 @@
             <view class="rank-title-row">
               <text class="rank-title">{{item.title}}</text>
               <view class="rank-tags">
-                <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}}</text>
+                <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}} {{item.noteCount || 10}}音</text>
                 <text class="tag-badge vip" wx:if="{{item.isVip}}">VIP</text>
               </view>
             </view>
@@ -207,7 +235,8 @@
           </view>
           <view class="rank-actions">
             <view class="action-btn heart {{item.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}">
-              <text>{{item.isFavorite ? '❤️' : '🤍'}}</text>
+              <image wx:if="{{item.isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+              <text wx:else>🤍</text>
             </view>
             <view class="action-btn more" catchtap="showActionSheet" data-item="{{item}}">
               <text>⋮</text>
@@ -221,19 +250,314 @@
     <view class="bottom-space"></view>
   </scroll-view>
 
-  <!-- 自定义底部TabBar -->
+  <!-- ================= Tab 1: 制谱人 ================= -->
+  <view class="artists-tab-container" wx:if="{{activeTabIndex === 1}}" style="padding-top: {{statusBarHeight}}px;">
+    <scroll-view class="artists-scroll" scroll-y enhanced show-scrollbar="{{false}}" style="padding-bottom: {{tabbarBottom}}px;">
+      <view class="artists-list">
+        <view 
+          class="artist-card-large" 
+          wx:for="{{allArtists}}" 
+          wx:key="id"
+          bindtap="goToArtistDetail"
+          data-item="{{item}}"
+        >
+          <!-- 背景模糊图 -->
+          <view class="card-bg" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);"></view>
+          <view class="card-overlay"></view>
+          
+          <!-- 内容 -->
+          <view class="card-content">
+            <view class="artist-avatar-large" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);">
+              <image wx:if="{{item.avatar}}" class="artist-avatar-img-large" src="{{item.avatar}}" mode="aspectFill"/>
+              <text wx:else class="avatar-text-large">{{item.name[0]}}</text>
+              <view class="verified-badge-large" wx:if="{{item.isVerified}}">✓</view>
+            </view>
+            <view class="artist-info-large">
+              <view class="artist-name-row">
+                <text class="artist-name-large">{{item.name}}</text>
+                <text class="artist-title" wx:if="{{item.title}}">{{item.title}}</text>
+              </view>
+              <text class="artist-bio">{{item.bio}}</text>
+              <view class="artist-stats">
+                <text class="stat">收录 {{item.songCount}} 首</text>
+                <text class="stat-divider">·</text>
+                <text class="stat">{{item.followers}} 关注</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 加载更多 -->
+      <view class="load-more" wx:if="{{isLoadingArtists}}">
+        <view class="loading-spinner"></view>
+        <text>加载中...</text>
+      </view>
+      
+      <!-- 无更多 -->
+      <view class="no-more" wx:if="{{!isLoadingArtists && allArtists.length > 0}}">
+        <text>— 已展示全部制谱人 —</text>
+      </view>
+      
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{!isLoadingArtists && allArtists.length === 0}}">
+        <text class="empty-icon">👥</text>
+        <text class="empty-text">暂无制谱人</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- ================= Tab 2: 我的 ================= -->
+  <view class="profile-tab-container" wx:if="{{activeTabIndex === 2}}">
+    <!-- 顶部背景区 -->
+    <view class="profile-header-bg" style="background: linear-gradient(135deg, {{profileInfo.backgroundGradient[0] || '#667eea'}} 0%, {{profileInfo.backgroundGradient[1] || '#764ba2'}} 100%); height: {{profileHeaderHeight}}px;"></view>
+
+    <!-- 主内容区 -->
+    <view class="profile-main-content" style="margin-top: {{profileHeaderHeight - 60}}px;">
+      <!-- 个人信息卡片 -->
+      <view class="profile-card">
+        <!-- 头像 -->
+        <view class="avatar-wrap">
+          <view class="user-avatar" style="background: linear-gradient(135deg, {{profileInfo.backgroundGradient[0] || '#667eea'}} 0%, {{profileInfo.backgroundGradient[1] || '#764ba2'}} 100%);">
+            <image class="avatar-icon" src="../../assets/icons/user.svg" mode="aspectFit"/>
+          </view>
+        </view>
+        
+        <!-- 信息 -->
+        <view class="profile-info">
+          <view class="name-row">
+            <text class="user-name">{{profileInfo.name}}</text>
+          </view>
+          <text class="user-bio">{{profileInfo.bio}}</text>
+          
+          <!-- 统计数据 -->
+          <view class="stats-row">
+            <view class="stat-item">
+              <text class="stat-value">{{profileStats.playlistCount || 0}}</text>
+              <text class="stat-label">歌单</text>
+            </view>
+            <view class="stat-item">
+              <text class="stat-value">{{profileStats.favoriteCount || 0}}</text>
+              <text class="stat-label">收藏曲谱</text>
+            </view>
+            <view class="stat-item">
+              <text class="stat-value">{{profileStats.collectionCount || 0}}</text>
+              <text class="stat-label">收藏合集</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Tab导航 -->
+      <view class="profile-tab-nav">
+        <view 
+          class="profile-tab-item {{profileActiveTab === 'home' ? 'active' : ''}}" 
+          bindtap="switchProfileTab" 
+          data-tab="home"
+        >
+          <text>主页</text>
+          <text class="tab-count">{{playlists.length}}</text>
+        </view>
+        <view 
+          class="profile-tab-item {{profileActiveTab === 'songs' ? 'active' : ''}}" 
+          bindtap="switchProfileTab" 
+          data-tab="songs"
+        >
+          <text>歌曲</text>
+          <text class="tab-count">{{favoriteSongs.length}}</text>
+        </view>
+        <view 
+          class="profile-tab-item {{profileActiveTab === 'collections' ? 'active' : ''}}" 
+          bindtap="switchProfileTab" 
+          data-tab="collections"
+        >
+          <text>合集</text>
+          <text class="tab-count">{{favoriteCollections.length}}</text>
+        </view>
+      </view>
+
+      <!-- 主页：歌单列表 -->
+      <view class="playlist-section" wx:if="{{profileActiveTab === 'home'}}">
+        <!-- 新建歌单按钮 -->
+        <view class="create-playlist-btn" bindtap="showCreatePlaylist">
+          <view class="create-icon">+</view>
+          <text class="create-text">新建歌单</text>
+        </view>
+        
+        <!-- 歌单列表 -->
+        <view class="playlist-list">
+          <view 
+            class="playlist-item" 
+            wx:for="{{playlists}}" 
+            wx:key="id"
+            bindtap="goToPlaylistDetail"
+            data-item="{{item}}"
+          >
+            <!-- 左侧圆角矩形封面 -->
+            <view class="playlist-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+              <text class="cover-text">{{item.name[0]}}{{item.name[1] || ''}}</text>
+            </view>
+            
+            <!-- 中间信息 -->
+            <view class="playlist-info">
+              <view class="playlist-title-row">
+                <text class="playlist-title">{{item.name}}</text>
+                <view class="default-badge" wx:if="{{item.isDefault}}">默认</view>
+              </view>
+              <view class="playlist-meta">
+                <text class="meta-count">{{item.songCount || 0}}首</text>
+                <text class="meta-divider">|</text>
+                <text class="meta-source">{{item.source}}</text>
+              </view>
+            </view>
+            
+            <!-- 右侧管理按钮 -->
+            <view class="playlist-actions" catchtap="showPlaylistMenu" data-item="{{item}}">
+              <text class="more-icon">⋮</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="empty-list" wx:if="{{playlists.length === 0}}">
+          <text>暂无歌单</text>
+        </view>
+      </view>
+
+      <!-- 歌曲列表 -->
+      <view class="profile-song-list" wx:if="{{profileActiveTab === 'songs'}}">
+        <view 
+          class="profile-song-item" 
+          wx:for="{{favoriteSongs}}" 
+          wx:key="id"
+          bindtap="goToSongDetail"
+          data-item="{{item}}"
+        >
+          <text class="song-index">{{index + 1}}</text>
+          <view class="profile-song-info">
+            <view class="profile-song-title-row">
+              <text class="profile-song-title">{{item.title}}</text>
+              <view class="profile-song-tags">
+                <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}} {{item.noteCount || 10}}音</text>
+              </view>
+            </view>
+            <text class="profile-song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+          </view>
+          <view class="profile-song-actions">
+            <view class="action-btn heart active" catchtap="toggleProfileFavorite" data-id="{{item.id}}">
+              <image class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+            </view>
+            <view class="action-btn more" catchtap="showProfileSongActions" data-item="{{item}}">
+              <text>⋮</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="empty-list" wx:if="{{favoriteSongs.length === 0}}">
+          <view class="empty-icon">🎵</view>
+          <text>暂无收藏的歌曲</text>
+          <text class="empty-hint">在曲谱详情页点击爱心即可收藏</text>
+        </view>
+      </view>
+
+      <!-- 合集列表 -->
+      <view class="profile-collection-list" wx:if="{{profileActiveTab === 'collections'}}">
+        <view 
+          class="profile-collection-item" 
+          wx:for="{{favoriteCollections}}" 
+          wx:key="id"
+          bindtap="goToCollectionDetail"
+          data-item="{{item}}"
+        >
+          <view class="profile-collection-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
+            <text class="cover-text">{{item.title[0]}}{{item.title[1]}}</text>
+            <text class="cover-count">{{item.songCount}}首</text>
+          </view>
+          <view class="profile-collection-info">
+            <text class="profile-collection-title">{{item.title}}</text>
+            <text class="profile-collection-desc">{{item.description}}</text>
+          </view>
+          <view class="profile-collection-actions" catchtap="toggleCollectionFavorite" data-id="{{item.id}}">
+            <image class="favorite-icon-img active" src="../../assets/icons/like.svg" mode="aspectFit"/>
+          </view>
+        </view>
+        
+        <view class="empty-list" wx:if="{{favoriteCollections.length === 0}}">
+          <view class="empty-icon">📚</view>
+          <text>暂无收藏的合集</text>
+          <text class="empty-hint">在合集页面点击收藏即可添加</text>
+        </view>
+      </view>
+
+      <!-- 底部间距 -->
+      <view class="bottom-space"></view>
+    </view>
+  </view>
+
+  <!-- ================= 固定的底部 TabBar ================= -->
   <view class="custom-tabbar" style="padding-bottom: {{safeAreaBottom}}px;">
-    <view class="tabbar-item active">
-      <text class="tabbar-icon">🎵</text>
+    <view class="tabbar-item {{activeTabIndex === 0 ? 'active' : ''}}" bindtap="switchToTab" data-index="0">
+      <image class="tabbar-icon-img" src="../../assets/icons/library.svg" mode="aspectFit"/>
       <text class="tabbar-text">曲谱库</text>
     </view>
-    <view class="tabbar-item" bindtap="goToArtists">
-      <text class="tabbar-icon">👥</text>
+    <view class="tabbar-item {{activeTabIndex === 1 ? 'active' : ''}}" bindtap="switchToTab" data-index="1">
+      <image class="tabbar-icon-img" src="../../assets/icons/musician.svg" mode="aspectFit"/>
       <text class="tabbar-text">制谱人</text>
     </view>
-    <view class="tabbar-item" bindtap="goToSettings">
-      <text class="tabbar-icon">👤</text>
+    <view class="tabbar-item {{activeTabIndex === 2 ? 'active' : ''}}" bindtap="switchToTab" data-index="2">
+      <image class="tabbar-icon-img" src="../../assets/icons/user.svg" mode="aspectFit"/>
       <text class="tabbar-text">我的</text>
+    </view>
+  </view>
+</view>
+
+<!-- 创建歌单弹窗 -->
+<view class="modal-mask" wx:if="{{showCreateModal}}" bindtap="closeCreateModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <text class="modal-title">新建歌单</text>
+    <input 
+      class="modal-input" 
+      placeholder="请输入歌单名称" 
+      bindinput="onPlaylistNameInput" 
+      value="{{newPlaylistName}}"
+      focus="{{showCreateModal}}"
+    />
+    <view class="modal-buttons">
+      <button class="modal-btn cancel" bindtap="closeCreateModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmCreatePlaylist">创建</button>
+    </view>
+  </view>
+</view>
+
+<!-- 歌单管理菜单 -->
+<view class="modal-mask" wx:if="{{showManageMenu}}" bindtap="closeManageMenu">
+  <view class="action-sheet" catchtap="stopPropagation">
+    <view class="sheet-title">{{currentPlaylist.name}}</view>
+    <view class="sheet-item" bindtap="renamePlaylist">
+      <image class="sheet-icon" src="/assets/icons/folder-rename.png" mode="aspectFit"/>
+      <text>重命名</text>
+    </view>
+    <view class="sheet-item danger" bindtap="deletePlaylist" wx:if="{{!currentPlaylist.isDefault}}">
+      <image class="sheet-icon" src="/assets/icons/file_delete.svg" mode="aspectFit"/>
+      <text>删除歌单</text>
+    </view>
+    <view class="sheet-cancel" bindtap="closeManageMenu">取消</view>
+  </view>
+</view>
+
+<!-- 输入弹窗 -->
+<view class="modal-mask" wx:if="{{showInputModal}}" bindtap="closeInputModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <text class="modal-title">{{inputModalTitle}}</text>
+    <input 
+      class="modal-input" 
+      placeholder="请输入" 
+      bindinput="onModalInputChange" 
+      value="{{inputModalValue}}"
+      focus="{{showInputModal}}"
+    />
+    <view class="modal-buttons">
+      <button class="modal-btn cancel" bindtap="closeInputModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmInputModal">确定</button>
     </view>
   </view>
 </view>

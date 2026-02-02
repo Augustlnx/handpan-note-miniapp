@@ -36,6 +36,14 @@ page {
   z-index: 100;
 }
 
+.icon-back,
+.icon-back-img {
+  width: 56rpx;
+  height: 56rpx;
+}
+.icon-back-img {
+  display: block;
+}
 .icon-back {
   font-size: 56rpx;
   color: #FFFFFF;
@@ -55,13 +63,13 @@ page {
   background: #FFFFFF;
   border-radius: 40rpx 40rpx 0 0;
   padding: 80rpx 32rpx 32rpx;
-  margin-top: -40rpx;
+  margin-top: 0rpx;
   box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
 }
 
 .avatar-wrap {
   position: absolute;
-  top: -80rpx;
+  top: -100rpx;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -76,6 +84,13 @@ page {
   position: relative;
   border: 8rpx solid #FFFFFF;
   box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.artist-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .avatar-text {
@@ -311,8 +326,14 @@ page {
   justify-content: center;
 }
 
-.action-btn.heart text {
+.action-btn.heart text,
+.action-btn.heart .fav-icon-img {
   font-size: 32rpx;
+}
+.action-btn.heart .fav-icon-img {
+  width: 36rpx;
+  height: 36rpx;
+  display: block;
 }
 
 .action-btn.more text {

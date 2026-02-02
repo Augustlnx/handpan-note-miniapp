@@ -4,7 +4,7 @@
   <view class="header-bg" style="background: linear-gradient(135deg, {{artist.backgroundGradient[0] || '#667eea'}} 0%, {{artist.backgroundGradient[1] || '#764ba2'}} 100%); height: {{headerHeight}}px;">
     <!-- 返回按钮 -->
     <view class="nav-back" style="top: {{statusBarHeight}}px;" bindtap="goBack">
-      <text class="icon-back">‹</text>
+      <image class="icon-back-img" src="../../assets/icons/back.svg" mode="aspectFit"/>
     </view>
   </view>
 
@@ -12,10 +12,11 @@
   <view class="main-content" style="margin-top: {{headerHeight - 60}}px;">
     <!-- 个人信息卡片 -->
     <view class="profile-card">
-      <!-- 头像 -->
+      <!-- 头像：有 avatar 显示图片，否则渐变色+首字 -->
       <view class="avatar-wrap">
         <view class="artist-avatar" style="background: linear-gradient(135deg, {{artist.backgroundGradient[0] || '#667eea'}} 0%, {{artist.backgroundGradient[1] || '#764ba2'}} 100%);">
-          <text class="avatar-text">{{artist.name[0] || ''}}</text>
+          <image wx:if="{{artist.avatar}}" class="artist-avatar-img" src="{{artist.avatar}}" mode="aspectFill"/>
+          <text wx:else class="avatar-text">{{artist.name[0] || ''}}</text>
           <view class="verified-badge" wx:if="{{artist.isVerified}}">✓</view>
         </view>
       </view>
@@ -93,7 +94,8 @@
         </view>
         <view class="song-actions">
           <view class="action-btn heart {{item.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}">
-            <text>{{item.isFavorite ? '❤️' : '🤍'}}</text>
+            <image wx:if="{{item.isFavorite}}" class="fav-icon-img" src="../../assets/icons/like.svg" mode="aspectFit"/>
+            <text wx:else>🤍</text>
           </view>
           <view class="action-btn more" catchtap="showSongActions" data-item="{{item}}">
             <text>⋮</text>

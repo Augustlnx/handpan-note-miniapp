@@ -8,6 +8,9 @@
  * - rootNote: 按调式筛选
  * - scaleType: 按音阶筛选
  * - tag: 按标签筛选
+ * - singer: 按歌手筛选（subtitle）
+ * - artistName: 按制谱人筛选（artistName）
+ * - noteCount: 按音位数筛选
  * - collection: 合集详情（需要id参数）
  */
 
@@ -39,8 +42,9 @@ Page({
 
   onLoad(options) {
     this.initSystemInfo();
-    
-    const { type, id } = options;
+
+    const type = options && options.type !== undefined ? options.type : '';
+    const id = options && options.id !== undefined ? options.id : '';
     this.setData({ type, id });
     
     this.setupPage(type, id);
@@ -49,9 +53,9 @@ Page({
 
   initSystemInfo() {
     try {
-      const systemInfo = wx.getSystemInfoSync();
+      const windowInfo = wx.getWindowInfo();
       this.setData({
-        statusBarHeight: systemInfo.statusBarHeight || 20
+        statusBarHeight: windowInfo.statusBarHeight || 20
       });
     } catch (e) {
       console.error('获取系统信息失败', e);
@@ -96,6 +100,24 @@ Page({
         showFilter: true,
         filterLoader: () => dataService.getHotTags(20)
       },
+      singer: {
+        title: '按歌手浏览',
+        listType: 'songs',
+        showFilter: true,
+        filterLoader: () => dataService.getAllSingers()
+      },
+      artistName: {
+        title: '按制谱人浏览',
+        listType: 'songs',
+        showFilter: true,
+        filterLoader: () => dataService.getAllArtistNames()
+      },
+      noteCount: {
+        title: '按音位数浏览',
+        listType: 'songs',
+        showFilter: true,
+        filterLoader: () => dataService.getAllNoteCounts()
+      },
       collection: {
         title: '合集详情',
         listType: 'songs',
@@ -137,7 +159,8 @@ Page({
       
       switch (type) {
         case 'featured':
-          songs = await dataService.getFeaturedSongs(50);
+          // 精选歌曲「更多」页展示全曲库；是否精选仅控制主页面栏目展示
+          songs = await dataService.getAllSongs(0);
           break;
         case 'recent':
           songs = await dataService.getRecentSongs(50);
@@ -166,11 +189,35 @@ Page({
             songs = await dataService.getHotSongs(50);
           }
           break;
+        case 'singer':
+          if (this.data.currentFilter) {
+            songs = await dataService.getSongsBySinger(this.data.currentFilter);
+          } else {
+            songs = await dataService.getHotSongs(50);
+          }
+          break;
+        case 'artistName':
+          if (this.data.currentFilter) {
+            songs = await dataService.getSongsByArtistName(this.data.currentFilter);
+          } else {
+            songs = await dataService.getHotSongs(50);
+          }
+          break;
+        case 'noteCount':
+          if (this.data.currentFilter) {
+            songs = await dataService.getSongsByNoteCount(this.data.currentFilter);
+          } else {
+            songs = await dataService.getHotSongs(50);
+          }
+          break;
         case 'collection':
           if (id) {
             const detail = await dataService.getCollectionDetail(id);
             if (detail) {
-              collection = detail;
+              collection = {
+                ...detail,
+                isFavorite: dataService.isCollectionFavorite(detail.id)
+              };
               songs = detail.songs || [];
               this.setData({ pageTitle: detail.title });
             }
@@ -245,6 +292,22 @@ Page({
     
     wx.showToast({
       title: isFavorite ? '已收藏' : '已取消收藏',
+      icon: 'none'
+    });
+  },
+
+  toggleCollectionFavorite() {
+    const collection = this.data.collection;
+    if (!collection) return;
+    
+    const isFavorite = dataService.toggleCollectionFavorite(collection.id);
+    
+    this.setData({
+      'collection.isFavorite': isFavorite
+    });
+    
+    wx.showToast({
+      title: isFavorite ? '合集已收藏' : '已取消收藏',
       icon: 'none'
     });
   },

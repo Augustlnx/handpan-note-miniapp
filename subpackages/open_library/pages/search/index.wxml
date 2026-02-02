@@ -1,9 +1,12 @@
 <!--搜索页面-->
 <view class="page-container" style="padding-top: {{statusBarHeight}}px;">
-  <!-- 搜索栏 -->
+  <!-- 搜索栏：左侧返回，右侧搜索 -->
   <view class="search-bar">
+    <view class="search-bar-back" bindtap="goBack">
+      <image class="search-back-icon" src="../../assets/icons/back-dark.svg" mode="aspectFit"/>
+    </view>
     <view class="search-input-wrapper">
-      <text class="search-icon">🔍</text>
+      <image class="search-icon-img" src="../../assets/icons/searh.svg" mode="aspectFit"/>
       <input 
         class="search-input" 
         type="text" 
@@ -16,7 +19,6 @@
       />
       <text class="clear-btn" wx:if="{{keyword}}" bindtap="clearInput">×</text>
     </view>
-    <text class="cancel-btn" bindtap="goBack">取消</text>
   </view>
 
   <!-- 无搜索关键词时显示 -->
@@ -159,7 +161,8 @@
         data-item="{{item}}"
       >
         <view class="artist-avatar" style="background: linear-gradient(135deg, {{item.backgroundGradient[0]}} 0%, {{item.backgroundGradient[1]}} 100%);">
-          <text class="avatar-text">{{item.name[0]}}</text>
+          <image wx:if="{{item.avatar}}" class="artist-avatar-img" src="{{item.avatar}}" mode="aspectFill"/>
+          <text wx:else class="avatar-text">{{item.name[0]}}</text>
           <view class="verified-badge" wx:if="{{item.isVerified}}">✓</view>
         </view>
         <view class="artist-info">

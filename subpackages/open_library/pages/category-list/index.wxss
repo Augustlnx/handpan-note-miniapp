@@ -34,6 +34,12 @@ page {
   justify-content: center;
 }
 
+.icon-back-img {
+  width: 48rpx;
+  height: 48rpx;
+  display: block;
+}
+
 .icon-back {
   font-size: 48rpx;
   color: var(--primary-color);
@@ -111,10 +117,48 @@ page {
 .collection-meta {
   font-size: 24rpx;
   opacity: 0.8;
+  margin-bottom: 20rpx;
 }
 
 .meta-divider {
   margin: 0 12rpx;
+}
+
+/* 合集操作按钮 */
+.collection-actions {
+  margin-top: 16rpx;
+}
+
+.favorite-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 14rpx 32rpx;
+  background: rgba(255,255,255,0.2);
+  border-radius: 36rpx;
+  border: 2rpx solid rgba(255,255,255,0.5);
+  transition: all 0.2s ease;
+}
+
+.favorite-btn.active {
+  background: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.8);
+}
+
+.favorite-icon,
+.favorite-icon-img {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+.favorite-icon-img {
+  width: 36rpx;
+  height: 36rpx;
+  display: block;
+}
+
+.favorite-text {
+  font-size: 26rpx;
+  color: #FFFFFF;
+  font-weight: 500;
 }
 
 /* 列表滚动区 */
@@ -214,8 +258,14 @@ page {
   justify-content: center;
 }
 
-.action-btn.heart text {
+.action-btn.heart text,
+.action-btn.heart .fav-icon-img {
   font-size: 32rpx;
+}
+.action-btn.heart .fav-icon-img {
+  width: 36rpx;
+  height: 36rpx;
+  display: block;
 }
 
 /* 合集列表 */
