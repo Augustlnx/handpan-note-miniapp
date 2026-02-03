@@ -4,52 +4,18 @@
 
 module.exports = [
   {
-    "id": "artist_001",
-    "name": "Luna Zhang",
-    "avatar": "",
-    "backgroundImage": "",
-    "title": "认证制谱人",
-    "isVerified": true,
-    "isVip": true,
-    "bio": "专注于冥想和疗愈音乐的手碟演奏者，拥有10年演奏经验",
-    "location": "上海",
-    "followers": 12580,
-    "songCount": 0,
-    "collectionCount": 0,
-    "tags": [
-      "冥想",
-      "疗愈",
-      "原创"
-    ],
-    "socialLinks": {
-      "weibo": "",
-      "bilibili": ""
-    },
-    "featuredSongIds": [
-      "song_001",
-      "song_002",
-      "song_008"
-    ],
-    "backgroundGradient": [
-      "#1a1a2e",
-      "#5a7a92"
-    ],
-    "createTime": 1640995200000,
-    "updateTime": 1770027237977
-  },
-  {
     "id": "artist_003",
     "name": "星轨官方",
-    "avatar": "",
+    "avatar": "/subpackages/open_library/assets/img/avatar_me.jpg",
     "backgroundImage": "",
     "title": "官方账号",
     "isVerified": true,
-    "isVip": true,
+    "isVip": false,
     "bio": "Orbit Note 星轨手碟记谱官方账号，分享优质原创内容",
     "location": "全国",
     "followers": 18900,
-    "songCount": 45,
-    "collectionCount": 8,
+    "songCount": 10,
+    "collectionCount": 4,
     "tags": [
       "官方",
       "教程",
@@ -67,12 +33,12 @@ module.exports = [
       "#F2C94C"
     ],
     "createTime": 1609459200000,
-    "updateTime": 1770022930104
+    "updateTime": 1770096421503
   },
   {
     "name": "手碟小泡泡",
     "title": "认证制谱人",
-    "avatar": "",
+    "avatar": "/subpackages/open_library/assets/img/avatar_bubble.jpg",
     "backgroundImage": "",
     "bio": "资深手碟演奏者，LY手碟中国代言人，厦门打击乐协会理事，2023年中国手碟大会导师之一",
     "location": "厦门",
@@ -132,6 +98,27 @@ module.exports = [
     "id": "artist_6ebf899c",
     "createTime": 1770027221697,
     "updateTime": 1770027221707,
+    "songCount": 0,
+    "collectionCount": 0
+  },
+  {
+    "name": "泰岳乐器",
+    "title": "认证制谱人",
+    "avatar": "",
+    "backgroundImage": "",
+    "bio": "手碟曲谱分享",
+    "location": "山东",
+    "followers": 16289,
+    "tags": [],
+    "backgroundGradient": [
+      "#1a1a2e",
+      "#5a7a92"
+    ],
+    "isVerified": true,
+    "isVip": false,
+    "id": "artist_82124766",
+    "createTime": 1770096416661,
+    "updateTime": 1770096416672,
     "songCount": 0,
     "collectionCount": 0
   }

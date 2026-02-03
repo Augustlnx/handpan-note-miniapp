@@ -45,7 +45,7 @@ Page({
     profileInfo: {
       name: '我的音乐',
       bio: '收藏喜欢的曲谱，创建专属歌单',
-      backgroundGradient: ['#667eea', '#764ba2']
+      backgroundGradient: ['#314D63', '#F2C94C']
     },
     profileStats: {
       playlistCount: 0,
@@ -189,6 +189,12 @@ Page({
       };
       const featuredSongsGroups = chunk(featuredWithFavorite, 3);
       const recentSongsGroups = chunk(recentWithFavorite, 3);
+      
+      // 调试：输出艺术家数据
+      console.log('Artists data:', artists);
+      artists.forEach(artist => {
+        console.log(`Artist: ${artist.name}, avatar: ${artist.avatar}`);
+      });
       
       this.setData({
         banners,

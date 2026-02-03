@@ -169,10 +169,36 @@ const getCollectionDetail = async (id) => {
  */
 const getRecommendedArtists = async (limit = 6) => {
   await delay(50);
-  return artistsData
+  // 统计每个制谱人的实际曲目数量
+  const artistSongCounts = {};
+  songsData.forEach(song => {
+    if (song.artistId) {
+      artistSongCounts[song.artistId] = (artistSongCounts[song.artistId] || 0) + 1;
+    }
+  });
+  
+  console.log('原始 artistsData:', artistsData);
+  const filtered = artistsData.filter(a => a.isVerified);
+  console.log('过滤后的艺术家:', filtered);
+  filtered.forEach(a => {
+    console.log(`原始艺术家 ${a.name} avatar:`, a.avatar);
+  });
+  
+  const result = artistsData
     .filter(a => a.isVerified)
+    .map(artist => {
+      const mapped = {
+        ...artist,
+        songCount: artistSongCounts[artist.id] || 0
+      };
+      console.log(`映射后艺术家 ${artist.name} avatar:`, mapped.avatar);
+      return mapped;
+    })
     .sort((a, b) => b.followers - a.followers)
     .slice(0, limit);
+  
+  console.log('最终结果:', result);
+  return result;
 };
 
 /**
@@ -184,7 +210,20 @@ const getRecommendedArtists = async (limit = 6) => {
  */
 const getAllArtists = async () => {
   await delay(50);
-  return artistsData.sort((a, b) => b.followers - a.followers);
+  // 统计每个制谱人的实际曲目数量
+  const artistSongCounts = {};
+  songsData.forEach(song => {
+    if (song.artistId) {
+      artistSongCounts[song.artistId] = (artistSongCounts[song.artistId] || 0) + 1;
+    }
+  });
+  
+  return artistsData
+    .map(artist => ({
+      ...artist,
+      songCount: artistSongCounts[artist.id] || 0
+    }))
+    .sort((a, b) => b.followers - a.followers);
 };
 
 /**
@@ -253,8 +292,10 @@ const searchSongs = async (keyword, options = {}) => {
   // 关键词搜索
   if (kw) {
     results = results.filter(song => {
+      // 使用 author 字段，向后兼容 subtitle
+      const authorText = (song.author || song.subtitle || '').toLowerCase();
       return song.title.toLowerCase().includes(kw) ||
-             song.subtitle.toLowerCase().includes(kw) ||
+             authorText.includes(kw) ||
              song.artistName.toLowerCase().includes(kw) ||
              (song.tags || []).some(tag => tag.toLowerCase().includes(kw));
     });
@@ -432,24 +473,24 @@ const getAllScaleTypes = async () => {
 };
 
 /**
- * 获取所有歌手（从 subtitle 提取）
+ * 获取所有歌手（从 author 提取，向后兼容 subtitle）
  * @returns {Promise<Array>}
  */
 const getAllSingers = async () => {
   await delay(50);
-  const singers = [...new Set(songsData.map(s => s.subtitle).filter(Boolean))];
+  const singers = [...new Set(songsData.map(s => s.author || s.subtitle).filter(Boolean))];
   return singers.sort();
 };
 
 /**
  * 按歌手筛选歌曲
- * @param {string} singer 歌手名称（subtitle）
+ * @param {string} singer 歌手名称（author 或 subtitle）
  * @returns {Promise<Array>}
  */
 const getSongsBySinger = async (singer) => {
   await delay(50);
   return songsData
-    .filter(s => s.subtitle === singer)
+    .filter(s => (s.author || s.subtitle) === singer)
     .sort((a, b) => b.playCount - a.playCount);
 };
 

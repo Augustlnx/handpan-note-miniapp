@@ -782,7 +782,7 @@ Page({
       version: '1.0',
       metadata: {
         title: this.data.mainTitle || '',
-        subtitle: this.data.subTitle || '',
+        author: this.data.subTitle || '', // 使用 author 字段替代 subtitle
         composer: this.data.composer || '',
         rootNote: this.data.rootNote || 'D',
         scaleType: this.data.scaleType || 'Kurd',

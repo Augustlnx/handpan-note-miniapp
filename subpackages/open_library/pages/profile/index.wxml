@@ -1,7 +1,7 @@
 <!--个人中心页面-->
 <view class="page-container">
   <!-- 顶部背景区 -->
-  <view class="header-bg" style="background: linear-gradient(135deg, {{userInfo.backgroundGradient[0] || '#667eea'}} 0%, {{userInfo.backgroundGradient[1] || '#764ba2'}} 100%); height: {{headerHeight}}px;">
+  <view class="header-bg" style="background: linear-gradient(135deg, {{userInfo.backgroundGradient[0] || '#314D63'}} 0%, {{userInfo.backgroundGradient[1] || '#F2C94C'}} 100%); height: {{headerHeight}}px;">
     <!-- 返回按钮 -->
     <view class="nav-back" style="top: {{statusBarHeight}}px;" bindtap="goBack">
       <image class="icon-back-img" src="../../assets/icons/back.svg" mode="aspectFit"/>
@@ -14,7 +14,7 @@
     <view class="profile-card">
       <!-- 头像 -->
       <view class="avatar-wrap">
-        <view class="user-avatar" style="background: linear-gradient(135deg, {{userInfo.backgroundGradient[0] || '#667eea'}} 0%, {{userInfo.backgroundGradient[1] || '#764ba2'}} 100%);">
+        <view class="user-avatar" style="background: linear-gradient(135deg, {{userInfo.backgroundGradient[0] || '#314D63'}} 0%, {{userInfo.backgroundGradient[1] || '#F2C94C'}} 100%);">
           <image class="avatar-icon" src="../../assets/icons/user.svg" mode="aspectFit"/>
         </view>
       </view>
@@ -91,7 +91,7 @@
         >
           <!-- 左侧圆角矩形封面 -->
           <view class="playlist-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
-            <text class="cover-text">{{item.name[0]}}{{item.name[1] || ''}}</text>
+            <image class="cover-icon" src="../../assets/icons/music-menu.svg" mode="aspectFit"/>
           </view>
           
           <!-- 中间信息 -->
@@ -133,10 +133,10 @@
           <view class="song-title-row">
             <text class="song-title">{{item.title}}</text>
             <view class="song-tags">
-              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}}</text>
+              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}} {{item.noteCount || 10}}音</text>
             </view>
           </view>
-          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+          <text class="song-meta">{{item.artistName}} | {{item.author}}</text>
         </view>
         <view class="song-actions">
           <view class="action-btn heart active" catchtap="toggleFavorite" data-id="{{item.id}}">

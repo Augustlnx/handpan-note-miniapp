@@ -2229,7 +2229,7 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       
       // 如果有琶音标记，绘制琶音符号并偏移音符
       if (hasArpeggio) {
-        const arpeggioWidth = 6; // 琶音符号宽度（保持不变）
+        const arpeggioWidth = modeConfig.arpeggioWidth || 6; // 琶音符号宽度（从配置读取）
         noteOffsetX = arpeggioWidth;
         const symbolWidth = arpeggioWidth - 1;
         // 高度维持原比例：arpeggio.svg 86×715

@@ -142,11 +142,11 @@
           <view class="song-title-row">
             <text class="song-title">{{item.title}}</text>
             <view class="song-tags">
-              <text class="tag scale">{{item.rootNote}}-{{item.scaleType}}</text>
+              <text class="tag scale">{{item.rootNote}}-{{item.scaleType}} {{item.noteCount || 10}}音</text>
               <text class="tag vip" wx:if="{{item.isVip}}">VIP</text>
             </view>
           </view>
-          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+          <text class="song-meta">{{item.artistName}} | {{item.author}}</text>
         </view>
       </view>
     </view>

@@ -102,6 +102,72 @@ const HANDPAN_AUDIO_FILES = [
   'G3', 'G4', 'G5', 'SLAP'
 ];
 
+// 音名-简谱-数字谱的默认映射表
+const NOTE_MAPPING = {
+  'F3':  { jianpu: '1',  shuzipu: '12' },
+  'G3':  { jianpu: '2',  shuzipu: '13' },
+  'A3':  { jianpu: '3',  shuzipu: '1' },
+  'Bb3': { jianpu: '4',  shuzipu: '2' },
+  'C4':  { jianpu: '5',  shuzipu: '3' },
+  'D4':  { jianpu: '6',  shuzipu: '4' },
+  'E4':  { jianpu: '7',  shuzipu: '5' },
+  'F4':  { jianpu: "1'", shuzipu: '6' },
+  'G4':  { jianpu: "2'", shuzipu: '7' },
+  'A4':  { jianpu: "3'", shuzipu: '8' },
+  'Bb4': { jianpu: "4'", shuzipu: '14' },
+  'C5':  { jianpu: "5'", shuzipu: '9' },
+  'D5':  { jianpu: "6'", shuzipu: '10' },
+  'E5':  { jianpu: "7'", shuzipu: '11' },
+  'D3':  { jianpu: 'D',  shuzipu: 'D' },
+  'E3':  { jianpu: '7,', shuzipu: '15' }
+};
+
+// 预设参数库
+const PRESET_HANDPAN_PARAMS = [
+  {
+    id: 'preset-d-kurd-12',
+    name: 'D-Kurd 12音（默认）',
+    timestamp: Date.now(),
+    isPreset: true,
+    notes: [
+      { id: 0, note: "D3", cx: 500, cy: 574, rx: 179, ry: 156, angle: -90 },
+      { id: 1, note: "A3", cx: 660, cy: 848, rx: 149, ry: 99, angle: 67 },
+      { id: 2, note: "Bb3", cx: 340, cy: 848, rx: 149, ry: 99, angle: -67 },
+      { id: 3, note: "C4", cx: 855, cy: 633, rx: 127, ry: 98, angle: 19 },
+      { id: 4, note: "D4", cx: 145, cy: 633, rx: 127, ry: 98, angle: -19 },
+      { id: 5, note: "E4", cx: 864, cy: 367, rx: 113, ry: 89, angle: -23 },
+      { id: 6, note: "F4", cx: 136, cy: 367, rx: 113, ry: 89, angle: 23 },
+      { id: 7, note: "G4", cx: 710, cy: 175, rx: 103, ry: 78, angle: -55 },
+      { id: 8, note: "A4", cx: 290, cy: 175, rx: 103, ry: 78, angle: 55 },
+      { id: 9, note: "C5", cx: 500, cy: 100, rx: 85, ry: 92, angle: 180 },
+      { id: 10, note: "D5", cx: 400, cy: 325, rx: 99, ry: 84, angle: 50 },
+      { id: 11, note: "E5", cx: 600, cy: 325, rx: 99, ry: 84, angle: -50 }
+    ]
+  },
+  {
+    id: 'preset-d-kurd-14',
+    name: 'D-Kurd 14音',
+    timestamp: Date.now(),
+    isPreset: true,
+    notes: [
+      { id: 0, note: "D3", cx: 500, cy: 574, rx: 179, ry: 156, angle: -90 },
+      { id: 1, note: "A3", cx: 660, cy: 848, rx: 149, ry: 99, angle: 67 },
+      { id: 2, note: "Bb3", cx: 340, cy: 848, rx: 149, ry: 99, angle: -67 },
+      { id: 3, note: "C4", cx: 855, cy: 633, rx: 127, ry: 98, angle: 19 },
+      { id: 4, note: "D4", cx: 145, cy: 633, rx: 127, ry: 98, angle: -19 },
+      { id: 5, note: "E4", cx: 864, cy: 367, rx: 113, ry: 89, angle: -23 },
+      { id: 6, note: "F4", cx: 136, cy: 367, rx: 113, ry: 89, angle: 23 },
+      { id: 7, note: "G4", cx: 710, cy: 175, rx: 103, ry: 78, angle: -55 },
+      { id: 8, note: "A4", cx: 290, cy: 175, rx: 103, ry: 78, angle: 55 },
+      { id: 9, note: "C5", cx: 500, cy: 100, rx: 85, ry: 92, angle: 180 },
+      { id: 10, note: "D5", cx: 400, cy: 325, rx: 99, ry: 84, angle: 50 },
+      { id: 11, note: "E5", cx: 600, cy: 325, rx: 99, ry: 84, angle: -50 },
+      { id: 12, note: "G3", cx: 50, cy: 932, rx: 130, ry: 99, angle: -47 },
+      { id: 13, note: "F3", cx: 950, cy: 932, rx: 130, ry: 99, angle: 47 }
+    ]
+  }
+];
+
 Page({
   data: {
     // ========== 节拍器模式 ==========
@@ -188,7 +254,8 @@ Page({
       cube: '',
       writing: '',
       star: '',
-      pan: ''
+      pan: '',
+      change: '' // 切换显示模式图标
     },
 
     // ========== 电子手碟 ==========
@@ -197,6 +264,10 @@ Page({
     handpanNotes: [], // 当前电子手碟音符数据（渲染用）
     slapActive: false, // SLAP按钮激活状态
     handpanVolume: 80, // 电子手碟音量（0-100）
+    audioLoading: false, // 音频加载中状态
+    handpanDisplayMode: 'note', // 电子手碟显示模式：note(音名), jianpu(简谱), shuzipu(数字谱)
+    handpanDisplayModes: ['note', 'jianpu', 'shuzipu'], // 可切换的显示模式列表
+    handpanDisplayModeLabels: { note: '音名', jianpu: '简谱', shuzipu: '数字谱' }, // 显示模式标签
 
     // 电子手碟编辑器
     handpanEditorVisible: false,
@@ -284,7 +355,8 @@ Page({
       cube: '/subpackages/resources/icons/metronome/魔方_cube-five.png',
       writing: '/subpackages/resources/icons/metronome/编辑撰写_writing-fluently.png',
       star: '/subpackages/resources/icons/library/星星_star.png',
-      pan: '/subpackages/resources/img/pan.jpg'
+      pan: '/subpackages/resources/img/pan.jpg',
+      change: '/subpackages/resources/icons/metronome/change.svg'
     };
   },
 
@@ -300,7 +372,7 @@ Page({
     this.setData({ subpkgImgs });
   },
 
-  // 分包图片加载失败处理（5秒后重试，最多3次）
+  // 分包图片加载失败处理
   onSubpkgImgError(e) {
     const type = e.currentTarget.dataset.type;
     if (!type) return;
@@ -310,16 +382,21 @@ Page({
       this.subpkgImgRetryCount[type] = 0;
     }
     
-    // 最多重试3次
-    if (this.subpkgImgRetryCount[type] >= 3) {
+    // change图标使用更快的重试策略（0.2秒间隔，最多5次）
+    const isChangeIcon = type === 'change';
+    const maxRetries = isChangeIcon ? 5 : 3;
+    const retryDelay = isChangeIcon ? 200 : 5000;
+    
+    // 检查是否达到最大重试次数
+    if (this.subpkgImgRetryCount[type] >= maxRetries) {
       console.warn(`[Metronome] 分包图片 ${type} 加载失败，已达最大重试次数`);
       return;
     }
     
     this.subpkgImgRetryCount[type]++;
-    console.log(`[Metronome] 分包图片 ${type} 加载失败，${5}秒后进行第 ${this.subpkgImgRetryCount[type]} 次重试...`);
+    console.log(`[Metronome] 分包图片 ${type} 加载失败，${retryDelay / 1000}秒后进行第 ${this.subpkgImgRetryCount[type]} 次重试...`);
     
-    // 5秒后重试
+    // 延迟后重试
     setTimeout(() => {
       const config = this.getSubpkgImgConfig();
       const newPath = config[type] + '?t=' + Date.now();
@@ -1481,15 +1558,32 @@ Page({
 
   // 将音符数据转换为渲染用数据（百分比定位）
   convertNotesToRenderData(notes) {
-    return notes.map(note => ({
-      ...note,
-      active: false,
-      // 转换为百分比（基于1000x1000坐标系）
-      renderX: ((note.cx - note.rx) / 1000) * 100,
-      renderY: ((note.cy - note.ry) / 1000) * 100,
-      renderW: (note.rx * 2 / 1000) * 100,
-      renderH: (note.ry * 2 / 1000) * 100
-    }));
+    return notes.map(note => {
+      // 获取默认映射或使用已保存的值
+      const mapping = NOTE_MAPPING[note.note] || {};
+      const jianpu = note.jianpu || mapping.jianpu || note.note;
+      const shuzipu = note.shuzipu || mapping.shuzipu || note.note;
+      
+      // 解析简谱的八度标记
+      const baseNum = jianpu.replace(/['|,]/g, '');
+      const dotsUp = (jianpu.match(/'/g) || []).length;
+      const dotsDown = (jianpu.match(/,/g) || []).length;
+      
+      return {
+        ...note,
+        jianpu,
+        shuzipu,
+        active: false,
+        displayText: note.note, // 默认显示音名
+        displayDotsUp: 0,
+        displayDotsDown: 0,
+        // 转换为百分比（基于1000x1000坐标系）
+        renderX: ((note.cx - note.rx) / 1000) * 100,
+        renderY: ((note.cy - note.ry) / 1000) * 100,
+        renderW: (note.rx * 2 / 1000) * 100,
+        renderH: (note.ry * 2 / 1000) * 100
+      };
+    });
   },
 
   // 预加载手碟音频
@@ -1881,11 +1975,88 @@ Page({
     this.saveEditorHistory();
   },
 
-  // 音符名称变化
+  // 音符名称变化（自动填充简谱和数字谱）
   onEditorNoteNameChange(e) {
     const value = e.detail.value.trim().toUpperCase();
-    this.updateEditorNote({ note: value });
+    
+    // 根据音名查找默认映射
+    const mapping = NOTE_MAPPING[value];
+    const updates = { note: value };
+    
+    // 如果有默认映射，自动填充简谱和数字谱
+    if (mapping) {
+      updates.jianpu = mapping.jianpu;
+      updates.shuzipu = mapping.shuzipu;
+    }
+    
+    this.updateEditorNote(updates);
     this.saveEditorHistory();
+  },
+
+  // 简谱名称变化
+  onEditorJianpuChange(e) {
+    const value = e.detail.value.trim();
+    this.updateEditorNote({ jianpu: value });
+    this.saveEditorHistory();
+  },
+
+  // 数字谱名称变化
+  onEditorShuzipuChange(e) {
+    const value = e.detail.value.trim();
+    this.updateEditorNote({ shuzipu: value });
+    this.saveEditorHistory();
+  },
+
+  // 切换电子手碟显示模式
+  onToggleHandpanDisplayMode() {
+    const modes = this.data.handpanDisplayModes;
+    const currentIndex = modes.indexOf(this.data.handpanDisplayMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    const nextMode = modes[nextIndex];
+    
+    this.setData({ handpanDisplayMode: nextMode });
+    
+    // 更新显示内容
+    this.updateHandpanDisplayText();
+    
+    wx.showToast({
+      title: this.data.handpanDisplayModeLabels[nextMode],
+      icon: 'none',
+      duration: 1000
+    });
+  },
+
+  // 更新电子手碟显示文本
+  updateHandpanDisplayText() {
+    const mode = this.data.handpanDisplayMode;
+    const handpanNotes = this.data.handpanNotes.map(note => {
+      let displayText = note.note;
+      let displayDotsUp = 0; // 上方圆点数（高八度）
+      let displayDotsDown = 0; // 下方圆点数（低八度）
+      
+      if (mode === 'jianpu') {
+        const jianpu = note.jianpu || '';
+        // 解析简谱，提取数字和八度标记
+        const baseNum = jianpu.replace(/['|,]/g, '');
+        const upCount = (jianpu.match(/'/g) || []).length;
+        const downCount = (jianpu.match(/,/g) || []).length;
+        
+        displayText = baseNum;
+        displayDotsUp = upCount;
+        displayDotsDown = downCount;
+      } else if (mode === 'shuzipu') {
+        displayText = note.shuzipu || note.note;
+      }
+      
+      return {
+        ...note,
+        displayText,
+        displayDotsUp,
+        displayDotsDown
+      };
+    });
+    
+    this.setData({ handpanNotes });
   },
 
   // 添加音符
@@ -2225,10 +2396,13 @@ Page({
 
   // 应用编辑（直接应用，不需要先确认）
   onApplyHandpanEditor() {
-    // 应用到主界面
+    // 应用到主界面（保留简谱和数字谱信息）
     const handpanNotes = this.data.editorNotes.map(n => ({
       ...n,
-      active: false
+      active: false,
+      displayText: n.note,
+      displayDotsUp: 0,
+      displayDotsDown: 0
     }));
     
     // 显示底部TabBar
@@ -2236,7 +2410,8 @@ Page({
     
     this.setData({
       handpanNotes,
-      handpanEditorVisible: false
+      handpanEditorVisible: false,
+      handpanDisplayMode: 'note' // 重置为音名模式
     });
     
     // 重新加载音频
@@ -2251,17 +2426,27 @@ Page({
   // 加载参数库
   loadHandpanParamsLibrary() {
     try {
-      const library = wx.getStorageSync('handpanParamsLibrary') || [];
+      // 加载用户保存的参数
+      const userLibrary = wx.getStorageSync('handpanParamsLibrary') || [];
+      
+      // 合并预设参数和用户参数
+      // 预设参数放在前面，用户参数放在后面
+      const library = [...PRESET_HANDPAN_PARAMS, ...userLibrary];
+      
       this.setData({ handpanParamsLibrary: library });
     } catch (e) {
       console.error('[Handpan] 加载参数库失败:', e);
+      // 如果加载失败，至少显示预设参数
+      this.setData({ handpanParamsLibrary: PRESET_HANDPAN_PARAMS });
     }
   },
 
-  // 保存参数库
+  // 保存参数库（只保存用户参数，不保存预设参数）
   saveHandpanParamsLibrary() {
     try {
-      wx.setStorageSync('handpanParamsLibrary', this.data.handpanParamsLibrary);
+      // 过滤出预设参数，只保存用户自定义的参数
+      const userLibrary = this.data.handpanParamsLibrary.filter(p => !p.isPreset);
+      wx.setStorageSync('handpanParamsLibrary', userLibrary);
     } catch (e) {
       console.error('[Handpan] 保存参数库失败:', e);
     }
@@ -2317,6 +2502,19 @@ Page({
   onDeleteHandpanParams(e) {
     const id = e.currentTarget.dataset.id;
     
+    // 查找要删除的参数
+    const params = this.data.handpanParamsLibrary.find(p => p.id === id);
+    
+    // 防止删除预设参数
+    if (params && params.isPreset) {
+      wx.showToast({ 
+        title: '预设参数不能删除', 
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
     wx.showModal({
       title: '确认删除',
       content: '确定要删除这个参数吗？',
@@ -2357,10 +2555,12 @@ Page({
       return;
     }
     
-    // 提取纯数据（不含渲染属性）
+    // 提取纯数据（不含渲染属性，包含简谱和数字谱）
     const notes = this.data.editorNotes.map(n => ({
       id: n.id,
       note: n.note,
+      jianpu: n.jianpu || '',
+      shuzipu: n.shuzipu || '',
       cx: n.cx,
       cy: n.cy,
       rx: n.rx,
@@ -2533,6 +2733,63 @@ Page({
       if (this.data.metIsPlaying) {
         this.onMetTogglePlay();
       }
+    }
+  },
+  
+  // 重新加载电子手碟音频（非谱面模式下的按钮）
+  async onReloadHandpanAudio() {
+    // 如果正在加载中，忽略点击
+    if (this.data.audioLoading) {
+      return;
+    }
+    
+    // 检查音频是否已就绪
+    if (this.audioReady && webAudioManager.isReady()) {
+      wx.showToast({
+        title: '音频已就绪',
+        icon: 'success',
+        duration: 1500
+      });
+      return;
+    }
+    
+    // 开始加载
+    this.setData({ audioLoading: true });
+    
+    wx.showLoading({
+      title: '加载音频中...',
+      mask: true
+    });
+    
+    try {
+      // 重新初始化音频池
+      await this.initAudioPool();
+      
+      wx.hideLoading();
+      
+      if (this.audioReady) {
+        wx.showToast({
+          title: '音频加载成功',
+          icon: 'success',
+          duration: 1500
+        });
+      } else {
+        wx.showToast({
+          title: '部分音频加载失败',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    } catch (e) {
+      wx.hideLoading();
+      console.error('[Metronome] 重新加载音频失败:', e);
+      wx.showToast({
+        title: '音频加载失败',
+        icon: 'none',
+        duration: 2000
+      });
+    } finally {
+      this.setData({ audioLoading: false });
     }
   },
   

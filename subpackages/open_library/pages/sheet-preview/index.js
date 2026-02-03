@@ -441,7 +441,7 @@ Page({
             path: [],
             file_name: song.file_name || song.title,
             title: song.title,
-            subtitle: song.subtitle,
+            author: song.author || song.subtitle, // 使用 author 字段，向后兼容 subtitle
             tempo: song.tempo,
             timing: song.timing || '4/4',
             rotation: song.rotation || '手机竖屏（默认）',

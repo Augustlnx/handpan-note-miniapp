@@ -55,7 +55,7 @@ Page({
     newFileData: {
       file_name: '',
       title: '',
-      subtitle: 'Author: Unknown',
+      author: 'Author: Unknown', // 使用 author 替代 subtitle
       composer: 'Your Name',
       rootNote: 'D',
       scaleType: 'Kurd',
@@ -411,7 +411,7 @@ Page({
       path: item.path || [],
       file_name: item.file_name,
       title: item.title,
-      subtitle: item.subtitle,
+      author: item.author || item.subtitle, // 使用 author，向后兼容 subtitle
       tempo: item.tempo,
       rotation: item.rotation,
       timing: item.timing,
@@ -552,7 +552,7 @@ Page({
       newFileData: {
         file_name: '',
         title: '',
-        subtitle: 'Author: Unknown',
+        author: 'Author: Unknown', // 使用 author 替代 subtitle
         composer: 'Your Name',
         rootNote: 'D',
         scaleType: 'Kurd',
@@ -576,7 +576,7 @@ Page({
   },
 
   onNewFileSubtitleInput(e) {
-    this.setData({ 'newFileData.subtitle': e.detail.value });
+    this.setData({ 'newFileData.author': e.detail.value }); // 使用 author 替代 subtitle
   },
 
   onNewFileComposerInput(e) {
@@ -643,7 +643,7 @@ Page({
     const newFile = {
       file_name: data.file_name,
       title: data.title || data.file_name,
-      subtitle: data.subtitle || 'Author: Unknown',
+      author: data.author || 'Author: Unknown', // 使用 author 替代 subtitle
       composer: data.composer || '',
       rootNote: data.rootNote || 'D',
       scaleType: data.scaleType || 'Kurd',
@@ -786,7 +786,7 @@ Page({
         type: 'file',
         file_name: fileName,
         title: metadata.title || '',
-        subtitle: metadata.subtitle || 'Author: Unknown',
+        author: metadata.author || metadata.subtitle || 'Author: Unknown', // 向后兼容 subtitle
         composer: metadata.composer || 'Your Name',
         rootNote: metadata.rootNote || 'D',
         scaleType: metadata.scaleType || 'Kurd',

@@ -90,8 +90,7 @@
         
         <!-- 底部翻页提示 -->
         <view class="notation-page-hint" wx:if="{{notationTotalPages > 1}}">
-          <text class="page-hint-text" wx:if="{{notationCurrentPage < notationTotalPages - 1}}">← 左滑查看更多 →</text>
-          <text class="page-hint-text" wx:else>已到最后一页</text>
+          
           <text class="page-indicator">{{notationCurrentPage + 1}} / {{notationTotalPages}}</text>
         </view>
         
@@ -523,11 +522,23 @@
               <text class="notation-btn-text">{{notationMode ? '关闭谱面' : '打开谱面'}}</text>
             </view>
             
-            <!-- 右上角：节拍器按钮（仅在谱面模式显示） -->
+            <!-- 中间上方：切换显示模式按钮 -->
+            <view class="e-pan-display-mode-btn" bindtap="onToggleHandpanDisplayMode">
+              <image class="display-mode-icon" src="{{subpkgImgs.change}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="change"></image>
+              <text class="display-mode-text">{{handpanDisplayModeLabels[handpanDisplayMode]}}</text>
+            </view>
+            
+            <!-- 右上角：谱面模式显示节拍器按钮，非谱面模式显示加载音频按钮 -->
             <view class="e-pan-metronome-btn-large {{notationMetronomeActive ? 'active' : ''}}" 
                   bindtap="onToggleNotationMetronome"
                   wx:if="{{notationMode}}">
               <image class="metronome-btn-icon" src="{{notationMetronomeActive ? '/assets/icons/metronome-active.png' : '/assets/icons/metronome.png'}}" mode="aspectFit"></image>
+            </view>
+            <view class="e-pan-reload-audio-btn-large {{audioLoading ? 'loading' : ''}}" 
+                  bindtap="onReloadHandpanAudio"
+                  wx:if="{{!notationMode}}">
+              <image class="reload-audio-icon {{audioLoading ? 'spinning' : ''}}" src="/assets/icons/refresh.png" mode="aspectFit"></image>
+              <text class="reload-audio-text">加载音频</text>
             </view>
             
             <!-- 自定义按钮 -->
@@ -551,8 +562,19 @@
                       <view class="e-pan-note-outer"></view>
                       <!-- 内椭圆（中央Ding使用凸起效果） -->
                       <view class="e-pan-note-inner-ring {{item.id === 0 ? 'ding-convex' : ''}}"></view>
-                      <!-- 音符名称（反向旋转使其正着显示） -->
-                      <text class="e-pan-note-name-large" style="transform: rotate({{-(item.angle + 90)}}deg);">{{item.note}}</text>
+                      <!-- 音符名称显示区域（反向旋转使其正着显示） -->
+                      <view class="e-pan-note-display" style="transform: rotate({{-(item.angle + 90)}}deg);">
+                        <!-- 高八度圆点（简谱模式） -->
+                        <view class="e-pan-dots-up" wx:if="{{item.displayDotsUp > 0}}">
+                          <view class="e-pan-dot" wx:for="{{item.displayDotsUp}}" wx:for-item="dot" wx:key="*this"></view>
+                        </view>
+                        <!-- 显示文本 -->
+                        <text class="e-pan-note-name-large">{{item.displayText || item.note}}</text>
+                        <!-- 低八度圆点（简谱模式） -->
+                        <view class="e-pan-dots-down" wx:if="{{item.displayDotsDown > 0}}">
+                          <view class="e-pan-dot" wx:for="{{item.displayDotsDown}}" wx:for-item="dot" wx:key="*this"></view>
+                        </view>
+                      </view>
                     </view>
                   </view>
                 </view>
@@ -577,13 +599,9 @@
               <text>SLAP</text>
             </view>
           </view>
-          <!-- 滑动提示 -->
-          <view class="e-pan-swipe-hint-large" wx:if="{{!ePanLoaded}}">
-            <text>← 左滑查看手碟图片</text>
-          </view>
         </view>
       </swiper-item>
-      <!-- 第三页：静态手碟图片 -->
+      <!-- 第二页：静态手碟图片 -->
       <swiper-item>
         <view class="pan-swiper-item-large">
           <image class="pan-image-large" src="{{subpkgImgs.pan}}" mode="aspectFit" binderror="onSubpkgImgError" data-type="pan" bindtap="onPanTap"></image>
@@ -660,9 +678,20 @@
           </view>
         </view>
         
-        <view class="he-prop-row-ios">
-          <text class="he-prop-label-ios">音名</text>
-          <input class="he-prop-input-ios" value="{{editorSelectedNote.note}}" bindinput="onEditorNoteNameChange" placeholder="输入音名" />
+        <!-- 音名/简谱/数字谱输入行 -->
+        <view class="he-prop-row-ios note-names-row">
+          <view class="he-note-input-group">
+            <text class="he-note-input-label">音名</text>
+            <input class="he-note-input" value="{{editorSelectedNote.note}}" bindinput="onEditorNoteNameChange" placeholder="C4" />
+          </view>
+          <view class="he-note-input-group">
+            <text class="he-note-input-label">简谱</text>
+            <input class="he-note-input" value="{{editorSelectedNote.jianpu}}" bindinput="onEditorJianpuChange" placeholder="5'" />
+          </view>
+          <view class="he-note-input-group">
+            <text class="he-note-input-label">数字谱</text>
+            <input class="he-note-input" value="{{editorSelectedNote.shuzipu}}" bindinput="onEditorShuzipuChange" placeholder="9" />
+          </view>
         </view>
         
         <view class="he-prop-row-ios">
@@ -774,15 +803,19 @@
             <text class="he-params-item-desc">标准手碟布局</text>
           </view>
         </view>
-        <!-- 用户保存的参数 -->
+        <!-- 预设参数和用户保存的参数 -->
         <view wx:for="{{handpanParamsLibrary}}" wx:key="id" 
               class="he-params-item {{currentHandpanParamsId === item.id ? 'active' : ''}}">
           <view class="he-params-item-info" bindtap="onSelectHandpanParams" data-id="{{item.id}}">
             <text class="he-params-item-name">{{item.name}}</text>
-            <text class="he-params-item-desc">{{item.noteCount}}个音符</text>
+            <text class="he-params-item-desc">{{item.notes.length}}个音符</text>
           </view>
-          <view class="he-params-item-delete" catchtap="onDeleteHandpanParams" data-id="{{item.id}}">
+          <!-- 只有非预设参数才显示删除按钮 -->
+          <view class="he-params-item-delete" catchtap="onDeleteHandpanParams" data-id="{{item.id}}" wx:if="{{!item.isPreset}}">
             删除
+          </view>
+          <view class="he-params-item-preset-tag" wx:if="{{item.isPreset}}">
+            预设
           </view>
         </view>
       </scroll-view>

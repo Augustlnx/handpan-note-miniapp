@@ -2,6 +2,9 @@ const app = getApp();
 const libraryManager = require('../../utils/libraryManager.js');
 const { CanvasNotationRenderer } = require('../../utils/canvasRenderer.js');
 
+// 当前版本号 - 用于版本更新弹窗检测
+const CURRENT_VERSION = '7.0.0';
+
 // 存储优化工具
 const { 
   AsyncStorage, 
@@ -66,7 +69,7 @@ const BUILTIN_EXAMPLE = {
       path: ['sample_folder'],
       file_name: "Urban",
       title: 'Urban',
-      subtitle: 'Author: Kate Stone',
+      author: 'Author: Kate Stone',
       composer: 'Kate Stone',
       rootNote: 'D',
       scaleType: 'Kurd',
@@ -315,6 +318,10 @@ Page({
     showSplashModal: false,
     isTablet: false, // 是否为平板设备
     splashPrivacyExpanded: false, // 隐私权限说明是否展开
+    
+    // 版本更新弹窗相关
+    showUpdateModal: false, // 是否显示版本更新弹窗
+    currentVersion: CURRENT_VERSION, // 当前版本号
 
     // 页面加载状态（用于从 splash 过渡的淡入动画）
     pageReady: false,
@@ -1152,7 +1159,7 @@ Page({
     
     this.setData({
       mainTitle: payload.title || payload.file_name || '未命名',
-      subTitle: payload.subtitle || 'Author: Unknown',
+      subTitle: payload.author || payload.subtitle || 'Author: Unknown', // 向后兼容：优先读取author，fallback到subtitle
       globalTempo: payload.tempo || 60,
       orientation: 'portrait', // 【Bug修复】加载曲库文件时重置为"宽松"模式（竖屏）
       timeSignatureBeats: beats,
@@ -2419,7 +2426,7 @@ Page({
 
       // 提取字段
       const title = exampleData.title || 'Handpan Note';
-      const subtitle = exampleData.subtitle || '';
+      const subtitle = exampleData.author || exampleData.subtitle || ''; // 向后兼容：优先读取author
       const tempo = exampleData.tempo || 120;
       const code = exampleData.code || '';
       
@@ -6733,7 +6740,7 @@ Page({
     }
   },
 
-  // 深拷贝 notations 并显式保留 subdivision 的 hasArpeggio（避免传参/序列化丢失）
+  // 深拷贝 notations 并显式保留 subdivision 的 hasArpeggio 和 annotation（避免传参/序列化丢失）
   cloneNotationsForExport(notations) {
     return (notations || []).map(n => {
       const notation = { ...n };
@@ -6747,6 +6754,8 @@ Page({
               leftHand: Array.isArray(sub.leftHand) ? [...sub.leftHand] : ['', '']
             };
             if (sub.hasArpeggio === true) cloned.hasArpeggio = true;
+            // 【修复】保留注记字段
+            if (sub.annotation) cloned.annotation = sub.annotation;
             return cloned;
           });
           return beat;
@@ -6836,7 +6845,7 @@ Page({
       const updatePayload = {
         file_name: this.data.libraryFileName,
         title: this.data.mainTitle || this.data.libraryFileName,
-        subtitle: this.data.subTitle || 'Author: Unknown',
+        author: this.data.subTitle || 'Author: Unknown',
         tempo: this.data.globalTempo || 60,
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
@@ -6892,7 +6901,7 @@ Page({
       const payload = {
         file_name: name,
         title: this.data.mainTitle || name,
-        subtitle: this.data.subTitle || 'Author: Unknown',
+        author: this.data.subTitle || 'Author: Unknown',
         tempo: this.data.globalTempo || 60,
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
@@ -8525,7 +8534,7 @@ Page({
       const updateData = {
         // 元信息
         mainTitle: metadata.title || '',
-        subTitle: metadata.subtitle || '',
+        subTitle: metadata.author || metadata.subtitle || '', // 向后兼容：优先读取author
         composer: metadata.composer || 'Your Name',
         rootNote: metadata.rootNote || 'D',
         scaleType: metadata.scaleType || 'Kurd',
@@ -8981,19 +8990,19 @@ Page({
     const modifierPattern = "['',,_]*(?:\\^\\{[^}]*\\})?['',,_]*";
     // token正则：按优先级排列
     const tokenRegex = new RegExp(
-      '<[^>]+>' +                                           // <...> 包裹的内容
-      '|\\{[^}]+\\}' +                                     // {...} 包裹的内容
-      '|\\([^)]*\\)\\/\\([^)]*\\)' +                       // (右手)/(左手) 完整格式
-      '|<[^>]+>\\/' +                                       // <...>/  右手指定
-      '|\\/<[^>]+>' +                                       // /<...>  左手指定
-      '|\\{[^}]+\\}\\/' +                                   // {...}/  右手指定
-      '|\\/\\{[^}]+\\}' +                                   // /{...}  左手指定
-      `|[0-9A-Za-z]${modifierPattern}\\/[0-9A-Za-z]${modifierPattern}` +  // 完整手指定 如 6/D
-      `|[0-9A-Za-z]${modifierPattern}\\/` +                  // 右手指定 如 1/
-      `|\\/[0-9A-Za-z]${modifierPattern}` +                  // 左手指定 如 /1
-      '|-' +                                                // 空音符
-      `|[0-9A-Za-z]${modifierPattern}` +                    // 单个音符（带可选修饰符）
-      '|·',                                                 // 特殊字符
+      '~?<[^>]+>' +                                           // <...> 包裹的内容
+      '|~?\\{[^}]+\\}' +                                     // {...} 包裹的内容
+      '|~?\\([^)]*\\)\\/\\([^)]*\\)' +                       // (右手)/(左手) 完整格式
+      '|~?<[^>]+>\\/' +                                       // <...>/  右手指定
+      '|~?\\/<[^>]+>' +                                       // /<...>  左手指定
+      '|~?\\{[^}]+\\}\\/' +                                   // {...}/  右手指定
+      '|~?\\/\\{[^}]+\\}' +                                   // /{...}  左手指定
+      `|~?[0-9A-Za-z]${modifierPattern}\\/[0-9A-Za-z]${modifierPattern}` +  // 完整手指定 如 6/D
+      `|~?[0-9A-Za-z]${modifierPattern}\\/` +                  // 右手指定 如 1/
+      `|~?\\/[0-9A-Za-z]${modifierPattern}` +                  // 左手指定 如 /1
+      '|~?-' +                                                // 空音符
+      `|~?[0-9A-Za-z]${modifierPattern}` +                    // 单个音符（带可选修饰符）
+      '|~?·',                                                 // 特殊字符
       'g'
     );
     const tokens = beatStr.match(tokenRegex) || [];
@@ -11943,6 +11952,10 @@ Page({
   // 关闭开屏弹窗
   closeSplashModal() {
     this.setData({ showSplashModal: false });
+    // 开屏弹窗关闭后，检查是否需要显示版本更新弹窗
+    setTimeout(() => {
+      this.checkAndShowUpdateModal();
+    }, 300);
   },
 
   // 检查是否显示开屏弹窗
@@ -11952,7 +11965,38 @@ Page({
       // 检测是否为平板设备
       const isTablet = this.checkIsTablet();
       this.setData({ showSplashModal: true, isTablet, splashPrivacyExpanded: false });
+    } else {
+      // 开屏弹窗已被设置为"不再显示"，直接检查版本更新弹窗
+      setTimeout(() => {
+        this.checkAndShowUpdateModal();
+      }, 300);
     }
+  },
+  
+  // ========== 版本更新弹窗相关 ==========
+  
+  // 检查是否显示版本更新弹窗
+  checkAndShowUpdateModal() {
+    // 获取用户上次点击"不再显示"时的版本号
+    const lastDismissedVersion = wx.getStorageSync('updatePopupLastDismissedVersion');
+    
+    // 如果上次dismissed的版本与当前版本不同，则显示弹窗
+    // 或者从未点击过"不再显示"（lastDismissedVersion为空）
+    if (lastDismissedVersion !== CURRENT_VERSION) {
+      this.setData({ showUpdateModal: true });
+    }
+  },
+  
+  // 关闭版本更新弹窗（仅关闭，不保存"不再显示"状态）
+  closeUpdateModal() {
+    this.setData({ showUpdateModal: false });
+  },
+  
+  // 版本更新弹窗：不再显示
+  onUpdateNeverShowAgain() {
+    // 保存当前版本号，表示此版本已被用户dismiss
+    wx.setStorageSync('updatePopupLastDismissedVersion', CURRENT_VERSION);
+    this.closeUpdateModal();
   },
 
   // 检测是否为平板设备
@@ -16799,14 +16843,14 @@ Page({
               // 提取装饰音（左上标）并单独添加
               const graceMatch = cleaned.match(/\^{([^}]+)}/);
               if (graceMatch) {
-                const graceNote = graceMatch[1].replace(/_/g, '');
+                const graceNote = graceMatch[1].replace(/[_*]/g, '');
                 if (graceNote) usedNotes.add(graceNote);
               }
               
               // 去掉左上标
               cleaned = cleaned.replace(/\^{[^}]*}/g, '');
-              // 去掉下划线（保留八度标记）
-              cleaned = cleaned.replace(/_/g, '');
+              // 去掉下划线和附点记号（保留八度标记）
+              cleaned = cleaned.replace(/[_*]/g, '');
               
               if (cleaned) usedNotes.add(cleaned);
             };

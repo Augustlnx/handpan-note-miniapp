@@ -16,7 +16,7 @@
     <!-- 曲谱信息头部 -->
     <view class="song-header">
       <text class="song-title">{{song.title}}</text>
-      <text class="song-subtitle">{{song.subtitle}}</text>
+      <text class="song-subtitle">{{song.author || song.subtitle}}</text>
       
       <view class="song-meta">
         <view class="meta-item">

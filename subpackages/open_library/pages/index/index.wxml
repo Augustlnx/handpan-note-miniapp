@@ -102,7 +102,7 @@
                     <text class="section-item-name">{{song.title}}</text>
                     <text class="section-tag-badge">{{song.rootNote || 'D'}}-{{song.scaleType || 'Kurd'}} {{song.noteCount || 10}}音</text>
                   </view>
-                  <text class="section-item-detail">{{song.artistName || ''}}{{song.artistName && song.subtitle ? ' | ' : ''}}{{song.subtitle || ''}}</text>
+                  <text class="section-item-detail">{{song.artistName || ''}}{{song.artistName && (song.author || song.subtitle) ? ' | ' : ''}}{{song.author || song.subtitle || ''}}</text>
                 </view>
                 <view class="section-song-actions">
                   <view class="action-btn heart {{song.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{song.id}}">
@@ -142,7 +142,7 @@
                     <text class="section-item-name">{{song.title}}</text>
                     <text class="section-tag-badge">{{song.rootNote || 'D'}}-{{song.scaleType || 'Kurd'}} {{song.noteCount || 10}}音</text>
                   </view>
-                  <text class="section-item-detail">{{song.artistName || ''}}{{song.artistName && song.subtitle ? ' | ' : ''}}{{song.subtitle || ''}}</text>
+                  <text class="section-item-detail">{{song.artistName || ''}}{{song.artistName && (song.author || song.subtitle) ? ' | ' : ''}}{{song.author || song.subtitle || ''}}</text>
                 </view>
                 <view class="section-song-actions">
                   <view class="action-btn heart {{song.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{song.id}}">
@@ -231,7 +231,7 @@
                 <text class="tag-badge vip" wx:if="{{item.isVip}}">VIP</text>
               </view>
             </view>
-            <text class="rank-meta">{{item.artistName}} | {{item.subtitle}}</text>
+            <text class="rank-meta">{{item.artistName}} | {{item.author}}</text>
           </view>
           <view class="rank-actions">
             <view class="action-btn heart {{item.isFavorite ? 'active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}">
@@ -310,7 +310,7 @@
   <!-- ================= Tab 2: 我的 ================= -->
   <view class="profile-tab-container" wx:if="{{activeTabIndex === 2}}">
     <!-- 顶部背景区 -->
-    <view class="profile-header-bg" style="background: linear-gradient(135deg, {{profileInfo.backgroundGradient[0] || '#667eea'}} 0%, {{profileInfo.backgroundGradient[1] || '#764ba2'}} 100%); height: {{profileHeaderHeight}}px;"></view>
+    <view class="profile-header-bg" style="background: linear-gradient(135deg, {{profileInfo.backgroundGradient[0] || '#314D63'}} 0%, {{profileInfo.backgroundGradient[1] || '#F2C94C'}} 100%); height: {{profileHeaderHeight}}px;"></view>
 
     <!-- 主内容区 -->
     <view class="profile-main-content" style="margin-top: {{profileHeaderHeight - 60}}px;">
@@ -318,7 +318,7 @@
       <view class="profile-card">
         <!-- 头像 -->
         <view class="avatar-wrap">
-          <view class="user-avatar" style="background: linear-gradient(135deg, {{profileInfo.backgroundGradient[0] || '#667eea'}} 0%, {{profileInfo.backgroundGradient[1] || '#764ba2'}} 100%);">
+          <view class="user-avatar" style="background: linear-gradient(135deg, {{profileInfo.backgroundGradient[0] || '#314D63'}} 0%, {{profileInfo.backgroundGradient[1] || '#F2C94C'}} 100%);">
             <image class="avatar-icon" src="../../assets/icons/user.svg" mode="aspectFit"/>
           </view>
         </view>
@@ -395,7 +395,7 @@
           >
             <!-- 左侧圆角矩形封面 -->
             <view class="playlist-cover" style="background: linear-gradient(135deg, {{item.coverGradient[0]}} 0%, {{item.coverGradient[1]}} 100%);">
-              <text class="cover-text">{{item.name[0]}}{{item.name[1] || ''}}</text>
+              <image class="cover-icon" src="../../assets/icons/music-menu.svg" mode="aspectFit"/>
             </view>
             
             <!-- 中间信息 -->

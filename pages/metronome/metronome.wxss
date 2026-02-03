@@ -2067,11 +2067,11 @@
 /* ========== 底部Pan图片区域（新版大尺寸） ========== */
 .pan-section {
   width: 100%;
-  padding: 0rpx 0 100rpx 0;
+  padding: 0rpx 0 0rpx 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, transparent 0%, rgba(49, 77, 99, 0.03) 100%);
+  background: transparent;
   overflow: visible;
 }
 
@@ -2091,12 +2091,12 @@
   height: 100%;
   position: relative;
   overflow: visible;
-  padding:0rpx 0rpx; 
+  padding: 0rpx;
 }
 
 .pan-image-large {
-  width: 80%;
-  max-width: 600rpx;
+  width: 85%;
+  max-width: 620rpx;
   height: auto;
   aspect-ratio: 1;
   opacity: 0.95;
@@ -2138,8 +2138,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;  
+  width: 100%;
   height: auto;
+  padding: 0rpx 0rpx;
+  box-sizing: border-box;
 }
 
 .e-pan-page-large {
@@ -2159,14 +2161,14 @@
     0 2rpx 20rpx rgba(0,0,0,0.25),
     inset 0 -4rpx 30rpx rgba(0,0,0,0.3),
     inset 0 4rpx 30rpx rgba(255, 255, 255, 0.05);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .e-pan-container-large {
   width: 100%;
   height: 100%;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 50%;
 }
 
@@ -2174,19 +2176,15 @@
   width: 100%;
   height: 100%;
   position: relative;
-  /* 俯视图顶光散射 - 从中心向外扩散 */
-  background: 
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.15) 0%, transparent 25%),
-    radial-gradient(circle at 50% 50%, rgba(200, 230, 255, 0.2) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(150, 190, 220, 0.15) 0%, transparent 55%),
-    radial-gradient(circle at 50% 50%, #4a6a7e 0%, #3B576C 30%, #2a4055 65%, #1e3040 100%);
+  /* 移除原有的深色背景渐变，保持透明 */
+  background: transparent;
 }
 
 /* 自定义按钮（大尺寸版）- 左下角 */
 .e-pan-customize-btn-large {
   position: absolute;
   left: 5%;
-  bottom: -100rpx;
+  bottom: -110rpx;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -2272,6 +2270,15 @@
   display: none;
 }
 
+/* 音符显示区域容器 */
+.e-pan-note-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
 /* 音符名称 - 不旋转，正着显示 */
 .e-pan-note-name-large {
   font-size: 28rpx;
@@ -2279,6 +2286,32 @@
   color: #fffaf0;
   z-index: 2;
   text-shadow: 0 2rpx 4rpx rgba(0,0,0,0.6);
+}
+
+/* 八度圆点容器 */
+.e-pan-dots-up,
+.e-pan-dots-down {
+  display: flex;
+  flex-direction: row;
+  gap: 4rpx;
+  justify-content: center;
+}
+
+.e-pan-dots-up {
+  margin-bottom: 2rpx;
+}
+
+.e-pan-dots-down {
+  margin-top: 2rpx;
+}
+
+/* 单个圆点 */
+.e-pan-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: #fffaf0;
+  box-shadow: 0 1rpx 2rpx rgba(0,0,0,0.4);
 }
 
 /* 音符激活状态（发光效果） */
@@ -2313,7 +2346,7 @@
 .e-pan-slap-btn-large {
   position: absolute;
   right: 5%;
-  bottom: -100rpx;
+  bottom: -110rpx;
   width: auto;
   min-width: 100rpx;
   height: auto;
@@ -2343,7 +2376,7 @@
 /* 电子手碟音量控制条 */
 .e-pan-volume-bar {
   position: absolute;
-  bottom: -80rpx;
+  bottom: -90rpx;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -2998,6 +3031,15 @@
   font-size: 24rpx;
 }
 
+.he-params-item-preset-tag {
+  padding: 12rpx 24rpx;
+  background: rgba(49, 77, 99, 0.1);
+  color: #314D63;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
 /* 导入参数弹窗 */
 .he-import-content {
   padding: 20rpx 0;
@@ -3343,6 +3385,41 @@
   margin-bottom: 0;
 }
 
+/* 音名/简谱/数字谱输入行 */
+.he-prop-row-ios.note-names-row {
+  display: flex;
+  flex-direction: row;
+  gap: 22rpx;
+}
+
+.he-note-input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9rpx;
+}
+
+.he-note-input-label {
+  font-size: 25rpx;
+  color: #666;
+  font-weight: 800;
+}
+
+.he-note-input {
+  background: #f5f7fa;
+  border: 1rpx solid rgba(49, 77, 99, 0.15);
+  color: #314D63;
+  padding: 8rpx 10rpx;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.he-note-input:focus {
+  border-color: #DBCC97;
+  background: #fff;
+}
+
 .he-prop-label-ios {
   width: 100rpx;
   font-size: 26rpx;
@@ -3636,7 +3713,7 @@ slider {
 .e-pan-notation-btn-large {
   position: absolute;
   left: 5%;
-  top: -100rpx;
+  top: -120rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3665,11 +3742,45 @@ slider {
   color: #314D63;
 }
 
+/* 中间切换显示模式按钮 */
+.e-pan-display-mode-btn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: -120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  background: transparent;
+  border-radius: 16rpx;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.e-pan-display-mode-btn:active {
+  transform: translateX(-50%) scale(0.95);
+  opacity: 0.7;
+}
+
+.display-mode-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.display-mode-text {
+  font-size: 22rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #314D63;
+}
+
 /* 右上角节拍器按钮 - 无背景 */
 .e-pan-metronome-btn-large {
   position: absolute;
   right: 5%;
-  top: -100rpx;
+  top: -120rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3694,6 +3805,52 @@ slider {
 .metronome-btn-icon {
   width: 56rpx;
   height: 56rpx;
+}
+
+/* 右上角加载音频按钮 - 非谱面模式 */
+.e-pan-reload-audio-btn-large {
+  position: absolute;
+  right: 5%;
+  top: -120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  background: transparent;
+  border-radius: 16rpx;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.e-pan-reload-audio-btn-large.loading {
+  opacity: 0.5;
+}
+
+.e-pan-reload-audio-btn-large:active {
+  transform: scale(0.95);
+  opacity: 0.7;
+}
+
+.reload-audio-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.reload-audio-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reload-audio-text {
+  font-size: 22rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #314D63;
 }
 
 /* 谱面Canvas区域 */

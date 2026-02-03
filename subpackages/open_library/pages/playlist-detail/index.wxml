@@ -23,7 +23,7 @@
       <!-- 封面 -->
       <view class="cover-wrap">
         <view class="playlist-cover" style="background: linear-gradient(135deg, {{playlist.coverGradient[0] || '#667eea'}} 0%, {{playlist.coverGradient[1] || '#764ba2'}} 100%);">
-          <text class="cover-text">{{playlist.name[0]}}{{playlist.name[1] || ''}}</text>
+          <image class="cover-icon" src="../../assets/icons/music-menu.svg" mode="aspectFit"/>
         </view>
       </view>
       
@@ -94,10 +94,10 @@
           <view class="song-title-row">
             <text class="song-title">{{item.title}}</text>
             <view class="song-tags">
-              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}}</text>
+              <text class="tag-badge scale">{{item.rootNote}}-{{item.scaleType}} {{item.noteCount || 10}}音</text>
             </view>
           </view>
-          <text class="song-meta">{{item.artistName}} | {{item.subtitle}}</text>
+          <text class="song-meta">{{item.artistName}} | {{item.author}}</text>
         </view>
         
         <!-- 操作按钮 -->

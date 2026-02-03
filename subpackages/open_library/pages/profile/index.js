@@ -14,7 +14,7 @@ Page({
     userInfo: {
       name: '我的音乐',
       bio: '收藏喜欢的曲谱，创建专属歌单',
-      backgroundGradient: ['#667eea', '#764ba2']
+      backgroundGradient: ['#314D63', '#F2C94C']
     },
     
     // 统计数据

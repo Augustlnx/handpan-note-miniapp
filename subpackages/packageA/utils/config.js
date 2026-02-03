@@ -356,6 +356,9 @@ const PAGED_PORTRAIT_COMPACT_CONFIG = {
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
   
+  // ---------- 琶音符号参数（紧凑模式） ----------
+  arpeggioWidth: 6,                      // 琶音符号宽度
+  
   // ---------- 水印配置 ----------
   watermarkMargin: 20,
   watermarkScaleBase: 0.08,
@@ -486,6 +489,9 @@ const PAGED_PORTRAIT_LOOSE_CONFIG = {
   underlineExtraOffset: 3,
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
+  
+  // ---------- 琶音符号参数（宽松模式） ----------
+  arpeggioWidth: 9,                      // 琶音符号宽度（宽松模式更大）
   
   // ---------- 水印配置 ----------
   watermarkMargin: 20,
@@ -618,6 +624,9 @@ const PAGED_LANDSCAPE_COMPACT_CONFIG = {
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
   
+  // ---------- 琶音符号参数（紧凑模式） ----------
+  arpeggioWidth: 6,                      // 琶音符号宽度
+  
   // ---------- 水印配置 ----------
   watermarkMargin: 20,
   watermarkScaleBase: 0.08,
@@ -748,6 +757,9 @@ const PAGED_LANDSCAPE_LOOSE_CONFIG = {
   underlineExtraOffset: 3,
   annotationFontSizeRatio: 0.65,
   annotationOffsetY: 8,
+  
+  // ---------- 琶音符号参数（宽松模式） ----------
+  arpeggioWidth: 9,                      // 琶音符号宽度（宽松模式更大）
   
   // ---------- 水印配置 ----------
   watermarkMargin: 20,

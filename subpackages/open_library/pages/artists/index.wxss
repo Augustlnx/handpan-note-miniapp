@@ -112,13 +112,14 @@ page {
   position: relative;
   flex-shrink: 0;
   border: 4rpx solid rgba(255,255,255,0.5);
-  overflow: hidden;
 }
 
 .artist-avatar-img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
+  display: block;
+  object-fit: cover;
 }
 
 .avatar-text {
@@ -143,6 +144,7 @@ page {
   color: #FFFFFF;
   font-weight: 700;
   border: 2rpx solid #FFFFFF;
+  z-index: 10;
 }
 
 .artist-info {

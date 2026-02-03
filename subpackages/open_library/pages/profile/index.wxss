@@ -201,6 +201,8 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  line-height: 80rpx;
   font-size: 48rpx;
   color: #FFFFFF;
   margin-right: 20rpx;
@@ -243,6 +245,11 @@ page {
   font-weight: 700;
   color: rgba(255,255,255,0.9);
 }
+
+.playlist-cover .cover-icon {
+  width: 48rpx;
+  height: 48rpx;
+} 
 
 .playlist-info {
   flex: 1;

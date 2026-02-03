@@ -127,7 +127,7 @@
   <!-- 关于卡片 -->
   <view class="card about-card">
     <text class="section-header">关于</text>
-    <text class="app-version">Orbit Note 星轨手碟记谱 v6.0.0</text>
+    <text class="app-version">Orbit Note 星轨手碟记谱 v7.0.0</text>
     
     <view class="about-links-new">
       <view class="about-link-new" bindtap="showUserManual">
@@ -311,7 +311,19 @@
               <text class="change-title">✨ 新功能（感谢泡泡老师的优化指导建议）</text>
               <text class="change-text">• 添加虚拟键盘功能，支持输入上下标、音高符号和时值下划线</text>
               <text class="change-text">• PDF导出界面优化</text>
+              <text class="change-text">• 新增播放功能</text>
               <text class="change-text">• 用户界面全新升级</text>
+            </view>
+          </view>
+
+          <view class="changelog-item">
+            <text class="version-tag">v7.0.0</text>
+            <text class="version-date">2026-01-12</text>
+            <view class="changelog-content">
+              <text class="change-title">•新增离线公开曲谱库功能，欢迎联系投稿（在线平台功能缺合作中）</text>
+              <text class="change-text">•节拍器界面新增电子手碟</text>
+              <text class="change-text">•虚拟键盘新增附点、琶音记号</text>
+              <text class="change-text">•新手教程更新时值说明</text>
             </view>
           </view>
 
@@ -321,7 +333,7 @@
             <view class="changelog-content">
               <text class="change-title">🔮 可能推出</text>
               <text class="change-text">• 云同步功能</text>
-              <text class="change-text">• 音频播放引擎</text>
+
               <text class="change-text">• 社区分享功能</text>
             </view>
             <text class="article-text">持续画饼中……</text>

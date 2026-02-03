@@ -364,7 +364,7 @@ class CollectionManager(DataManager):
         collection_data.setdefault('isFeatured', False)
         collection_data.setdefault('isOfficial', False)
         collection_data.setdefault('tags', [])
-        collection_data.setdefault('coverGradient', ['#667eea', '#764ba2'])
+        collection_data.setdefault('coverGradient', ['#F2C94C', '#314D63'])
         
         collections.append(collection_data)
         self.save_data(self.filepath, collections)
@@ -593,8 +593,8 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                         <input type="text" name="title" required>
                     </div>
                     <div class="form-group">
-                        <label>副标题</label>
-                        <input type="text" name="subtitle">
+                        <label>作者</label>
+                        <input type="text" name="author">
                     </div>
                 </div>
                 <div class="form-row">
@@ -852,11 +852,11 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 <div class="form-row">
                     <div class="form-group">
                         <label>封面渐变色 1</label>
-                        <input type="text" name="gradient0" value="#667eea">
+                        <input type="text" name="gradient0" value="#F2C94C">
                     </div>
                     <div class="form-group">
                         <label>封面渐变色 2</label>
-                        <input type="text" name="gradient1" value="#764ba2">
+                        <input type="text" name="gradient1" value="#314D63">
                     </div>
                 </div>
                 <div class="form-row">
@@ -894,7 +894,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         <div class="modal-content song-picker-content">
             <h2 style="margin-bottom: 16px;">选择曲谱</h2>
             <div class="form-group" style="margin-bottom: 12px;">
-                <input type="text" id="songPickerSearch" placeholder="搜索曲名、副标题、ID、制谱人..." style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                <input type="text" id="songPickerSearch" placeholder="搜索曲名、作者、ID、制谱人..." style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
             </div>
             <div class="song-picker-list-wrap">
                 <div id="songPickerList" class="song-picker-list"></div>
@@ -911,7 +911,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         <div class="modal-content song-picker-content">
             <h2 style="margin-bottom: 16px;" id="featuredRecentPickerTitle">选择曲谱</h2>
             <div class="form-group" style="margin-bottom: 12px;">
-                <input type="text" id="featuredRecentPickerSearch" placeholder="搜索曲名、副标题、ID、制谱人..." style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                <input type="text" id="featuredRecentPickerSearch" placeholder="搜索曲名、作者、ID、制谱人..." style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
             </div>
             <div class="song-picker-list-wrap">
                 <div id="featuredRecentPickerList" class="song-picker-list"></div>
@@ -1010,7 +1010,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                                 <tr>
                                     <td>
                                         <strong>${song.title}</strong>
-                                        <br><small style="color:#666">${song.subtitle || ''}</small>
+                                        <br><small style="color:#666">${song.author || song.subtitle || ''}</small>
                                     </td>
                                     <td>${artistName}</td>
                                     <td>${song.artistName || '-'}</td>
@@ -1175,7 +1175,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 if (song) {
                     form.querySelector('[name="id"]').value = song.id;
                     form.querySelector('[name="title"]').value = song.title || '';
-                    form.querySelector('[name="subtitle"]').value = song.subtitle || '';
+                    form.querySelector('[name="author"]').value = song.author || song.subtitle || ''; // 使用 author，向后兼容 subtitle
                     form.querySelector('[name="artistId"]').value = song.artistId || '';
                     form.querySelector('[name="artistName"]').value = song.artistName || '';
                     form.querySelector('[name="rootNote"]').value = song.rootNote || 'D';
@@ -1229,17 +1229,17 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 ? data.songs
                 : data.songs.filter(s => {
                     const title = (s.title || '').toLowerCase();
-                    const subtitle = (s.subtitle || '').toLowerCase();
+                    const author = (s.author || s.subtitle || '').toLowerCase(); // 使用 author，向后兼容 subtitle
                     const id = (s.id || '').toLowerCase();
                     const artist = (s.artistName || '').toLowerCase();
-                    return title.includes(kw) || subtitle.includes(kw) || id.includes(kw) || artist.includes(kw);
+                    return title.includes(kw) || author.includes(kw) || id.includes(kw) || artist.includes(kw);
                 });
             const listEl = document.getElementById('songPickerList');
             listEl.innerHTML = filtered.map(song => `
                 <label class="song-picker-item">
                     <input type="checkbox" value="${song.id}" ${checkedSet.has(song.id) ? 'checked' : ''}>
                     <div class="song-picker-item-info">
-                        <div class="song-picker-item-title">${song.title || '-'}${song.subtitle ? ' · ' + song.subtitle : ''}</div>
+                        <div class="song-picker-item-title">${song.title || '-'}${(song.author || song.subtitle) ? ' · ' + (song.author || song.subtitle) : ''}</div>
                         <div class="song-picker-item-meta">ID: ${song.id} · ${song.artistName || '-'} · ${song.rootNote || ''}-${song.scaleType || ''}</div>
                     </div>
                 </label>
@@ -1278,17 +1278,17 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 ? data.songs
                 : data.songs.filter(s => {
                     const title = (s.title || '').toLowerCase();
-                    const subtitle = (s.subtitle || '').toLowerCase();
+                    const author = (s.author || s.subtitle || '').toLowerCase(); // 使用 author，向后兼容 subtitle
                     const id = (s.id || '').toLowerCase();
                     const artist = (s.artistName || '').toLowerCase();
-                    return title.includes(kw) || subtitle.includes(kw) || id.includes(kw) || artist.includes(kw);
+                    return title.includes(kw) || author.includes(kw) || id.includes(kw) || artist.includes(kw);
                 });
             const listEl = document.getElementById('featuredRecentPickerList');
             listEl.innerHTML = filtered.map(song => `
                 <label class="song-picker-item">
                     <input type="checkbox" value="${song.id}" ${checkedSet.has(song.id) ? 'checked' : ''}>
                     <div class="song-picker-item-info">
-                        <div class="song-picker-item-title">${song.title || '-'}${song.subtitle ? ' · ' + song.subtitle : ''}</div>
+                        <div class="song-picker-item-title">${song.title || '-'}${(song.author || song.subtitle) ? ' · ' + (song.author || song.subtitle) : ''}</div>
                         <div class="song-picker-item-meta">ID: ${song.id} · ${song.artistName || '-'}</div>
                     </div>
                 </label>
@@ -1315,7 +1315,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             const formData = new FormData(this);
             const songData = {
                 title: formData.get('title'),
-                subtitle: formData.get('subtitle'),
+                author: formData.get('author'), // 使用 author 字段
                 artistId: formData.get('artistId'),
                 artistName: formData.get('artistName'),
                 rootNote: formData.get('rootNote'),
@@ -1560,8 +1560,8 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                     const artist = data.artists.find(a => a.id === c.artistId);
                     form.querySelector('[name="artistName"]').value = artist ? artist.name : '';
                     form.querySelector('[name="songIds"]').value = (c.songIds || []).join(', ');
-                    form.querySelector('[name="gradient0"]').value = (c.coverGradient && c.coverGradient[0]) ? c.coverGradient[0] : '#667eea';
-                    form.querySelector('[name="gradient1"]').value = (c.coverGradient && c.coverGradient[1]) ? c.coverGradient[1] : '#764ba2';
+                    form.querySelector('[name="gradient0"]').value = (c.coverGradient && c.coverGradient[0]) ? c.coverGradient[0] : '#F2C94C';
+                    form.querySelector('[name="gradient1"]').value = (c.coverGradient && c.coverGradient[1]) ? c.coverGradient[1] : '#314D63';
                     form.querySelector('[name="playCount"]').value = c.playCount != null ? c.playCount : 0;
                     form.querySelector('[name="likeCount"]').value = c.likeCount != null ? c.likeCount : 0;
                     form.querySelector('[name="tags"]').value = (c.tags || []).join(', ');
@@ -1573,8 +1573,8 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 form.querySelector('[name="id"]').value = '';
                 form.querySelector('[name="playCount"]').value = 0;
                 form.querySelector('[name="likeCount"]').value = 0;
-                form.querySelector('[name="gradient0"]').value = '#667eea';
-                form.querySelector('[name="gradient1"]').value = '#764ba2';
+                form.querySelector('[name="gradient0"]').value = '#F2C94C';
+                form.querySelector('[name="gradient1"]').value = '#314D63';
             }
             artistSelect.dispatchEvent(new Event('change'));
             modal.classList.add('active');
@@ -1596,7 +1596,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 artistName: formData.get('artistName') || '',
                 songIds: songIdsRaw,
                 songCount: songIdsRaw.length,
-                coverGradient: [formData.get('gradient0') || '#667eea', formData.get('gradient1') || '#764ba2'],
+                coverGradient: [formData.get('gradient0') || '#F2C94C', formData.get('gradient1') || '#314D63'],
                 playCount: parseInt(formData.get('playCount')) || 0,
                 likeCount: parseInt(formData.get('likeCount')) || 0,
                 tags: (formData.get('tags') || '').split(',').map(t => t.trim()).filter(t => t),

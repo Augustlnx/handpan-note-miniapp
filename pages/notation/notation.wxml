@@ -1,4 +1,4 @@
-<wxs module="utils">
+﻿<wxs module="utils">
 // 横屏缩放比例：18/28
 var LANDSCAPE_SCALE = 18 / 28;
 // 定义常用字符常量，避免WXS中引号嵌套问题
@@ -2366,6 +2366,51 @@ module.exports = {
             <text class="splash-btn-label">新手教程</text>
           </button>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 版本更新弹窗 -->
+  <view class="update-modal-overlay {{showUpdateModal ? 'show' : ''}}" wx:if="{{showUpdateModal}}" bindtap="closeUpdateModal">
+    <view class="update-modal-content {{isTablet ? 'tablet' : ''}}" catchtap="stopPropagation">
+      <!-- 关闭按钮 -->
+      <image class="update-close-btn" src="/assets/icons/delete.png" bindtap="closeUpdateModal"></image>
+      
+      <!-- 弹窗标题 -->
+      <view class="update-header">
+        <view class="update-version-badge">v{{currentVersion}}</view>
+        <text class="update-title">🎉 版本更新</text>
+        <text class="update-subtitle">Orbit Note 星轨手碟记谱</text>
+      </view>
+
+      <!-- 更新内容 -->
+      <view class="update-content">
+        <view class="update-item">
+          <text class="update-icon">📚</text>
+          <text class="update-text">新增离线公开曲谱库功能，欢迎联系投稿</text>
+        </view>
+        <view class="update-item">
+          <text class="update-icon">🎹</text>
+          <text class="update-text">节拍器界面新增电子手碟</text>
+        </view>
+        <view class="update-item">
+          <text class="update-icon">⌨️</text>
+          <text class="update-text">虚拟键盘新增附点、琶音记号</text>
+        </view>
+        <view class="update-item">
+          <text class="update-icon">📖</text>
+          <text class="update-text">新手教程更新时值说明</text>
+        </view>
+      </view>
+
+      <!-- 操作按钮 -->
+      <view class="update-actions">
+        <button class="update-btn update-btn-close" bindtap="closeUpdateModal">
+          <text class="update-btn-label">关闭</text>
+        </button>
+        <button class="update-btn update-btn-never-show" bindtap="onUpdateNeverShowAgain">
+          <text class="update-btn-label">不再显示</text>
+        </button>
       </view>
     </view>
   </view>

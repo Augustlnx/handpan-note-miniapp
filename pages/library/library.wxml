@@ -211,7 +211,7 @@
         
         <view class="form-group">
           <text class="form-label">副标题</text>
-          <input class="form-input" placeholder="Author: Unknown" bindinput="onNewFileSubtitleInput" value="{{newFileData.subtitle}}" />
+          <input class="form-input" placeholder="Author: Unknown" bindinput="onNewFileSubtitleInput" value="{{newFileData.author}}" />
         </view>
         
         <view class="form-group">

@@ -5,6 +5,12 @@ Page({
     totalSteps: 5,
     guides: [
       { 
+        id: 0, 
+        image: '/subpackages/packageB/img/guide7.jpg',
+        title: '第 0 步',
+        description: '时值计算'
+      },
+      { 
         id: 1, 
         image: '/subpackages/packageB/img/guide1.jpg',
         title: '第 1 步',

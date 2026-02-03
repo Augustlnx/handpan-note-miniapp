@@ -9,8 +9,8 @@ module.exports = [
     "subtitle": "Essential 20 for Beginners",
     "description": "新手入门必练的20首经典曲目，从简单到进阶循序渐进",
     "coverGradient": [
-      "#a8edea",
-      "#fed6e3"
+      "#F2C94C",
+      "#314D63"
     ],
     "songIds": [
       "sample_tiankongzhicheng",
@@ -42,9 +42,11 @@ module.exports = [
       "#314D63"
     ],
     "songIds": [
-      "sample_urban"
+      "sample_jiangnan",
+      "sample_urban",
+      "song_15433a3c"
     ],
-    "songCount": 1,
+    "songCount": 3,
     "playCount": 32100,
     "likeCount": 9800,
     "artistId": "artist_003",
@@ -57,7 +59,7 @@ module.exports = [
     "isFeatured": true,
     "isOfficial": true,
     "createTime": 1706918400000,
-    "updateTime": 1706918400000
+    "updateTime": 1770104236052
   },
   {
     "title": "D kurd10音专区",
@@ -72,12 +74,15 @@ module.exports = [
       "sample_interstellar",
       "sample_yequ",
       "sample_merry_christmas",
-      "sample_anheqiao"
+      "sample_anheqiao",
+      "song_bda91205",
+      "song_b6a665fd",
+      "song_3edabcaf"
     ],
-    "songCount": 7,
+    "songCount": 10,
     "coverGradient": [
-      "#667eea",
-      "#764ba2"
+      "#F2C94C",
+      "#314D63"
     ],
     "playCount": 760,
     "likeCount": 670,
@@ -86,7 +91,7 @@ module.exports = [
     "isOfficial": true,
     "id": "col_e8f3ec1f",
     "createTime": 1770020137747,
-    "updateTime": 1770020770074
+    "updateTime": 1770104254384
   },
   {
     "title": "流行歌曲合集",
@@ -103,8 +108,8 @@ module.exports = [
     ],
     "songCount": 5,
     "coverGradient": [
-      "#667eea",
-      "#764ba2"
+      "#F2C94C",
+      "#314D63"
     ],
     "playCount": 0,
     "likeCount": 0,
