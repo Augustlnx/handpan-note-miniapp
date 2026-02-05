@@ -89,7 +89,7 @@
     },
     "pages/settings/settings": {
       "network": "all",
-      "packages": ["resources", "packageB"]
+      "packages": ["resources"]
     },
     "pages/notation/notation": {
       "network": "all",
@@ -128,9 +128,9 @@
       },
       {
         "pagePath": "pages/metronome/metronome",
-        "text": "节拍器",
-        "iconPath": "assets/icons/metronome.png",
-        "selectedIconPath": "assets/icons/metronome-active.png"
+        "text": "电子碟",
+        "iconPath": "assets/icons/handpan.jpg",
+        "selectedIconPath": "assets/icons/handpan-active.jpeg"
       },
       {
         "pagePath": "pages/settings/settings",

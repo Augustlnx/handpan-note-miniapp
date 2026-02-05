@@ -249,7 +249,14 @@ const getArtistDetail = async (id) => {
     .filter(c => c.artistId === id)
     .sort((a, b) => b.playCount - a.playCount);
   
-  return { ...artist, songs, collections };
+  // 返回艺术家详情，并更新实际的计数
+  return { 
+    ...artist, 
+    songs, 
+    collections,
+    songCount: songs.length,
+    collectionCount: collections.length
+  };
 };
 
 /**

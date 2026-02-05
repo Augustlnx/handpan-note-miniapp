@@ -61,7 +61,7 @@ module.exports = [
     "title": "认证制谱人",
     "avatar": "/subpackages/open_library/assets/img/avatar_xq.jpg",
     "backgroundImage": "",
-    "bio": "Hi~这里是小倩Aurora的手碟生活。武汉大学音表学士·香港浸会大学音乐学硕士",
+    "bio": "武汉大学音表学士·香港浸会大学音乐学硕士",
     "location": "深圳",
     "followers": 17629,
     "tags": [

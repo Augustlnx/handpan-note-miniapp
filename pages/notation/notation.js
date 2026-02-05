@@ -924,6 +924,11 @@ Page({
     // 回到该页时刷新标题/颜色/透明度设置，确保设置页调整即时生效
     this.loadTitles();
 
+    // 【优化】阅读模式下返回页面时保持TabBar隐藏
+    if (this.data.readingMode) {
+      wx.hideTabBar({ animation: false });
+    }
+
     // 若有待加载的曲库数据则应用
     const pending = wx.getStorageSync('pending_notation_load');
     if (pending && pending.code) {
@@ -1229,6 +1234,10 @@ Page({
     if (this.data.isSelectingBeats) {
       this.exitSelectionMode();
     }
+    // 【优化】阅读模式下隐藏页面时恢复TabBar
+    if (this.data.readingMode) {
+      wx.showTabBar({ animation: false });
+    }
   },
 
   onUnload() {
@@ -1240,6 +1249,10 @@ Page({
     // 页面卸载时停止播放并释放资源
     if (this.data.isPlaybackMode) {
       this.exitPlaybackMode();
+    }
+    // 【优化】阅读模式下卸载页面时恢复TabBar
+    if (this.data.readingMode) {
+      wx.showTabBar({ animation: false });
     }
     // 仅当已加载时才销毁
     if (sheetPlaybackManager) {
@@ -4966,9 +4979,17 @@ Page({
     if (newReadingMode) {
       // 进入阅读模式：收起所有module的谱面图标
       this.collapseAllNotations();
+      // 隐藏TabBar
+      wx.hideTabBar({
+        animation: true
+      });
     } else {
       // 退出阅读模式：一键展开所有module
       this.expandAllNotations();
+      // 显示TabBar
+      wx.showTabBar({
+        animation: true
+      });
     }
   },
 
@@ -6202,6 +6223,49 @@ Page({
         renderer.setData(notation, orientation, notation.measuresPerRow || measuresPerRow);
         renderer.render();
       }
+    });
+  },
+
+  /**
+   * 刷新所有折叠模块的内嵌图片（谱式转换后调用）
+   * 遍历所有处于 collapsed 状态的模块，重新渲染 Canvas 并转换为图片
+   */
+  refreshCollapsedModulesImages() {
+    if (!this._canvasRenderers) {
+      this._canvasRenderers = {};
+    }
+    
+    const { notations, orientation, measuresPerRow, rightHandColor, leftHandColor } = this.data;
+    
+    // 筛选出所有折叠状态的模块
+    const collapsedModules = notations
+      .map((notation, index) => ({ notation, index }))
+      .filter(item => item.notation.collapsed);
+    
+    if (collapsedModules.length === 0) {
+      console.log('[Canvas] 没有折叠模块需要刷新图片');
+      return;
+    }
+    
+    console.log('[Canvas] 刷新折叠模块图片，数量:', collapsedModules.length);
+    
+    // 依次刷新每个折叠模块的图片
+    collapsedModules.forEach(({ notation, index }, idx) => {
+      // 延迟处理，避免同时更新太多Canvas导致卡顿
+      setTimeout(() => {
+        const renderer = this._canvasRenderers[notation.id];
+        if (renderer) {
+          // 更新渲染器数据并重新渲染
+          renderer.updateColors(rightHandColor, leftHandColor);
+          renderer.setData(notation, orientation, notation.measuresPerRow || measuresPerRow);
+          renderer.render();
+          // 重新转换为图片
+          this.convertCanvasToImage(notation.id, index);
+        } else {
+          // 渲染器不存在，先初始化再转图片
+          this.initCanvasRendererWithRetry(notation.id, index, 3);
+        }
+      }, idx * 100); // 每个模块间隔100ms
     });
   },
 
@@ -10241,6 +10305,9 @@ Page({
       // 执行逐位转换
       this.performNotationConversion(conversionTable);
       
+      // 【优化】刷新所有折叠模块的内嵌图片
+      this.refreshCollapsedModulesImages();
+      
       // 隐藏加载界面
       this.hidePageLoadingOverlay();
       
@@ -10848,10 +10915,23 @@ Page({
     }
 
     // 构建转换表（从映射数组）
+    // 【修复】根据转换方向正确选择源和目标：
+    // - 数字谱 → 简谱：源是 m.key（数字谱），目标是 m.simplified（简谱）
+    // - 简谱 → 数字谱：源是 m.simplified（简谱），目标是 m.key（数字谱）
     const conversionTable = {};
     this.data.conversionMappings.forEach(m => {
-      if (m.key && m.value && m.value.trim()) {
-        conversionTable[m.key] = m.value.trim();
+      if (oldType === 'digital') {
+        // 数字谱转简谱：key(数字谱) -> simplified(简谱)
+        if (m.key && m.simplified && m.simplified.trim()) {
+          conversionTable[m.key] = m.simplified.trim();
+        }
+      } else {
+        // 简谱转数字谱：simplified(简谱) -> key(数字谱)
+        // 【关键修复】使用 sourceNote 作为源（即谱面上的实际音符），key 作为目标
+        const sourceNote = m.sourceNote || m.simplified;
+        if (sourceNote && m.key && m.key.trim()) {
+          conversionTable[sourceNote] = m.key.trim();
+        }
       }
     });
 
@@ -10877,6 +10957,9 @@ Page({
     setTimeout(() => {
       // 执行逐位转换
       this.performNotationConversion(conversionTable);
+      
+      // 【优化】刷新所有折叠模块的内嵌图片
+      this.refreshCollapsedModulesImages();
       
       // 隐藏加载界面
       this.hidePageLoadingOverlay();

@@ -28,11 +28,11 @@ const COMPACT_CONFIG = {
   moduleRemarkColor: '#999999',
   annotationColor: '#666666',
   
-  // 音符轨道位置（从上到下）
-  trackRightHand1: 0.12,
-  trackRightHand2: 0.38,
-  trackLeftHand1: 0.65,
-  trackLeftHand2: 0.91,
+  // 【重构】槽位布局参数 - 与 canvasRenderer.js / config.js 保持一致
+  // 槽位高度占小节高度的比例（对应 config.js 中的 slotHeightRatio: 0.225）
+  slotHeightRatio: 0.225,
+  // 列间距（上下两个槽位之间）占小节高度的比例（对应 config.js 中的 columnGapRatio: 0.05）
+  columnGapRatio: 0.05,
   
   // 模块标签
   moduleLabelFontSize: 12,
@@ -231,6 +231,44 @@ function drawUnderline(ctx, x, y, width, thickness, color) {
   ctx.stroke();
 }
 
+/**
+ * 绘制琶音符号（波浪线）
+ * 与 canvasRenderer.js 中的 drawArpeggioSymbol 保持一致
+ * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
+ * @param {number} x - 符号左上角x坐标
+ * @param {number} measureY - 小节顶部y坐标
+ * @param {number} width - 符号宽度
+ * @param {number} measureHeight - 小节高度（用于垂直居中）
+ */
+function drawArpeggioSymbol(ctx, x, measureY, width, measureHeight) {
+  // 高度维持原比例：原图 86×715，约 8.3 倍
+  const symbolHeight = width * (715 / 86);
+  const symbolY = measureY + (measureHeight - symbolHeight) / 2;
+  
+  // 绘制波浪线
+  const centerX = x + width / 2;
+  const startY = symbolY;
+  const waveHeight = symbolHeight;
+  const amplitude = width * 0.35;
+  
+  ctx.save();
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(centerX, startY);
+  const steps = 40;
+  for (let i = 1; i <= steps; i++) {
+    const progress = i / steps;
+    const cy = startY + progress * waveHeight;
+    const cx = centerX + Math.sin(progress * Math.PI * 8) * amplitude;
+    ctx.lineTo(cx, cy);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 // ==================== 谱面代码解析函数 ====================
 
 /**
@@ -368,28 +406,83 @@ function findSeparatorIndex(content, separator) {
 }
 
 /**
- * 移除音符外层的 <> 或 {} 包裹
+ * 移除音符外层的 <> 或 {} 包裹（只移除最外层）
+ * 与 notation.js 中的 unwrapBracket 保持一致
  */
-function stripBrackets(note) {
-  if (!note) return '';
-  let result = note.trim();
-  // 循环移除外层包裹，支持嵌套情况
-  while (
-    (result.startsWith('<') && result.endsWith('>')) ||
-    (result.startsWith('{') && result.endsWith('}'))
-  ) {
-    result = result.slice(1, -1).trim();
+function unwrapBracket(token) {
+  if (!token) return '';
+  let result = token.trim();
+  if (result.startsWith('<') && result.endsWith('>')) {
+    return result.slice(1, -1);
+  }
+  if (result.startsWith('{') && result.endsWith('}')) {
+    return result.slice(1, -1);
   }
   return result;
 }
 
 /**
+ * 智能分割音符字符串，正确处理 <> 和 {} 包裹（支持嵌套）
+ * 与 notation.js 中的 smartSplitNotes 保持一致
+ * 例如：<1,^{5,}>,<1'^{H}> -> ['<1,^{5,}>', '<1'^{H}>']
+ */
+function smartSplitNotes(str) {
+  if (!str) return [];
+  const notes = [];
+  let current = '';
+  let angleDepth = 0;  // <> 深度
+  let braceDepth = 0;  // {} 深度
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    
+    // 只有当所有括号都关闭时，逗号才是分隔符
+    if (angleDepth === 0 && braceDepth === 0 && char === ',') {
+      // 顶层逗号，分割
+      if (current.trim()) {
+        notes.push(current.trim());
+      }
+      current = '';
+      continue;
+    }
+    
+    // 跟踪括号深度
+    if (char === '<') {
+      angleDepth++;
+    } else if (char === '>') {
+      angleDepth = Math.max(0, angleDepth - 1);
+    } else if (char === '{') {
+      braceDepth++;
+    } else if (char === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+    }
+    
+    current += char;
+  }
+  
+  // 添加最后一个token
+  if (current.trim()) {
+    notes.push(current.trim());
+  }
+  
+  return notes;
+}
+
+/**
  * 解析subdivision
  * 支持格式: (右手)/(左手), <复杂音符>/..., 简写格式等
+ * 支持琶音标记: ~(右手)/(左手)
  */
 function parseSubdivision(content) {
   if (!content || content === '-') {
     return { rightHand: ['', ''], leftHand: ['', ''] };
+  }
+  
+  // 检测并处理琶音标记 '~' - 在音符列前面
+  let hasArpeggio = false;
+  if (content.startsWith('~')) {
+    hasArpeggio = true;
+    content = content.slice(1); // 移除'~'前缀
   }
   
   let rightHand = ['', ''];
@@ -402,36 +495,45 @@ function parseSubdivision(content) {
     // 有 / 分隔符，分别解析左右手
     const rightPart = content.substring(0, slashIndex);
     const leftPart = content.substring(slashIndex + 1);
-    rightHand = parseHandNotes(rightPart);
-    leftHand = parseHandNotes(leftPart);
+    rightHand = parseHandNotes(unwrapBracket(rightPart), 'right');
+    leftHand = parseHandNotes(unwrapBracket(leftPart), 'left');
   } else if (slashIndex === 0) {
     // / 开头，只有左手
-    leftHand = parseHandNotes(content.substring(1));
+    leftHand = parseHandNotes(unwrapBracket(content.substring(1)), 'left');
   } else if (slashIndex === content.length - 1) {
     // / 结尾，只有右手
-    rightHand = parseHandNotes(content.substring(0, slashIndex));
+    rightHand = parseHandNotes(unwrapBracket(content.substring(0, slashIndex)), 'right');
   } else {
     // 没有 /，全部是右手
-    rightHand = parseHandNotes(content);
+    rightHand = parseHandNotes(unwrapBracket(content), 'right');
   }
   
-  return { rightHand, leftHand };
+  const result = { rightHand, leftHand };
+  if (hasArpeggio) result.hasArpeggio = true;
+  return result;
 }
 
 /**
- * 解析手部音符
- * 支持格式: (音符1,音符2), <复杂音符>, 单个音符等
+ * 解析手部音符（返回数组 [slot0, slot1]）
+ * 与 notation.js 中的 parseHandNotes 保持一致
+ * 支持 <> 包裹的特殊音符
+ * 
+ * 【重要】单音符贴中轴规则：
+ * - 右手单音符：放在 index=1（内侧，靠近中轴）
+ * - 左手单音符：放在 index=0（内侧，靠近中轴）
+ * 
+ * @param {string} content - 手部音符内容
+ * @param {string} hand - 'right' 或 'left'
+ * @returns {Array} [slot0, slot1]
  */
-function parseHandNotes(content) {
+function parseHandNotes(content, hand) {
   if (!content || content === '-' || content === '' || content === '()') {
     return ['', ''];
   }
   
-  // 移除外层括号 () 或尖括号 <> 或花括号 {}
+  // 移除外层括号 ()
   let inner = content.trim();
-  if ((inner.startsWith('(') && inner.endsWith(')')) ||
-      (inner.startsWith('<') && inner.endsWith('>')) ||
-      (inner.startsWith('{') && inner.endsWith('}'))) {
+  if (inner.startsWith('(') && inner.endsWith(')')) {
     inner = inner.slice(1, -1);
   }
   
@@ -439,20 +541,71 @@ function parseHandNotes(content) {
     return ['', ''];
   }
   
-  // 检查是否有逗号分隔的多音符（需要跳过括号内的逗号）
-  const commaIndex = findSeparatorIndex(inner, ',');
-  if (commaIndex > 0) {
-    const note1 = inner.substring(0, commaIndex).trim();
-    const note2 = inner.substring(commaIndex + 1).trim();
-    // 继续处理每个音符，移除可能的 <> 包裹
-    return [stripBrackets(note1), stripBrackets(note2)];
+  // 使用智能分割处理逗号（跳过 <> 和 {} 内的逗号）
+  const notes = smartSplitNotes(inner);
+  
+  if (notes.length === 1) {
+    // 【重要】单个音符：默认放在靠近中轴线的位置
+    // 右手：放在 slot1（index 1）
+    // 左手：放在 slot0（index 0，因为左手的 slot0 更靠近中轴线）
+    const parsedNote = unwrapBracket(notes[0]);
+    if (hand === 'right') {
+      return ['', parsedNote];
+    } else {
+      return [parsedNote, ''];
+    }
+  } else if (notes.length >= 2) {
+    // 两个音符：外侧和内侧
+    const note0 = unwrapBracket(notes[0]);
+    const note1 = unwrapBracket(notes[1]);
+    return [note0, note1];
   }
   
-  // 单个音符，移除可能的 <> 包裹
-  return [stripBrackets(inner), ''];
+  return ['', ''];
 }
 
 // ==================== 核心绘制函数 ====================
+
+/**
+ * 计算槽位Y坐标
+ * 与 canvasRenderer.js 中的 drawNoteSlots 逻辑保持一致
+ * @param {number} measureY - 小节顶部Y坐标
+ * @param {number} measureHeight - 小节高度
+ * @param {string} hand - 'right' 或 'left'
+ * @param {number} index - 槽位索引 (0=外侧, 1=内侧)
+ * @returns {number} 槽位中心Y坐标
+ */
+function calculateSlotY(measureY, measureHeight, hand, index) {
+  const config = COMPACT_CONFIG;
+  
+  // 计算槽位高度和列间距（基于小节高度的比例）
+  const slotHeight = measureHeight * config.slotHeightRatio;
+  const columnGap = measureHeight * config.columnGapRatio;
+  // 内侧槽位偏移：使用固定的 3rpx * rpxToPxRatio，与 config.js 中的 innerSlotOffset: 3 一致
+  const innerSlotOffset = 3 * config.rpxToPxRatio;
+  
+  // 获取手区域的顶部Y和高度（小节分为上下两半）
+  const handAreaHeight = measureHeight / 2;
+  const handAreaY = hand === 'right' ? measureY : measureY + measureHeight / 2;
+  
+  // 计算两个槽位居中排列的起始Y
+  const totalSlotsHeight = slotHeight * 2 + columnGap;
+  const startY = handAreaY + (handAreaHeight - totalSlotsHeight) / 2;
+  
+  // 计算槽位中心Y
+  let slotY = startY + index * (slotHeight + columnGap) + slotHeight / 2;
+  
+  // 调整内侧槽位位置，使其远离中轴线
+  // 右手：index=1 是内侧，向上偏移（减少Y）
+  // 左手：index=0 是内侧，向下偏移（增加Y）
+  if (hand === 'right' && index === 1) {
+    slotY -= innerSlotOffset;
+  } else if (hand === 'left' && index === 0) {
+    slotY += innerSlotOffset;
+  }
+  
+  return slotY;
+}
 
 /**
  * 绘制单个小节（完整版，支持所有音符特性）
@@ -463,12 +616,6 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
   const beatCount = Array.isArray(measure.beats) ? measure.beats.length : 4;
   const beatWidth = width / (beatCount || 4);
   const lineHeight = measureHeight || 70;
-  
-  // 定义固定的音符轨道位置
-  const trackRightHand1 = config.trackRightHand1;
-  const trackRightHand2 = config.trackRightHand2;
-  const trackLeftHand1 = config.trackLeftHand1;
-  const trackLeftHand2 = config.trackLeftHand2;
   
   // 绘制小节编号
   if (typeof measureIndex === 'number') {
@@ -540,6 +687,17 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
         ctx.stroke();
       }
       
+      // 计算音符偏移量（用于琶音符号）
+      let noteOffsetX = 0;
+      const hasArpeggio = subdivision.hasArpeggio;
+      
+      // 如果有琶音标记，绘制琶音符号并偏移音符
+      if (hasArpeggio) {
+        const arpeggioWidth = 6; // 琶音符号宽度（px）
+        noteOffsetX = arpeggioWidth;
+        drawArpeggioSymbol(ctx, subX + 1, y, arpeggioWidth - 1, lineHeight);
+      }
+      
       // 音符缩放
       const noteScaleFactor = config.noteScaleFactor || 1.0;
       const baseFontSize = noteFontSizePx || 14;
@@ -548,7 +706,7 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      const noteX = subX + subdivisionWidth / 2;
+      const noteX = subX + noteOffsetX + (subdivisionWidth - noteOffsetX) / 2;
       
       // 音高圆点参数
       const dotSizeRatio = config.dotSizeRatio || 0.19;
@@ -658,23 +816,25 @@ function drawMeasure(ctx, measure, x, y, width, rightHandColor, leftHandColor, m
         }
       };
       
-      // 右手（上方）
+      // 右手（上方）- 使用与 canvasRenderer 一致的槽位计算
+      // index=0 是外侧（上），index=1 是内侧（下，靠近中轴）
       if (subdivision.rightHand && subdivision.rightHand[0]) {
-        const noteY0 = y + lineHeight * trackRightHand1;
+        const noteY0 = calculateSlotY(y, lineHeight, 'right', 0);
         drawNoteWithFeatures(subdivision.rightHand[0], noteX, noteY0, rightHandColor || config.defaultRightHandColor);
       }
       if (subdivision.rightHand && subdivision.rightHand[1]) {
-        const noteY1 = y + lineHeight * trackRightHand2;
+        const noteY1 = calculateSlotY(y, lineHeight, 'right', 1);
         drawNoteWithFeatures(subdivision.rightHand[1], noteX, noteY1, rightHandColor || config.defaultRightHandColor);
       }
       
-      // 左手（下方）
+      // 左手（下方）- 使用与 canvasRenderer 一致的槽位计算
+      // index=0 是内侧（上，靠近中轴），index=1 是外侧（下）
       if (subdivision.leftHand && subdivision.leftHand[0]) {
-        const noteY0 = y + lineHeight * trackLeftHand1;
+        const noteY0 = calculateSlotY(y, lineHeight, 'left', 0);
         drawNoteWithFeatures(subdivision.leftHand[0], noteX, noteY0, leftHandColor || config.defaultLeftHandColor);
       }
       if (subdivision.leftHand && subdivision.leftHand[1]) {
-        const noteY1 = y + lineHeight * trackLeftHand2;
+        const noteY1 = calculateSlotY(y, lineHeight, 'left', 1);
         drawNoteWithFeatures(subdivision.leftHand[1], noteX, noteY1, leftHandColor || config.defaultLeftHandColor);
       }
       

@@ -313,8 +313,8 @@ module.exports = {
 };
 </wxs>
 
-<!-- 自定义导航栏 -->
-<view class="custom-nav-bar">
+<!-- 自定义导航栏（阅读模式下隐藏） -->
+<view class="custom-nav-bar" wx:if="{{!readingMode}}">
   <view class="nav-bar-content">
     <text class="nav-bar-title">Orbit Note</text>
   </view>
@@ -2400,6 +2400,10 @@ module.exports = {
         <view class="update-item">
           <text class="update-icon">📖</text>
           <text class="update-text">新手教程更新时值说明</text>
+        </view>
+        <view class="update-item">
+          <text class="update-icon">note：</text>
+          <text class="update-text">修复谱式转换错误的bug</text>
         </view>
       </view>
 

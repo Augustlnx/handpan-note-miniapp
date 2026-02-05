@@ -1546,6 +1546,9 @@ Page({
     
     this.setData({ handpanNotes, handpanVolume });
     
+    // 重置音符索引缓存
+    this._resetNoteIndexCache();
+    
     // 初始化手碟音频缓存
     this.handpanAudioBuffers = new Map();
     this.handpanAudioLoaded = false;
@@ -1627,36 +1630,96 @@ Page({
     }
   },
 
-  // 电子手碟音符触摸开始（支持多点触控）
+  // ========== 电子手碟触摸优化系统 ==========
+  // 待更新的激活状态队列 { noteIndex: boolean }
+  _pendingActiveUpdates: {},
+  // 批量更新定时器
+  _batchUpdateTimer: null,
+  // 批量更新间隔（毫秒）- 约16ms对应60fps
+  _batchUpdateInterval: 16,
+  
+  /**
+   * 批量合并 setData 更新
+   * 将多个音符的激活状态变化合并为一次 setData 调用
+   */
+  _scheduleBatchUpdate() {
+    if (this._batchUpdateTimer) return;
+    
+    this._batchUpdateTimer = setTimeout(() => {
+      this._batchUpdateTimer = null;
+      
+      const updates = this._pendingActiveUpdates;
+      this._pendingActiveUpdates = {};
+      
+      // 使用路径更新，只更新变化的音符
+      const setDataObj = {};
+      const noteIndices = Object.keys(updates);
+      
+      for (let i = 0; i < noteIndices.length; i++) {
+        const idx = noteIndices[i];
+        setDataObj[`handpanNotes[${idx}].active`] = updates[idx];
+      }
+      
+      if (Object.keys(setDataObj).length > 0) {
+        this.setData(setDataObj);
+      }
+    }, this._batchUpdateInterval);
+  },
+  
+  /**
+   * 查找音符在数组中的索引（使用缓存提升性能）
+   */
+  _getNoteIndex(noteId) {
+    // 懒加载索引映射
+    if (!this._noteIdToIndexMap) {
+      this._noteIdToIndexMap = {};
+      const notes = this.data.handpanNotes;
+      for (let i = 0; i < notes.length; i++) {
+        this._noteIdToIndexMap[notes[i].id] = i;
+      }
+    }
+    return this._noteIdToIndexMap[noteId];
+  },
+  
+  /**
+   * 重置音符索引缓存（当音符配置变化时调用）
+   */
+  _resetNoteIndexCache() {
+    this._noteIdToIndexMap = null;
+  },
+
+  // 电子手碟音符触摸开始（支持多点触控，优化响应速度）
   onEPanNoteTouchStart(e) {
     const noteId = e.currentTarget.dataset.id;
     const noteName = e.currentTarget.dataset.note;
     
-    // 立即播放音频（最高优先级，减少延迟）
+    // 【最高优先级】立即播放音频 - 同步执行，无任何延迟
     this.playHandpanNote(noteName);
     
-    // 视觉反馈（异步更新，不阻塞音频播放）
-    const handpanNotes = this.data.handpanNotes.map(n => ({
-      ...n,
-      active: n.id === noteId ? true : n.active
-    }));
-    this.setData({ handpanNotes });
+    // 【异步】视觉反馈 - 使用批量合并更新，不阻塞后续触摸事件
+    const noteIndex = this._getNoteIndex(noteId);
+    if (noteIndex !== undefined) {
+      this._pendingActiveUpdates[noteIndex] = true;
+      this._scheduleBatchUpdate();
+    }
     
-    // 触发振动
-    wx.vibrateShort({ type: 'light' });
+    // 【异步】触发振动 - 放入微任务队列，不阻塞主线程
+    Promise.resolve().then(() => {
+      wx.vibrateShort({ type: 'light' });
+    });
   },
 
   // 电子手碟音符触摸结束
   onEPanNoteTouchEnd(e) {
     const noteId = e.currentTarget.dataset.id;
+    const noteIndex = this._getNoteIndex(noteId);
     
-    // 延迟200ms移除激活状态
+    if (noteIndex === undefined) return;
+    
+    // 延迟200ms移除激活状态，使用批量更新
     setTimeout(() => {
-      const handpanNotes = this.data.handpanNotes.map(n => ({
-        ...n,
-        active: n.id === noteId ? false : n.active
-      }));
-      this.setData({ handpanNotes });
+      this._pendingActiveUpdates[noteIndex] = false;
+      this._scheduleBatchUpdate();
     }, 200);
   },
 
@@ -2057,6 +2120,9 @@ Page({
     });
     
     this.setData({ handpanNotes });
+    
+    // 重置音符索引缓存
+    this._resetNoteIndexCache();
   },
 
   // 添加音符
@@ -2413,6 +2479,9 @@ Page({
       handpanEditorVisible: false,
       handpanDisplayMode: 'note' // 重置为音名模式
     });
+    
+    // 重置音符索引缓存
+    this._resetNoteIndexCache();
     
     // 重新加载音频
     this.handpanAudioLoaded = false;
