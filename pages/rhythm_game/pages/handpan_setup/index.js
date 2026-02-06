@@ -390,7 +390,7 @@ Page({
     
     // 跳转到游戏页面
     wx.navigateTo({
-      url: '/subpackages/rhythm_game/pages/gameplay/index'
+      url: '/pages/rhythm_game/pages/gameplay/index'
     });
   },
 

@@ -282,7 +282,7 @@ Page({
     
     // 导航到手碟设置页面
     wx.navigateTo({
-      url: '/subpackages/rhythm_game/pages/handpan_setup/index'
+      url: '/pages/rhythm_game/pages/handpan_setup/index'
     });
   },
 

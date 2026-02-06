@@ -78,7 +78,7 @@
       ]
     },
     {
-      "root": "subpackages/rhythm_game",
+      "root": "pages/rhythm_game",
       "name": "rhythm_game",
       "pages": [
         "pages/entry/index",

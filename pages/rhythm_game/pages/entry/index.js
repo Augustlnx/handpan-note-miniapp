@@ -311,7 +311,7 @@ Page({
     app.globalData.rhythmGameSheet = sheetData;
     
     wx.navigateTo({
-      url: '/subpackages/rhythm_game/pages/audio_mapping/index'
+      url: '/pages/rhythm_game/pages/audio_mapping/index'
     });
   },
 

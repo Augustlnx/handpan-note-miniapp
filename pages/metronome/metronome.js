@@ -3135,7 +3135,7 @@ Page({
 
     // 导航到音游入口页面
     wx.navigateTo({
-      url: '/subpackages/rhythm_game/pages/entry/index',
+      url: '/pages/rhythm_game/pages/entry/index',
       fail: (err) => {
         console.error('[Metronome] 导航到音游页面失败:', err);
         wx.showToast({
