@@ -4043,3 +4043,60 @@ slider {
   font-size: 24rpx;
   color: #888;
 }
+
+/* ========== 开始演奏按钮区域 ========== */
+.start-play-section {
+  padding: 32rpx 24rpx 48rpx;
+  margin-top: 16rpx;
+}
+
+.start-play-btn {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 28rpx;
+  background: linear-gradient(135deg, #F4D096 0%, #e6c080 100%);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(244, 208, 150, 0.3);
+  transition: all 0.3s ease;
+}
+
+.start-play-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 16rpx rgba(244, 208, 150, 0.4);
+}
+
+.start-play-icon {
+  width: 80rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #314D63 0%, #456781 100%);
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  margin-right: 24rpx;
+}
+
+.start-play-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.start-play-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #5a4520;
+}
+
+.start-play-desc {
+  font-size: 24rpx;
+  color: #8b7355;
+}
+
+.start-play-arrow {
+  font-size: 48rpx;
+  color: #8b7355;
+  margin-left: 16rpx;
+}

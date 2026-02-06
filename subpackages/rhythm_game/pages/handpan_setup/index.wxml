@@ -1,0 +1,125 @@
+<!-- 手碟设置页面 -->
+<view class="setup-container">
+  <!-- 自定义导航栏 -->
+  <view class="custom-nav-bar">
+    <view class="nav-bar-left" bindtap="onBack">
+      <image class="nav-back-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
+    </view>
+    <view class="nav-bar-content">
+      <text class="nav-bar-title">手碟设置</text>
+    </view>
+    <view class="nav-bar-right">
+      <view class="display-mode-btn" bindtap="onToggleDisplayMode">
+        <text>{{displayModeLabels[displayMode]}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 主内容区域 -->
+  <view class="main-content">
+    <!-- 手碟区域 -->
+    <view class="handpan-section">
+      <view class="handpan-container">
+        <view class="handpan-bg">
+          <!-- 音符区域 -->
+          <view wx:for="{{handpanNotes}}" wx:key="id"
+                class="handpan-note {{item.active ? 'active' : ''}} {{item.id === 0 ? 'ding' : ''}}"
+                style="left: {{item.renderX}}%; top: {{item.renderY}}%; width: {{item.renderW}}%; height: {{item.renderH}}%; transform: rotate({{item.angle + 90}}deg);"
+                data-id="{{item.id}}"
+                data-note="{{item.note}}"
+                bindtouchstart="onNoteTouchStart"
+                bindtouchend="onNoteTouchEnd">
+            <view class="note-inner">
+              <view class="note-outer"></view>
+              <view class="note-inner-ring {{item.id === 0 ? 'ding-convex' : ''}}"></view>
+              <view class="note-display" style="transform: rotate({{-(item.angle + 90)}}deg);">
+                <text class="note-name">{{item.displayText || item.note}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 音量控制 -->
+      <view class="volume-bar">
+        <image class="volume-icon" src="/assets/icons/volume.svg" mode="aspectFit"></image>
+        <slider class="volume-slider" 
+                min="0" max="100" 
+                value="{{handpanVolume}}" 
+                activeColor="#456781" 
+                backgroundColor="#1c3141"
+                block-size="20"
+                bindchange="onVolumeChange"/>
+      </view>
+    </view>
+
+    <!-- 常驻按钮区域 -->
+    <view class="resident-buttons-section">
+      <view class="section-label">
+        <text class="label-text">常驻按钮</text>
+        <text class="label-hint">长按可编辑</text>
+      </view>
+      <view class="resident-buttons">
+        <view wx:for="{{residentButtons}}" wx:key="id"
+              class="resident-btn {{item.active ? 'active' : ''}}"
+              data-id="{{item.id}}"
+              bindtouchstart="onResidentBtnTouchStart"
+              bindtouchend="onResidentBtnTouchEnd"
+              bindlongpress="onResidentBtnLongPress">
+          <text class="btn-label">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 映射验证提示 -->
+    <view class="validation-section">
+      <view class="validation-card {{mappingValid ? 'valid' : 'invalid'}}">
+        <view class="validation-icon">
+          <text wx:if="{{mappingValid}}">✓</text>
+          <text wx:else>!</text>
+        </view>
+        <view class="validation-info">
+          <text class="validation-title">{{mappingValid ? '映射验证通过' : '映射不完整'}}</text>
+          <text class="validation-desc" wx:if="{{!mappingValid}}">
+            缺少音符: {{missingNotes.length > 0 ? missingNotes[0].spn : ''}} 等{{missingNotes.length}}个
+          </text>
+          <text class="validation-desc" wx:if="{{mappingValid}}">
+            所有谱面音符都已映射到手碟按键
+          </text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="footer-bar">
+    <view class="footer-btn cancel" bindtap="onBack">返回</view>
+    <view class="footer-btn confirm {{!mappingValid ? 'disabled' : ''}}" bindtap="onStartPlay">
+      <text>开始演奏</text>
+      <view class="loading-indicator" wx:if="{{audioLoading}}"></view>
+    </view>
+  </view>
+
+  <!-- 按钮编辑弹窗 -->
+  <view class="modal-overlay {{showButtonEditor ? 'active' : ''}}" catchtap="onCancelButtonEdit">
+    <view class="button-editor-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">编辑按钮</text>
+      </view>
+      <view class="modal-content">
+        <view class="form-group">
+          <text class="form-label">按钮标签</text>
+          <input class="form-input" 
+                 value="{{editingButtonLabel}}" 
+                 bindinput="onButtonLabelInput"
+                 placeholder="输入按钮标签"
+                 maxlength="4" />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <view class="modal-btn cancel" bindtap="onCancelButtonEdit">取消</view>
+        <view class="modal-btn confirm" bindtap="onConfirmButtonEdit">确定</view>
+      </view>
+    </view>
+  </view>
+</view>

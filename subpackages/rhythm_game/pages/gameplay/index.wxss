@@ -1,0 +1,752 @@
+/* 音游主界面样式 */
+.gameplay-container {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(180deg, #1a2a3a 0%, #2a3a4a 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 顶部状态栏 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  padding: 60rpx 24rpx 20rpx;
+  background: linear-gradient(180deg, rgba(26, 42, 58, 0.98) 0%, transparent 100%);
+  position: relative;
+  z-index: 100;
+}
+
+.menu-btn {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 12rpx;
+}
+
+.menu-line {
+  width: 100%;
+  height: 4rpx;
+  background: #B2E8E8;
+  border-radius: 2rpx;
+}
+
+.status-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.song-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.bpm-display {
+  font-size: 24rpx;
+  color: rgba(178, 232, 232, 0.8);
+}
+
+.score-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4rpx;
+}
+
+.score-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #F4D096;
+  text-shadow: 0 2rpx 8rpx rgba(244, 208, 150, 0.4);
+}
+
+.combo-value {
+  font-size: 24rpx;
+  color: #B2E8E8;
+  animation: pulse 0.5s ease;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* 谱面区域 */
+.score-section {
+  height: 200rpx;
+  position: relative;
+  background: rgba(26, 42, 58, 0.95);
+  border-bottom: 2rpx solid rgba(178, 232, 232, 0.2);
+  overflow: hidden;
+}
+
+.score-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* 光标 */
+.cursor-line {
+  position: absolute;
+  left: 200rpx;
+  top: 0;
+  bottom: 0;
+  width: 4rpx;
+  background: linear-gradient(180deg, transparent 0%, #B2E8E8 20%, #B2E8E8 80%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.cursor-line.golden {
+  background: linear-gradient(180deg, transparent 0%, #F4D096 20%, #F4D096 80%, transparent 100%);
+}
+
+.cursor-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20rpx;
+  height: 20rpx;
+  background: radial-gradient(circle, rgba(178, 232, 232, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: glow 1s ease-in-out infinite;
+}
+
+.cursor-line.golden .cursor-glow {
+  background: radial-gradient(circle, rgba(244, 208, 150, 0.8) 0%, transparent 70%);
+}
+
+@keyframes glow {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.6; }
+}
+
+/* 判定反馈文字 */
+.feedback-text {
+  position: absolute;
+  left: 200rpx;
+  top: 20rpx;
+  transform: translateX(-50%);
+  font-size: 32rpx;
+  font-weight: 700;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 20;
+  transition: all 0.1s ease;
+}
+
+.feedback-text.perfect {
+  color: #F4D096;
+}
+
+.feedback-text.good {
+  color: #4a90d9;
+}
+
+.feedback-text.miss {
+  color: #888888;
+}
+
+/* 手碟区域 */
+.handpan-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  min-height: 0;
+}
+
+.handpan-container {
+  width: 100%;
+  max-width: 550rpx;
+  aspect-ratio: 1;
+  position: relative;
+}
+
+.handpan-bg {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, #3a4a5a 0%, #2a3a4a 50%, #1a2a3a 100%);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 
+    inset 0 10rpx 40rpx rgba(0, 0, 0, 0.5),
+    0 20rpx 60rpx rgba(0, 0, 0, 0.4);
+}
+
+/* 手碟音符 */
+.handpan-note {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+
+.handpan-note:active,
+.handpan-note.active {
+  transform: rotate(var(--rotate, 0deg)) scale(0.93);
+}
+
+.note-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.note-outer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a5a6a 0%, #3a4a5a 100%);
+  box-shadow: 
+    inset 0 2rpx 8rpx rgba(255, 255, 255, 0.1),
+    inset 0 -2rpx 8rpx rgba(0, 0, 0, 0.2);
+}
+
+.note-inner-ring {
+  position: absolute;
+  width: 65%;
+  height: 65%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5a6a7a 0%, #4a5a6a 100%);
+}
+
+.note-inner-ring.ding-convex {
+  background: radial-gradient(circle at 40% 40%, #6a7a8a 0%, #5a6a7a 50%, #4a5a6a 100%);
+}
+
+.note-display {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.note-name {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #B2E8E8;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.5);
+}
+
+.handpan-note.ding .note-name {
+  font-size: 32rpx;
+  color: #F4D096;
+}
+
+.handpan-note.active .note-outer {
+  box-shadow: 
+    inset 0 2rpx 8rpx rgba(255, 255, 255, 0.15),
+    0 0 40rpx rgba(178, 232, 232, 0.5);
+}
+
+/* 虚影提示动画 */
+.hint-ring {
+  position: absolute;
+  width: 120%;
+  height: 120%;
+  border: 4rpx solid #F4D096;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 20rpx rgba(244, 208, 150, 0.5);
+}
+
+/* 水波纹效果 */
+.ripple-effect {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3rpx solid;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 常驻按钮 */
+.resident-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 20rpx 0;
+}
+
+.resident-btn {
+  width: 90rpx;
+  height: 64rpx;
+  background: linear-gradient(135deg, #3a4a5a 0%, #2a3a4a 100%);
+  border: 2rpx solid rgba(178, 232, 232, 0.3);
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.1s ease;
+}
+
+.resident-btn:active,
+.resident-btn.active {
+  background: linear-gradient(135deg, #4a5a6a 0%, #3a4a5a 100%);
+  border-color: #B2E8E8;
+  transform: scale(0.95);
+  box-shadow: 0 0 20rpx rgba(178, 232, 232, 0.4);
+}
+
+.btn-label {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #B2E8E8;
+}
+
+.btn-hint-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3rpx solid #F4D096;
+  border-radius: 14rpx;
+  pointer-events: none;
+  box-shadow: 0 0 15rpx rgba(244, 208, 150, 0.5);
+}
+
+/* 底部控制栏 */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background: rgba(26, 42, 58, 0.95);
+}
+
+.control-btn {
+  width: 72rpx;
+  height: 72rpx;
+  background: rgba(178, 232, 232, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-icon {
+  font-size: 32rpx;
+  color: #B2E8E8;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #B2E8E8 0%, #F4D096 100%);
+  border-radius: 4rpx;
+  transition: width 0.1s linear;
+}
+
+.time-display {
+  min-width: 120rpx;
+  text-align: right;
+}
+
+.time-display text {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 侧边菜单 */
+.side-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.side-menu-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.side-menu {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 70%;
+  max-width: 500rpx;
+  background: linear-gradient(180deg, #2a3a4a 0%, #1a2a3a 100%);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.side-menu-overlay.active .side-menu {
+  transform: translateX(0);
+}
+
+.menu-header {
+  padding: 80rpx 32rpx 32rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.menu-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 12rpx;
+}
+
+.difficulty-badge {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  background: rgba(244, 208, 150, 0.2);
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: #F4D096;
+}
+
+.menu-items {
+  flex: 1;
+  padding: 24rpx 0;
+  overflow-y: auto;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  transition: background 0.2s ease;
+}
+
+.menu-item:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.item-icon {
+  font-size: 36rpx;
+  margin-right: 20rpx;
+}
+
+.item-text {
+  flex: 1;
+  font-size: 30rpx;
+  color: #ffffff;
+}
+
+.item-badge {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 6rpx 12rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8rpx;
+}
+
+.menu-divider {
+  height: 1rpx;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 16rpx 32rpx;
+}
+
+.menu-item.exit .item-text {
+  color: #ff6b6b;
+}
+
+.menu-footer {
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.resume-btn {
+  width: 100%;
+  padding: 28rpx;
+  background: linear-gradient(135deg, #F4D096 0%, #e6c080 100%);
+  border-radius: 16rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #5a4520;
+}
+
+/* 加载遮罩 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #1a2a3a 0%, #2a3a4a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.loading-ring {
+  width: 80rpx;
+  height: 80rpx;
+  border: 4rpx solid rgba(178, 232, 232, 0.2);
+  border-top-color: #B2E8E8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #B2E8E8;
+}
+
+.loading-bar {
+  width: 400rpx;
+  height: 8rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.loading-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #B2E8E8 0%, #F4D096 100%);
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+/* 开始游戏提示 */
+.start-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(26, 42, 58, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+}
+
+.start-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  padding: 60rpx;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 32rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.start-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+}
+
+.start-hint {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.7);
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.start-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+
+.start-stats text {
+  font-size: 24rpx;
+  color: rgba(178, 232, 232, 0.8);
+}
+
+/* 循环模式控制 */
+.loop-controls {
+  position: absolute;
+  left: 16rpx;
+  top: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  z-index: 30;
+}
+
+.loop-check-btn {
+  width: 56rpx;
+  height: 56rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid rgba(178, 232, 232, 0.5);
+  transition: all 0.2s ease;
+}
+
+.loop-check-btn.locked {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: #4CAF50;
+}
+
+.loop-check-btn text {
+  font-size: 28rpx;
+  color: #B2E8E8;
+}
+
+.loop-check-btn.locked text {
+  color: #4CAF50;
+}
+
+.loop-action-btns {
+  display: flex;
+  gap: 8rpx;
+}
+
+.loop-btn {
+  width: 48rpx;
+  height: 48rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.loop-btn.play {
+  background: rgba(244, 208, 150, 0.3);
+}
+
+.loop-btn.reset {
+  background: rgba(178, 232, 232, 0.2);
+}
+
+.loop-btn text {
+  font-size: 24rpx;
+  color: #ffffff;
+}
+
+.loop-btn:active {
+  transform: scale(0.9);
+}
+
+/* 循环标记线 */
+.loop-start-line,
+.loop-end-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4rpx;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.loop-start-line {
+  background: linear-gradient(180deg, transparent 0%, #4CAF50 20%, #4CAF50 80%, transparent 100%);
+}
+
+.loop-end-line {
+  background: linear-gradient(180deg, transparent 0%, #F44336 20%, #F44336 80%, transparent 100%);
+}
+
+.loop-line-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+}
+
+.loop-line-indicator.start {
+  left: -8rpx;
+  background: #4CAF50;
+  box-shadow: 0 0 12rpx rgba(76, 175, 80, 0.6);
+}
+
+.loop-line-indicator.end {
+  right: -8rpx;
+  background: #F44336;
+  box-shadow: 0 0 12rpx rgba(244, 67, 54, 0.6);
+}
+
+/* 速度控制 */
+.speed-control {
+  padding: 16rpx 32rpx 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.speed-slider {
+  flex: 1;
+}
+
+.speed-value {
+  min-width: 80rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+/* 伴奏模式提示 */
+.accompaniment-indicator {
+  position: absolute;
+  right: 16rpx;
+  top: 16rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(244, 208, 150, 0.3);
+  border-radius: 12rpx;
+  z-index: 30;
+}
+
+.accompaniment-indicator text {
+  font-size: 22rpx;
+  color: #F4D096;
+}

@@ -1,0 +1,147 @@
+<!-- 音频映射配置页面 -->
+<view class="mapping-container">
+  <!-- 自定义导航栏 -->
+  <view class="custom-nav-bar">
+    <view class="nav-bar-left" bindtap="onBack">
+      <image class="nav-back-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
+    </view>
+    <view class="nav-bar-content">
+      <text class="nav-bar-title">音频映射设置</text>
+    </view>
+    <view class="nav-bar-right"></view>
+  </view>
+
+  <!-- 主内容区域 -->
+  <scroll-view class="main-content" scroll-y enhanced show-scrollbar="{{false}}">
+    <!-- 曲谱信息卡片 -->
+    <view class="sheet-info-card">
+      <view class="sheet-title">{{sheetData.title || '未命名曲谱'}}</view>
+      <view class="sheet-meta">
+        <text class="meta-item">{{sheetData.tempo || 80}} BPM</text>
+        <text class="meta-divider">|</text>
+        <text class="meta-item">{{sheetData.rootNote || 'D'}}-{{sheetData.scaleType || 'Kurd'}}</text>
+        <text class="meta-divider">|</text>
+        <text class="meta-item">{{sheetData.composer || 'Unknown'}}</text>
+      </view>
+    </view>
+
+    <!-- 谱式选择 -->
+    <view class="section-card">
+      <view class="section-header">
+        <text class="section-title">谱式选择</text>
+        <text class="section-desc">选择游戏中显示的谱面格式</text>
+      </view>
+      <view class="notation-type-tabs">
+        <view class="type-tab {{notationType === 'simplified' ? 'active' : ''}}" 
+              bindtap="onNotationTypeChange" data-type="simplified">
+          <text class="tab-label">简谱</text>
+          <text class="tab-example">1 2 3 4 5</text>
+        </view>
+        <view class="type-tab {{notationType === 'digital' ? 'active' : ''}}" 
+              bindtap="onNotationTypeChange" data-type="digital">
+          <text class="tab-label">数字谱</text>
+          <text class="tab-example">1 2 3 4 5 6 7 8 9</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 首调设置 -->
+    <view class="section-card">
+      <view class="section-header">
+        <text class="section-title">首调设置</text>
+        <text class="section-desc">设置简谱"1"对应的音高</text>
+      </view>
+      <view class="root-note-selector" bindtap="onOpenRootPicker">
+        <text class="root-label">简谱 1 =</text>
+        <text class="root-value">{{conversionRootNote}}</text>
+        <text class="root-arrow">▼</text>
+      </view>
+    </view>
+
+    <!-- 谱面使用的音符 -->
+    <view class="section-card" wx:if="{{extractedNotes.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">谱面音符</text>
+        <text class="section-desc">当前谱面中使用的音符</text>
+      </view>
+      <view class="extracted-notes">
+        <view class="note-chip" wx:for="{{extractedNotes}}" wx:key="*this">
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 映射表 -->
+    <view class="section-card mapping-section">
+      <view class="section-header">
+        <text class="section-title">音频映射表</text>
+        <text class="section-desc">点击可编辑映射关系</text>
+      </view>
+      
+      <!-- 映射表表头 -->
+      <view class="mapping-header">
+        <text class="mapping-col col-key">数字谱</text>
+        <text class="mapping-col col-simplified">简谱</text>
+        <text class="mapping-col col-spn">SPN音名</text>
+      </view>
+      
+      <!-- 映射列表 -->
+      <view class="mapping-list">
+        <view class="mapping-row {{extractedNotes.includes(item.key) ? 'highlight' : ''}}" 
+              wx:for="{{conversionMappings}}" wx:key="key">
+          <text class="mapping-col col-key">{{item.key}}</text>
+          
+          <view class="mapping-col col-simplified" bindtap="onStartEdit" data-index="{{index}}" data-field="simplified">
+            <input wx:if="{{editingIndex === index && editingField === 'simplified'}}"
+                   class="mapping-input"
+                   value="{{editingValue}}"
+                   bindinput="onEditInput"
+                   bindblur="onEditBlur"
+                   focus="{{true}}"
+                   placeholder="简谱" />
+            <text wx:else class="mapping-value">{{item.simplified || '-'}}</text>
+          </view>
+          
+          <view class="mapping-col col-spn" bindtap="onStartEdit" data-index="{{index}}" data-field="spn">
+            <input wx:if="{{editingIndex === index && editingField === 'spn'}}"
+                   class="mapping-input"
+                   value="{{editingValue}}"
+                   bindinput="onEditInput"
+                   bindblur="onEditBlur"
+                   focus="{{true}}"
+                   placeholder="SPN" />
+            <text wx:else class="mapping-value {{!item.spn ? 'empty' : ''}}">{{item.spn || '(无音频)'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部占位 -->
+    <view class="bottom-placeholder"></view>
+  </scroll-view>
+
+  <!-- 底部操作栏 -->
+  <view class="footer-bar">
+    <view class="footer-btn cancel" bindtap="onBack">返回</view>
+    <view class="footer-btn confirm" bindtap="onConfirm">下一步</view>
+  </view>
+
+  <!-- 首调选择器 -->
+  <view class="picker-overlay {{showRootPicker ? 'active' : ''}}" catchtap="onCloseRootPicker">
+    <view class="picker-container" catchtap="stopPropagation">
+      <view class="picker-header">
+        <text class="picker-cancel" bindtap="onCloseRootPicker">取消</text>
+        <text class="picker-title">选择首调</text>
+        <text class="picker-confirm" bindtap="onConfirmRootPicker">确定</text>
+      </view>
+      <picker-view class="picker-view" value="{{conversionRootPickerValue}}" bindchange="onRootPickerChange">
+        <picker-view-column>
+          <view wx:for="{{spnNoteOptions}}" wx:key="*this" class="picker-item">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view wx:for="{{spnOctaveOptions}}" wx:key="*this" class="picker-item">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+</view>

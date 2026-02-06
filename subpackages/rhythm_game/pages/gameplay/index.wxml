@@ -1,0 +1,227 @@
+<!-- 音游主界面 -->
+<view class="gameplay-container">
+  <!-- 顶部状态栏 -->
+  <view class="status-bar">
+    <!-- 左侧菜单按钮 -->
+    <view class="menu-btn" bindtap="onOpenSideMenu">
+      <view class="menu-line"></view>
+      <view class="menu-line"></view>
+      <view class="menu-line"></view>
+    </view>
+    
+    <!-- 中间信息 -->
+    <view class="status-info">
+      <text class="song-title">{{sheetData.title || '未命名'}}</text>
+      <text class="bpm-display">{{bpm}} BPM</text>
+    </view>
+    
+    <!-- 右侧分数 -->
+    <view class="score-display">
+      <text class="score-value">{{score}}</text>
+      <text class="combo-value" wx:if="{{combo > 0}}">{{combo}} COMBO</text>
+    </view>
+  </view>
+
+  <!-- 谱面区域 -->
+  <view class="score-section"
+        bindtouchstart="onScoreTouchStart"
+        bindtouchmove="onScoreTouchMove"
+        bindtouchend="onScoreTouchEnd">
+    <canvas type="2d" id="score-canvas" class="score-canvas" 
+            style="width: 100%; height: 100%;">
+    </canvas>
+    
+    <!-- 光标 -->
+    <view class="cursor-line {{cursorGolden ? 'golden' : ''}}">
+      <view class="cursor-glow"></view>
+    </view>
+    
+    <!-- 循环模式标记线 -->
+    <view class="loop-start-line" wx:if="{{loopMode && loopStart !== null}}"
+          style="left: {{getCursorOffset(loopStart)}}rpx;">
+      <view class="loop-line-indicator start"></view>
+    </view>
+    <view class="loop-end-line" wx:if="{{loopMode && loopEnd !== null}}"
+          style="left: {{getCursorOffset(loopEnd)}}rpx;">
+      <view class="loop-line-indicator end"></view>
+    </view>
+    
+    <!-- 判定反馈文字 -->
+    <view wx:for="{{feedbackEffects}}" wx:key="id" 
+          class="feedback-text {{item.value.toLowerCase()}}"
+          style="opacity: {{1 - item.progress}}; transform: translateY({{-item.progress * 50}}rpx);">
+      {{item.value}}
+    </view>
+    
+    <!-- 循环模式控制 (谱面左上角) -->
+    <view class="loop-controls" wx:if="{{loopMode && !isPlaying}}">
+      <view class="loop-check-btn {{loopStartLocked ? 'locked' : ''}}" bindtap="onLockLoopStart">
+        <text>{{loopStartLocked ? '✓' : '○'}}</text>
+      </view>
+      <view class="loop-action-btns" wx:if="{{loopStartLocked}}">
+        <view class="loop-btn play" bindtap="onStartLoopPractice" wx:if="{{loopEnd !== null}}">
+          <text>▶</text>
+        </view>
+        <view class="loop-btn reset" bindtap="onResetLoopPractice">
+          <text>↺</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 手碟区域 -->
+  <view class="handpan-section">
+    <view class="handpan-container">
+      <view class="handpan-bg">
+        <!-- 音符区域 -->
+        <view wx:for="{{handpanNotes}}" wx:key="id"
+              class="handpan-note {{item.active ? 'active' : ''}} {{item.id === 0 ? 'ding' : ''}}"
+              style="left: {{item.renderX}}%; top: {{item.renderY}}%; width: {{item.renderW}}%; height: {{item.renderH}}%; transform: rotate({{item.angle + 90}}deg);"
+              data-id="{{item.id}}"
+              data-note="{{item.note}}"
+              bindtouchstart="onNoteTouchStart"
+              bindtouchend="onNoteTouchEnd">
+          <view class="note-inner">
+            <view class="note-outer"></view>
+            <view class="note-inner-ring {{item.id === 0 ? 'ding-convex' : ''}}"></view>
+            <view class="note-display" style="transform: rotate({{-(item.angle + 90)}}deg);">
+              <text class="note-name">{{item.displayText || item.note}}</text>
+            </view>
+          </view>
+          
+          <!-- 虚影提示动画 -->
+          <view wx:for="{{activeHints}}" wx:for-item="hint" wx:key="id" wx:if="{{hint.noteId === item.id}}"
+                class="hint-ring"
+                style="transform: rotate({{item.angle + 90}}deg) scale({{1.5 - hint.progress * 0.5}}); opacity: {{1 - hint.progress}};">
+          </view>
+          
+          <!-- 水波纹效果 -->
+          <view wx:for="{{rippleEffects}}" wx:for-item="ripple" wx:key="id" wx:if="{{ripple.noteId === item.id}}"
+                class="ripple-effect"
+                style="transform: scale({{1 + ripple.progress}}); opacity: {{1 - ripple.progress}}; border-color: {{ripple.color}};">
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 常驻按钮 -->
+    <view class="resident-buttons">
+      <view wx:for="{{residentButtons}}" wx:key="id"
+            class="resident-btn {{item.active ? 'active' : ''}}"
+            data-id="{{item.id}}"
+            bindtouchstart="onResidentBtnTouchStart"
+            bindtouchend="onResidentBtnTouchEnd">
+        <text class="btn-label">{{item.label}}</text>
+        
+        <!-- 虚影提示 -->
+        <view wx:for="{{activeHints}}" wx:for-item="hint" wx:key="id" wx:if="{{hint.noteId === item.id}}"
+              class="btn-hint-ring"
+              style="transform: scale({{1.3 - hint.progress * 0.3}}); opacity: {{1 - hint.progress}};">
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部控制栏 -->
+  <view class="control-bar">
+    <view class="control-btn" bindtap="onTogglePlay">
+      <text class="control-icon">{{isPlaying ? '⏸' : '▶'}}</text>
+    </view>
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{totalDuration > 0 ? currentTime / totalDuration * 100 : 0}}%"></view>
+    </view>
+    <view class="time-display">
+      <text>{{Math.floor(currentTime / 1000)}}s / {{Math.floor(totalDuration / 1000)}}s</text>
+    </view>
+  </view>
+
+  <!-- 侧边菜单 -->
+  <view class="side-menu-overlay {{showSideMenu ? 'active' : ''}}" bindtap="onCloseSideMenu">
+    <view class="side-menu" catchtap="stopPropagation">
+      <view class="menu-header">
+        <text class="menu-title">菜单</text>
+        <text class="difficulty-badge">{{difficultyName}}</text>
+      </view>
+      
+      <view class="menu-items">
+        <view class="menu-item" bindtap="onMenuRestart">
+          <text class="item-icon">🔄</text>
+          <text class="item-text">重新开始</text>
+        </view>
+        <view class="menu-item" bindtap="onMenuChangeSheet">
+          <text class="item-icon">📋</text>
+          <text class="item-text">切换曲谱</text>
+        </view>
+        <view class="menu-item" bindtap="onMenuChangeDifficulty">
+          <text class="item-icon">⚙️</text>
+          <text class="item-text">调整难度</text>
+          <text class="item-badge">{{difficulty === 0 ? 'Level 0' : 'Level 1'}}</text>
+        </view>
+        <view class="menu-divider"></view>
+        <view class="menu-item" bindtap="onMenuLoopMode">
+          <text class="item-icon">🔁</text>
+          <text class="item-text">{{loopMode ? '退出循环' : '循环练习'}}</text>
+          <text class="item-badge" wx:if="{{loopMode}}">已开启</text>
+        </view>
+        <view class="menu-item" bindtap="onToggleFreePosition">
+          <text class="item-icon">📍</text>
+          <text class="item-text">自由定位</text>
+          <text class="item-badge" wx:if="{{freePositionMode}}">已开启</text>
+        </view>
+        <view class="menu-item" bindtap="onToggleMetronome">
+          <text class="item-icon">🎵</text>
+          <text class="item-text">节拍器</text>
+          <text class="item-badge">{{metronomeEnabled ? '开' : '关'}}</text>
+        </view>
+        <view class="menu-divider"></view>
+        <view class="menu-item">
+          <text class="item-icon">⏱️</text>
+          <text class="item-text">速度控制</text>
+        </view>
+        <view class="speed-control">
+          <slider class="speed-slider" 
+                  min="50" max="150" 
+                  value="{{speedMultiplier * 100}}" 
+                  activeColor="#F4D096"
+                  backgroundColor="rgba(255,255,255,0.2)"
+                  block-size="20"
+                  show-value="{{false}}"
+                  bindchange="onSpeedChange"/>
+          <text class="speed-value">{{speedMultiplier * 100}}%</text>
+        </view>
+        <view class="menu-divider"></view>
+        <view class="menu-item exit" bindtap="onMenuExit">
+          <text class="item-icon">🚪</text>
+          <text class="item-text">退出</text>
+        </view>
+      </view>
+      
+      <view class="menu-footer">
+        <view class="resume-btn" bindtap="resumeGame">继续游戏</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载遮罩 -->
+  <view class="loading-overlay" wx:if="{{isLoading}}">
+    <view class="loading-content">
+      <view class="loading-ring"></view>
+      <text class="loading-text">加载中 {{loadingProgress}}%</text>
+      <view class="loading-bar">
+        <view class="loading-fill" style="width: {{loadingProgress}}%"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 开始游戏提示 -->
+  <view class="start-overlay" wx:if="{{gameState === 'ready' && !isLoading}}" bindtap="onTogglePlay">
+    <view class="start-content">
+      <text class="start-title">{{sheetData.title || '准备开始'}}</text>
+      <text class="start-hint">点击屏幕开始演奏</text>
+      <view class="start-stats">
+        <text>难度: {{difficultyName}}</text>
+        <text>速度: {{bpm}} BPM</text>
+      </view>
+    </view>
+  </view>
+</view>

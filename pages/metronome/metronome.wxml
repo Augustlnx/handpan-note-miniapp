@@ -614,6 +614,18 @@
       <view class="pan-swiper-dot-large {{panSwiperIndex === 1 ? 'active' : ''}}"></view>
     </view>
   </view>
+
+  <!-- 开始演奏按钮 -->
+  <view class="start-play-section">
+    <view class="start-play-btn" bindtap="onStartRhythmGame">
+      <view class="start-play-icon">🎮</view>
+      <view class="start-play-content">
+        <text class="start-play-title">开始演奏</text>
+        <text class="start-play-desc">进入音游模式，配合谱面练习</text>
+      </view>
+      <view class="start-play-arrow">›</view>
+    </view>
+  </view>
 </scroll-view>
 
   <!-- 电子手碟编辑器弹窗（全屏iOS风格） -->

@@ -3115,5 +3115,34 @@ Page({
     if (this.data.notationMode) {
       this.loadNotationData();
     }
+  },
+
+  // ========== 开始演奏（音游模式） ==========
+  
+  /**
+   * 进入音游模式
+   * 导航到音游入口页面，让用户选择曲谱并配置
+   */
+  onStartRhythmGame() {
+    // 保存当前手碟配置到本地存储，方便音游子包读取
+    try {
+      wx.setStorageSync('handpanNotes', this.data.handpanNotes);
+      wx.setStorageSync('handpanVolume', this.data.handpanVolume);
+      wx.setStorageSync('handpanDisplayMode', this.data.handpanDisplayMode);
+    } catch (e) {
+      console.warn('[Metronome] 保存手碟配置失败:', e);
+    }
+
+    // 导航到音游入口页面
+    wx.navigateTo({
+      url: '/subpackages/rhythm_game/pages/entry/index',
+      fail: (err) => {
+        console.error('[Metronome] 导航到音游页面失败:', err);
+        wx.showToast({
+          title: '功能加载中，请稍后再试',
+          icon: 'none'
+        });
+      }
+    });
   }
 });
