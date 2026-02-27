@@ -3,7 +3,7 @@
   <!-- 自定义导航栏 -->
   <view class="custom-nav-bar">
     <view class="nav-bar-left" bindtap="onBack">
-      <image class="nav-back-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
+      <image class="nav-back-icon" src="/assets/icons/back.svg" mode="aspectFit"></image>
     </view>
     <view class="nav-bar-content">
       <text class="nav-bar-title">音频映射设置</text>
@@ -75,7 +75,7 @@
     <view class="section-card mapping-section">
       <view class="section-header">
         <text class="section-title">音频映射表</text>
-        <text class="section-desc">点击可编辑映射关系</text>
+        <text class="section-desc">{{filteredMappings.length > 0 ? '仅显示谱面中使用的音符，点击可编辑映射关系' : '显示所有可用映射，点击可编辑'}}</text>
       </view>
       
       <!-- 映射表表头 -->
@@ -87,12 +87,12 @@
       
       <!-- 映射列表 -->
       <view class="mapping-list">
-        <view class="mapping-row {{extractedNotes.includes(item.key) ? 'highlight' : ''}}" 
-              wx:for="{{conversionMappings}}" wx:key="key">
+        <view class="mapping-row highlight" 
+              wx:for="{{filteredMappings}}" wx:key="key">
           <text class="mapping-col col-key">{{item.key}}</text>
           
-          <view class="mapping-col col-simplified" bindtap="onStartEdit" data-index="{{index}}" data-field="simplified">
-            <input wx:if="{{editingIndex === index && editingField === 'simplified'}}"
+          <view class="mapping-col col-simplified" bindtap="onStartEdit" data-index="{{item.originalIndex}}" data-field="simplified">
+            <input wx:if="{{editingIndex === item.originalIndex && editingField === 'simplified'}}"
                    class="mapping-input"
                    value="{{editingValue}}"
                    bindinput="onEditInput"
@@ -102,8 +102,8 @@
             <text wx:else class="mapping-value">{{item.simplified || '-'}}</text>
           </view>
           
-          <view class="mapping-col col-spn" bindtap="onStartEdit" data-index="{{index}}" data-field="spn">
-            <input wx:if="{{editingIndex === index && editingField === 'spn'}}"
+          <view class="mapping-col col-spn" bindtap="onStartEdit" data-index="{{item.originalIndex}}" data-field="spn">
+            <input wx:if="{{editingIndex === item.originalIndex && editingField === 'spn'}}"
                    class="mapping-input"
                    value="{{editingValue}}"
                    bindinput="onEditInput"
@@ -113,6 +113,11 @@
             <text wx:else class="mapping-value {{!item.spn ? 'empty' : ''}}">{{item.spn || '(无音频)'}}</text>
           </view>
         </view>
+      </view>
+      
+      <!-- 空状态提示 -->
+      <view class="mapping-empty" wx:if="{{filteredMappings.length === 0}}">
+        <text class="empty-text">未检测到谱面使用的音符</text>
       </view>
     </view>
 

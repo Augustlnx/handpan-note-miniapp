@@ -1714,28 +1714,60 @@ class SheetPlaybackManager {
   }
 
   /**
+   * 跳过当前倒计时，立即开始播放
+   */
+  skipCountdown() {
+    this._countdownCancelled = true;
+    if (this._countdownTimer) {
+      clearTimeout(this._countdownTimer);
+      this._countdownTimer = null;
+    }
+    if (this._countdownResolve) {
+      this._countdownResolve();
+      this._countdownResolve = null;
+    }
+  }
+
+  /**
    * 倒计时（带预备拍）
    * @private
    */
   async _startCountdown() {
-    const beatDuration = 60000 / this.tempo; // 毫秒
+    const beatDuration = 60000 / this.tempo;
+    this._countdownCancelled = false;
     
-    // 3秒倒计时，每拍一次
     for (let i = 3; i >= 1; i--) {
+      if (this._countdownCancelled) break;
+      
       if (this.onCountdownTick) {
         this.onCountdownTick(i);
       }
       
-      // 播放预备拍声音
       this._playSound('_countdown', this.volumeConfig.countdown);
       
-      // 等待一拍
-      await this._sleep(beatDuration);
+      await this._countdownSleep(beatDuration);
+      
+      if (this._countdownCancelled) break;
     }
     
-    if (this.onCountdownTick) {
+    this._countdownTimer = null;
+    this._countdownResolve = null;
+    
+    if (!this._countdownCancelled && this.onCountdownTick) {
       this.onCountdownTick(0);
     }
+    this._countdownCancelled = false;
+  }
+
+  /**
+   * 倒计时专用的可取消等待
+   * @private
+   */
+  _countdownSleep(ms) {
+    return new Promise(resolve => {
+      this._countdownResolve = resolve;
+      this._countdownTimer = setTimeout(resolve, ms);
+    });
   }
 
   /**

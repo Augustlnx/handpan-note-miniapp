@@ -50,6 +50,15 @@ Page({
 
   onShow() {
     wx.hideTabBar({ animation: false });
+    
+    // 从音频映射页面返回时，重置界面状态
+    if (!this.data.showSourceModal && !this.data.showLibraryBrowser) {
+      this.setData({
+        showSourceModal: true,
+        sourceType: '',
+        selectedSheet: null
+      });
+    }
   },
 
   onUnload() {
@@ -61,38 +70,52 @@ Page({
    */
   checkCurrentNotation() {
     try {
-      // 从本地存储读取当前谱面数据
-      const notationData = wx.getStorageSync('currentNotationData');
-      const notations = wx.getStorageSync('notations');
-      
-      if (notationData && notations && notations.length > 0) {
-        // 检查是否有实际音符数据
-        let hasNotes = false;
-        for (const notation of notations) {
-          if (notation.measures && notation.measures.length > 0) {
-            for (const measure of notation.measures) {
-              if (measure.beats && measure.beats.length > 0) {
-                for (const beat of measure.beats) {
-                  if (beat.subdivisions) {
-                    for (const sub of beat.subdivisions) {
-                      if ((sub.right && sub.right !== '-') || (sub.left && sub.left !== '-')) {
-                        hasNotes = true;
-                        break;
-                      }
-                    }
-                  }
-                  if (hasNotes) break;
-                }
-              }
-              if (hasNotes) break;
-            }
-          }
-          if (hasNotes) break;
-        }
-        
+      // 从notation页面实际使用的存储键读取数据
+      const mainTitle = wx.getStorageSync('mainTitle') || '未命名曲谱';
+      const subTitle = wx.getStorageSync('subTitle') || '';
+      const globalTempo = wx.getStorageSync('globalTempo') || 60;
+      const timeSignatureBeats = wx.getStorageSync('timeSignatureBeats') || 4;
+      const customTimeSignature = wx.getStorageSync('customTimeSignature');
+      const notationType = wx.getStorageSync('notationType') || 'digital';
+      const metaInfo = wx.getStorageSync('notationMetaInfo') || {};
+
+      // 根据拍号确定正确的存储键
+      let notationKey;
+      if (customTimeSignature && customTimeSignature.type === 'custom') {
+        notationKey = `notations_custom_${customTimeSignature.noteCount}`;
+      } else {
+        notationKey = `notations_${timeSignatureBeats}_4`;
+      }
+
+      // 读取谱面数据
+      let notations = wx.getStorageSync(notationKey);
+      if (!notations || !Array.isArray(notations) || notations.length === 0) {
+        // 兼容旧数据：尝试读取全局 notations 键
+        notations = wx.getStorageSync('notations');
+      }
+
+      // 只要有谱面数据结构就认为可用（空谱面也是内容）
+      const hasNotation = Array.isArray(notations) && notations.length > 0;
+
+      if (hasNotation) {
+        const notationData = {
+          mainTitle,
+          subTitle,
+          globalTempo,
+          timeSignatureBeats,
+          timeSignatureBottom: 4,
+          notationType,
+          composer: metaInfo.composer || 'Your Name',
+          rootNote: metaInfo.rootNote || 'D',
+          scaleType: metaInfo.scaleType || 'Kurd',
+          noteCount: metaInfo.noteCount || 10,
+          difficulty: metaInfo.difficulty || 1,
+          introduction: metaInfo.introduction || ''
+        };
+
         this.setData({
           currentNotationData: notationData,
-          hasCurrentNotation: hasNotes
+          hasCurrentNotation: true
         });
       }
     } catch (e) {
@@ -105,7 +128,7 @@ Page({
    */
   async preloadLibrary() {
     try {
-      await libraryManager.init();
+      await libraryManager.initSampleData();
     } catch (e) {
       console.warn('[RhythmGame Entry] 预加载曲库失败:', e);
     }
@@ -141,19 +164,32 @@ Page({
    */
   buildSheetDataFromCurrent() {
     const notationData = this.data.currentNotationData;
-    const notations = wx.getStorageSync('notations') || [];
+    const timeSignatureBeats = notationData?.timeSignatureBeats || 4;
+    const customTimeSignature = wx.getStorageSync('customTimeSignature');
+
+    // 根据拍号读取正确的谱面数据
+    let notationKey;
+    if (customTimeSignature && customTimeSignature.type === 'custom') {
+      notationKey = `notations_custom_${customTimeSignature.noteCount}`;
+    } else {
+      notationKey = `notations_${timeSignatureBeats}_4`;
+    }
+    let notations = wx.getStorageSync(notationKey);
+    if (!notations || !Array.isArray(notations) || notations.length === 0) {
+      notations = wx.getStorageSync('notations') || [];
+    }
     
     return {
       title: notationData?.mainTitle || '未命名曲谱',
       composer: notationData?.composer || '',
       tempo: notationData?.globalTempo || 80,
-      timeSignatureBeats: notationData?.timeSignatureBeats || 4,
+      timeSignatureBeats: timeSignatureBeats,
       timeSignatureBottom: notationData?.timeSignatureBottom || 4,
       notationType: notationData?.notationType || 'digital',
       rootNote: notationData?.rootNote || 'D',
       scaleType: notationData?.scaleType || 'Kurd',
-      rightHandColor: notationData?.rightHandColor || '#F4D096',
-      leftHandColor: notationData?.leftHandColor || '#314D63',
+      rightHandColor: wx.getStorageSync('rightHandColor') || '#F4D096',
+      leftHandColor: wx.getStorageSync('leftHandColor') || '#314D63',
       notations: notations,
       source: 'current'
     };
@@ -176,15 +212,18 @@ Page({
   /**
    * 加载曲库文件夹
    */
-  async loadLibraryFolder(path) {
+  loadLibraryFolder(path) {
     this.setData({ isLoading: true, loadingText: '加载中...' });
     
     try {
-      const items = await libraryManager.getItemsAtPath(path);
-      const breadcrumbs = path.map((name, index) => ({
-        name,
-        path: path.slice(0, index + 1)
-      }));
+      const items = libraryManager.getItemsByPath(path);
+      const breadcrumbs = path.map((folderId, index) => {
+        const folder = libraryManager.getFolderById(folderId);
+        return {
+          name: folder ? folder.name : '未知',
+          path: path.slice(0, index + 1)
+        };
+      });
       
       this.setData({
         currentPath: path,
@@ -208,7 +247,7 @@ Page({
   onEnterFolder(e) {
     const item = e.currentTarget.dataset.item;
     if (item.type === 'folder') {
-      const newPath = [...this.data.currentPath, item.name];
+      const newPath = [...this.data.currentPath, item.id];
       this.loadLibraryFolder(newPath);
     }
   },
@@ -258,7 +297,7 @@ Page({
   /**
    * 确认选择曲谱
    */
-  async onConfirmSelection() {
+  onConfirmSelection() {
     const sheet = this.data.selectedSheet;
     if (!sheet) {
       wx.showToast({
@@ -271,17 +310,28 @@ Page({
     this.setData({ isLoading: true, loadingText: '加载谱面数据...' });
     
     try {
-      // 从曲库加载完整数据
-      const fullData = await libraryManager.loadFileData(sheet.id);
+      // 从曲库加载完整文件数据
+      const fullData = libraryManager.getFileById(sheet.id);
       
-      if (!fullData || !fullData.notations || fullData.notations.length === 0) {
-        throw new Error('谱面数据为空');
+      if (!fullData) {
+        throw new Error('找不到谱面文件');
       }
       
       const sheetData = {
-        ...sheet,
-        ...fullData,
-        notations: fullData.notations
+        title: fullData.file_name || fullData.title || '未命名曲谱',
+        composer: fullData.composer || '',
+        tempo: fullData.tempo || 80,
+        timeSignatureBeats: 4,
+        timeSignatureBottom: 4,
+        notationType: fullData.notationType || 'digital',
+        rootNote: fullData.rootNote || 'D',
+        scaleType: fullData.scaleType || 'Kurd',
+        noteCount: fullData.noteCount || 10,
+        difficulty: fullData.difficulty || 1,
+        introduction: fullData.introduction || '',
+        code: fullData.code,
+        source: 'library',
+        libraryPath: sheet.libraryPath || []
       };
       
       this.setData({

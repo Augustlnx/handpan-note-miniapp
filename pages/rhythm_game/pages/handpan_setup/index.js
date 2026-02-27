@@ -31,6 +31,24 @@ const DEFAULT_RESIDENT_BUTTONS = [
   { id: 'btn_x', label: 'x', spn: '', color: '#8FB9AB' }
 ];
 
+// 可用的手碟音频文件列表
+const HANDPAN_AUDIO_FILES = [
+  'A3', 'A4', 'A5', 'Bb3', 'Bb5', 'C4', 'C5', 'C6', 
+  'D3', 'D4', 'D5', 'E3', 'E4', 'E5', 'F3', 'F4', 'F5', 
+  'G3', 'G4', 'G5', 'SLAP'
+];
+
+// 预设参数库 - 与metronome共享存储
+const PRESET_HANDPAN_PARAMS = [
+  {
+    id: 'preset-d-kurd-12',
+    name: 'D-Kurd 12音（默认）',
+    timestamp: Date.now(),
+    isPreset: true,
+    notes: DEFAULT_HANDPAN_NOTES
+  }
+];
+
 // 音名-简谱-数字谱映射
 const NOTE_MAPPING = {
   'F3': { jianpu: '1', shuzipu: '12' },
@@ -80,7 +98,33 @@ Page({
     
     // 加载状态
     isLoading: false,
-    audioLoading: false
+    audioLoading: false,
+    
+    // ========== 编辑器相关 ==========
+    handpanEditorVisible: false,
+    editorNotes: [],
+    editorSelectedId: null,
+    editorSelectedNote: null,
+    editorSecondSelectedId: null,
+    editorSecondNote: null,
+    editorHistory: [],
+    
+    // 参数库
+    handpanParamsLibrary: [],
+    currentHandpanParamsId: 'default',
+    handpanParamsLibraryVisible: false,
+    handpanSaveParamsVisible: false,
+    handpanSaveParamsName: '',
+    
+    // 导入
+    handpanImportVisible: false,
+    handpanImportJson: '',
+    handpanImportError: '',
+    
+    // 帮助
+    helpVisible: false,
+    helpTitle: '',
+    helpContent: ''
   },
 
   onLoad(options) {
@@ -101,6 +145,9 @@ Page({
     
     // 初始化常驻按钮
     this.initResidentButtons();
+    
+    // 加载参数库
+    this.loadHandpanParamsLibrary();
     
     // 预加载音频
     this.preloadAudio();
@@ -168,13 +215,45 @@ Page({
     
     try {
       await webAudioManager.init();
+      // 预加载节拍器音频
       await webAudioManager.preloadAllAudio(true);
+      
+      // 收集手碟需要的音符
+      const notesNeeded = this.collectHandpanNotes();
+      // 预加载手碟音频
+      await webAudioManager.preloadHandpanAudio(notesNeeded);
+      
       console.log('[HandpanSetup] 音频预加载完成');
     } catch (e) {
       console.warn('[HandpanSetup] 音频预加载失败:', e);
     }
     
     this.setData({ audioLoading: false });
+  },
+
+  /**
+   * 收集手碟需要的音符
+   */
+  collectHandpanNotes() {
+    const notesSet = new Set(['SLAP']);
+    
+    // 收集手碟上的所有音符
+    const handpanNotes = this.data.handpanNotes || DEFAULT_HANDPAN_NOTES;
+    for (const note of handpanNotes) {
+      if (note.note) {
+        notesSet.add(note.note);
+      }
+    }
+    
+    // 收集常驻按钮音符
+    const residentButtons = this.data.residentButtons || DEFAULT_RESIDENT_BUTTONS;
+    for (const btn of residentButtons) {
+      if (btn.spn) {
+        notesSet.add(btn.spn);
+      }
+    }
+    
+    return Array.from(notesSet);
   },
 
   /**
@@ -401,5 +480,799 @@ Page({
     wx.navigateBack();
   },
 
-  stopPropagation() {}
+  stopPropagation() {},
+
+  // ========== 电子手碟编辑器 ==========
+
+  /**
+   * 将音符数据转换为渲染数据（与metronome一致）
+   */
+  convertNotesToRenderData(notes) {
+    return notes.map(note => {
+      const mapping = NOTE_MAPPING[note.note] || {};
+      const jianpu = note.jianpu || mapping.jianpu || note.note;
+      const shuzipu = note.shuzipu || mapping.shuzipu || note.note;
+      
+      return {
+        ...note,
+        jianpu,
+        shuzipu,
+        active: false,
+        displayText: note.note,
+        displayDotsUp: 0,
+        displayDotsDown: 0,
+        renderX: ((note.cx - note.rx) / 1000) * 100,
+        renderY: ((note.cy - note.ry) / 1000) * 100,
+        renderW: (note.rx * 2 / 1000) * 100,
+        renderH: (note.ry * 2 / 1000) * 100
+      };
+    });
+  },
+
+  /**
+   * 打开编辑器
+   */
+  onOpenHandpanEditor() {
+    const editorNotes = this.convertNotesToRenderData(
+      this.data.handpanNotes.length > 0 
+        ? JSON.parse(JSON.stringify(this.data.handpanNotes))
+        : JSON.parse(JSON.stringify(DEFAULT_HANDPAN_NOTES))
+    );
+    
+    this.setData({
+      handpanEditorVisible: true,
+      editorNotes,
+      editorSelectedId: null,
+      editorSelectedNote: null,
+      editorSecondSelectedId: null,
+      editorSecondNote: null,
+      editorHistory: [JSON.stringify(editorNotes)]
+    });
+  },
+
+  /**
+   * 关闭编辑器
+   */
+  onCloseHandpanEditor() {
+    this.setData({ 
+      handpanEditorVisible: false,
+      editorSelectedId: null,
+      editorSelectedNote: null,
+      editorSecondSelectedId: null,
+      editorSecondNote: null
+    });
+  },
+
+  /**
+   * 点击画布背景取消选中
+   */
+  onEditorBackgroundTap() {
+    this.setData({
+      editorSelectedId: null,
+      editorSelectedNote: null,
+      editorSecondSelectedId: null,
+      editorSecondNote: null
+    });
+  },
+
+  /**
+   * 编辑器音符触摸开始
+   */
+  onEditorNoteTouchStart(e) {
+    const noteId = e.currentTarget.dataset.id;
+    const note = this.data.editorNotes.find(n => n.id === noteId);
+    
+    if (!note) return;
+    
+    // 如果点击的是第二个选中的音符，取消第二个选中
+    if (this.data.editorSecondSelectedId === noteId) {
+      this.setData({ editorSecondSelectedId: null, editorSecondNote: null });
+      return;
+    }
+    
+    // 如果点击的是第一个选中的音符
+    if (this.data.editorSelectedId === noteId) {
+      if (this.data.editorSecondSelectedId !== null) {
+        const newFirst = this.data.editorNotes.find(n => n.id === this.data.editorSecondSelectedId);
+        this.setData({
+          editorSelectedId: this.data.editorSecondSelectedId,
+          editorSelectedNote: newFirst ? { ...newFirst } : null,
+          editorSecondSelectedId: null,
+          editorSecondNote: null
+        });
+      } else {
+        this.setData({ editorSelectedId: null, editorSelectedNote: null });
+      }
+      return;
+    }
+    
+    // 如果已有第一个选中，进入双选模式
+    if (this.data.editorSelectedId !== null) {
+      this.setData({ editorSecondSelectedId: noteId, editorSecondNote: { ...note } });
+      return;
+    }
+    
+    // 单选模式
+    this.setData({
+      editorSelectedId: noteId,
+      editorSelectedNote: { ...note },
+      editorSecondSelectedId: null,
+      editorSecondNote: null
+    });
+    
+    this.editorTouchStartX = e.touches[0].clientX;
+    this.editorTouchStartY = e.touches[0].clientY;
+    this.editorNoteStartCx = note.cx;
+    this.editorNoteStartCy = note.cy;
+  },
+
+  /**
+   * 编辑器音符拖动
+   */
+  onEditorNoteTouchMove(e) {
+    if (this.data.editorSelectedId === null) return;
+    
+    const touch = e.touches[0];
+    const dx = touch.clientX - this.editorTouchStartX;
+    const dy = touch.clientY - this.editorTouchStartY;
+    
+    const query = wx.createSelectorQuery();
+    query.select('.he-canvas-bg-fullscreen').boundingClientRect();
+    query.exec((res) => {
+      if (res[0]) {
+        const canvasSize = res[0].width;
+        const scale = 1000 / canvasSize;
+        
+        const newCx = Math.round(Math.max(50, Math.min(950, this.editorNoteStartCx + dx * scale)));
+        const newCy = Math.round(Math.max(50, Math.min(950, this.editorNoteStartCy + dy * scale)));
+        
+        this.updateEditorNote({ cx: newCx, cy: newCy });
+      }
+    });
+  },
+
+  /**
+   * 编辑器音符触摸结束
+   */
+  onEditorNoteTouchEnd() {
+    this.saveEditorHistory();
+  },
+
+  /**
+   * 清除第二个选中
+   */
+  onClearSecondSelection() {
+    this.setData({ editorSecondSelectedId: null, editorSecondNote: null });
+  },
+
+  /**
+   * 交换双选基准位置
+   */
+  onSwapBaseNote() {
+    if (this.data.editorSelectedId === null || this.data.editorSecondSelectedId === null) return;
+    
+    this.setData({
+      editorSelectedId: this.data.editorSecondSelectedId,
+      editorSecondSelectedId: this.data.editorSelectedId,
+      editorSelectedNote: this.data.editorSecondNote,
+      editorSecondNote: this.data.editorSelectedNote
+    });
+  },
+
+  /**
+   * 更新编辑器中的音符
+   */
+  updateEditorNote(updates) {
+    const selectedId = this.data.editorSelectedId;
+    if (selectedId === null) return;
+    
+    const editorNotes = this.data.editorNotes.map(n => {
+      if (n.id === selectedId) {
+        const updated = { ...n, ...updates };
+        updated.renderX = ((updated.cx - updated.rx) / 1000) * 100;
+        updated.renderY = ((updated.cy - updated.ry) / 1000) * 100;
+        updated.renderW = (updated.rx * 2 / 1000) * 100;
+        updated.renderH = (updated.ry * 2 / 1000) * 100;
+        return updated;
+      }
+      return n;
+    });
+    
+    const selectedNote = editorNotes.find(n => n.id === selectedId);
+    this.setData({ editorNotes, editorSelectedNote: selectedNote ? { ...selectedNote } : null });
+  },
+
+  /**
+   * 属性面板滑块变化
+   */
+  onEditorPropChange(e) {
+    const prop = e.currentTarget.dataset.prop;
+    const value = parseInt(e.detail.value);
+    this.updateEditorNote({ [prop]: value });
+  },
+
+  /**
+   * 属性面板数值输入框变化
+   */
+  onEditorValueInput(e) {
+    const prop = e.currentTarget.dataset.prop;
+    const value = parseInt(e.detail.value);
+    if (!isNaN(value)) {
+      this.updateEditorNote({ [prop]: value });
+    }
+  },
+
+  /**
+   * 属性面板数值输入框失焦
+   */
+  onEditorValueBlur(e) {
+    const prop = e.currentTarget.dataset.prop;
+    let value = parseInt(e.detail.value);
+    
+    if (isNaN(value)) {
+      const currentNote = this.data.editorNotes.find(n => n.id === this.data.editorSelectedId);
+      if (currentNote) value = currentNote[prop];
+      else return;
+    }
+    
+    if (prop === 'cx' || prop === 'cy') {
+      value = Math.max(50, Math.min(950, value));
+    } else if (prop === 'rx' || prop === 'ry') {
+      value = Math.max(20, Math.min(200, value));
+    } else if (prop === 'angle') {
+      value = Math.max(-180, Math.min(180, value));
+    }
+    
+    this.updateEditorNote({ [prop]: value });
+    this.saveEditorHistory();
+  },
+
+  /**
+   * 音符名称变化
+   */
+  onEditorNoteNameChange(e) {
+    const value = e.detail.value.trim().toUpperCase();
+    const mapping = NOTE_MAPPING[value];
+    const updates = { note: value };
+    if (mapping) {
+      updates.jianpu = mapping.jianpu;
+      updates.shuzipu = mapping.shuzipu;
+    }
+    this.updateEditorNote(updates);
+    this.saveEditorHistory();
+  },
+
+  /**
+   * 简谱名称变化
+   */
+  onEditorJianpuChange(e) {
+    this.updateEditorNote({ jianpu: e.detail.value.trim() });
+    this.saveEditorHistory();
+  },
+
+  /**
+   * 数字谱名称变化
+   */
+  onEditorShuzipuChange(e) {
+    this.updateEditorNote({ shuzipu: e.detail.value.trim() });
+    this.saveEditorHistory();
+  },
+
+  /**
+   * 添加音符
+   */
+  onEditorAddNote() {
+    const maxId = Math.max(...this.data.editorNotes.map(n => n.id), -1);
+    const newNote = {
+      id: maxId + 1,
+      note: 'New',
+      cx: 500,
+      cy: 500,
+      rx: 60,
+      ry: 50,
+      angle: 0,
+      active: false,
+      renderX: 44,
+      renderY: 45,
+      renderW: 12,
+      renderH: 10
+    };
+    
+    const editorNotes = [...this.data.editorNotes, newNote];
+    this.setData({
+      editorNotes,
+      editorSelectedId: newNote.id,
+      editorSelectedNote: { ...newNote }
+    });
+    this.saveEditorHistory();
+  },
+
+  /**
+   * 恢复选中音符为默认参数
+   */
+  onEditorResetNote() {
+    const selectedId = this.data.editorSelectedId;
+    if (selectedId === null) return;
+    
+    const defaultNote = DEFAULT_HANDPAN_NOTES.find(n => n.id === selectedId);
+    if (!defaultNote) {
+      wx.showToast({ title: '无默认参数', icon: 'none' });
+      return;
+    }
+    
+    const editorNotes = this.data.editorNotes.map(n => {
+      if (n.id === selectedId) {
+        const restored = { ...defaultNote };
+        restored.renderX = ((restored.cx - restored.rx) / 1000) * 100;
+        restored.renderY = ((restored.cy - restored.ry) / 1000) * 100;
+        restored.renderW = (restored.rx * 2 / 1000) * 100;
+        restored.renderH = (restored.ry * 2 / 1000) * 100;
+        return restored;
+      }
+      return n;
+    });
+    
+    const selectedNote = editorNotes.find(n => n.id === selectedId);
+    this.setData({ editorNotes, editorSelectedNote: selectedNote ? { ...selectedNote } : null });
+    this.saveEditorHistory();
+    wx.showToast({ title: '已恢复默认', icon: 'success' });
+  },
+
+  /**
+   * 删除选中音符
+   */
+  onEditorDeleteNote() {
+    const selectedId = this.data.editorSelectedId;
+    if (selectedId === null) return;
+    
+    wx.showModal({
+      title: '确认删除',
+      content: '确定要删除这个音符吗？',
+      success: (res) => {
+        if (res.confirm) {
+          const editorNotes = this.data.editorNotes.filter(n => n.id !== selectedId);
+          this.setData({
+            editorNotes,
+            editorSelectedId: null,
+            editorSelectedNote: null,
+            editorSecondSelectedId: null,
+            editorSecondNote: null
+          });
+          this.saveEditorHistory();
+        }
+      }
+    });
+  },
+
+  /**
+   * 保存编辑历史
+   */
+  saveEditorHistory() {
+    const history = [...this.data.editorHistory];
+    const currentState = JSON.stringify(this.data.editorNotes);
+    
+    if (history[history.length - 1] !== currentState) {
+      history.push(currentState);
+      if (history.length > 20) history.shift();
+      this.setData({ editorHistory: history });
+    }
+  },
+
+  /**
+   * 撤销
+   */
+  onUndoHandpanEdit() {
+    const history = [...this.data.editorHistory];
+    if (history.length <= 1) {
+      wx.showToast({ title: '没有可撤销的操作', icon: 'none' });
+      return;
+    }
+    
+    history.pop();
+    const prevState = JSON.parse(history[history.length - 1]);
+    
+    this.setData({
+      editorNotes: prevState,
+      editorHistory: history,
+      editorSelectedId: null,
+      editorSelectedNote: null,
+      editorSecondSelectedId: null,
+      editorSecondNote: null
+    });
+  },
+
+  // ========== 双选对齐功能 ==========
+
+  /**
+   * 水平对称
+   */
+  onAlignHorizontalSymmetry() {
+    const { editorSelectedNote, editorSecondNote, editorNotes } = this.data;
+    if (!editorSelectedNote || !editorSecondNote) return;
+    
+    const baseNote = editorSelectedNote;
+    const targetId = this.data.editorSecondSelectedId;
+    
+    const mirrorCx = 1000 - baseNote.cx;
+    const mirrorAngle = -baseNote.angle;
+    
+    const updatedNotes = editorNotes.map(n => {
+      if (n.id === targetId) {
+        const updated = { ...n, cx: mirrorCx, angle: mirrorAngle };
+        updated.renderX = ((updated.cx - updated.rx) / 1000) * 100;
+        updated.renderY = ((updated.cy - updated.ry) / 1000) * 100;
+        updated.renderW = (updated.rx * 2 / 1000) * 100;
+        updated.renderH = (updated.ry * 2 / 1000) * 100;
+        return updated;
+      }
+      return n;
+    });
+    
+    const updatedSecondNote = updatedNotes.find(n => n.id === targetId);
+    this.setData({ editorNotes: updatedNotes, editorSecondNote: updatedSecondNote ? { ...updatedSecondNote } : null });
+    this.saveEditorHistory();
+    wx.showToast({ title: '已水平对称', icon: 'success' });
+  },
+
+  /**
+   * 垂直齐平
+   */
+  onAlignVerticalFlat() {
+    const { editorSelectedNote, editorSecondNote, editorNotes } = this.data;
+    if (!editorSelectedNote || !editorSecondNote) return;
+    
+    const baseNote = editorSelectedNote;
+    const targetId = this.data.editorSecondSelectedId;
+    
+    const updatedNotes = editorNotes.map(n => {
+      if (n.id === targetId) {
+        const updated = { ...n, cy: baseNote.cy };
+        updated.renderX = ((updated.cx - updated.rx) / 1000) * 100;
+        updated.renderY = ((updated.cy - updated.ry) / 1000) * 100;
+        updated.renderW = (updated.rx * 2 / 1000) * 100;
+        updated.renderH = (updated.ry * 2 / 1000) * 100;
+        return updated;
+      }
+      return n;
+    });
+    
+    const updatedSecondNote = updatedNotes.find(n => n.id === targetId);
+    this.setData({ editorNotes: updatedNotes, editorSecondNote: updatedSecondNote ? { ...updatedSecondNote } : null });
+    this.saveEditorHistory();
+    wx.showToast({ title: '已垂直齐平', icon: 'success' });
+  },
+
+  /**
+   * 对齐大小
+   */
+  onAlignMatchSize() {
+    const { editorSelectedNote, editorSecondNote, editorNotes } = this.data;
+    if (!editorSelectedNote || !editorSecondNote) return;
+    
+    const baseNote = editorSelectedNote;
+    const targetId = this.data.editorSecondSelectedId;
+    
+    const updatedNotes = editorNotes.map(n => {
+      if (n.id === targetId) {
+        const updated = { ...n, rx: baseNote.rx, ry: baseNote.ry };
+        updated.renderX = ((updated.cx - updated.rx) / 1000) * 100;
+        updated.renderY = ((updated.cy - updated.ry) / 1000) * 100;
+        updated.renderW = (updated.rx * 2 / 1000) * 100;
+        updated.renderH = (updated.ry * 2 / 1000) * 100;
+        return updated;
+      }
+      return n;
+    });
+    
+    const updatedSecondNote = updatedNotes.find(n => n.id === targetId);
+    this.setData({ editorNotes: updatedNotes, editorSecondNote: updatedSecondNote ? { ...updatedSecondNote } : null });
+    this.saveEditorHistory();
+    wx.showToast({ title: '已对齐大小', icon: 'success' });
+  },
+
+  /**
+   * 复制位置JSON
+   */
+  onCopyPositionJSON() {
+    const notesData = this.data.editorNotes.map(n => ({
+      id: n.id,
+      note: n.note,
+      cx: n.cx,
+      cy: n.cy,
+      rx: n.rx,
+      ry: n.ry,
+      angle: n.angle
+    }));
+    
+    const jsonStr = JSON.stringify(notesData, null, 2);
+    
+    wx.setClipboardData({
+      data: jsonStr,
+      success: () => wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+    });
+  },
+
+  /**
+   * 重置参数
+   */
+  onResetHandpanParams() {
+    wx.showModal({
+      title: '重置参数',
+      content: '确定要恢复默认参数吗？',
+      success: (res) => {
+        if (res.confirm) {
+          const editorNotes = this.convertNotesToRenderData(DEFAULT_HANDPAN_NOTES);
+          this.setData({
+            editorNotes,
+            editorSelectedId: null,
+            editorSelectedNote: null,
+            editorSecondSelectedId: null,
+            editorSecondNote: null,
+            editorHistory: [JSON.stringify(editorNotes)]
+          });
+        }
+      }
+    });
+  },
+
+  /**
+   * 应用编辑
+   */
+  onApplyHandpanEditor() {
+    const displayMode = this.data.displayMode;
+    const handpanNotes = this.data.editorNotes.map(n => ({
+      ...n,
+      active: false,
+      displayText: this.getDisplayText(n.note, displayMode)
+    }));
+    
+    this.setData({
+      handpanNotes,
+      handpanEditorVisible: false
+    });
+    
+    // 保存到本地存储（与metronome共享）
+    wx.setStorageSync('handpanNotes', handpanNotes);
+    
+    // 重新验证映射
+    this.validateMapping();
+    
+    wx.showToast({ title: '应用成功', icon: 'success' });
+  },
+
+  // ========== 参数库 ==========
+
+  /**
+   * 加载参数库（与metronome共享存储）
+   */
+  loadHandpanParamsLibrary() {
+    try {
+      const userLibrary = wx.getStorageSync('handpanParamsLibrary') || [];
+      const library = [...PRESET_HANDPAN_PARAMS, ...userLibrary];
+      this.setData({ handpanParamsLibrary: library });
+    } catch (e) {
+      console.error('[HandpanSetup] 加载参数库失败:', e);
+      this.setData({ handpanParamsLibrary: PRESET_HANDPAN_PARAMS });
+    }
+  },
+
+  /**
+   * 保存参数库
+   */
+  saveHandpanParamsLibrary() {
+    try {
+      const userLibrary = this.data.handpanParamsLibrary.filter(p => !p.isPreset);
+      wx.setStorageSync('handpanParamsLibrary', userLibrary);
+    } catch (e) {
+      console.error('[HandpanSetup] 保存参数库失败:', e);
+    }
+  },
+
+  /**
+   * 打开参数库弹窗
+   */
+  onOpenHandpanParamsLibrary() {
+    this.setData({ handpanParamsLibraryVisible: true });
+  },
+
+  /**
+   * 关闭参数库弹窗
+   */
+  onCloseHandpanParamsLibrary() {
+    this.setData({ handpanParamsLibraryVisible: false });
+  },
+
+  /**
+   * 选择参数
+   */
+  onSelectHandpanParams(e) {
+    const id = e.currentTarget.dataset.id;
+    this.setData({ currentHandpanParamsId: id });
+  },
+
+  /**
+   * 应用选中的参数
+   */
+  onApplySelectedHandpanParams() {
+    const id = this.data.currentHandpanParamsId;
+    let notes;
+    
+    if (id === 'default') {
+      notes = DEFAULT_HANDPAN_NOTES;
+    } else {
+      const params = this.data.handpanParamsLibrary.find(p => p.id === id);
+      if (!params) {
+        wx.showToast({ title: '参数不存在', icon: 'none' });
+        return;
+      }
+      notes = params.notes;
+    }
+    
+    const editorNotes = this.convertNotesToRenderData(notes);
+    this.setData({
+      editorNotes,
+      editorSelectedId: null,
+      editorSelectedNote: null,
+      editorHistory: [JSON.stringify(editorNotes)],
+      handpanParamsLibraryVisible: false
+    });
+    
+    wx.showToast({ title: '参数已加载', icon: 'success' });
+  },
+
+  /**
+   * 删除参数
+   */
+  onDeleteHandpanParams(e) {
+    const id = e.currentTarget.dataset.id;
+    const params = this.data.handpanParamsLibrary.find(p => p.id === id);
+    
+    if (params && params.isPreset) {
+      wx.showToast({ title: '预设参数不能删除', icon: 'none', duration: 2000 });
+      return;
+    }
+    
+    wx.showModal({
+      title: '确认删除',
+      content: '确定要删除这个参数吗？',
+      success: (res) => {
+        if (res.confirm) {
+          const library = this.data.handpanParamsLibrary.filter(p => p.id !== id);
+          this.setData({ handpanParamsLibrary: library });
+          this.saveHandpanParamsLibrary();
+          wx.showToast({ title: '已删除', icon: 'success' });
+        }
+      }
+    });
+  },
+
+  /**
+   * 打开保存参数弹窗
+   */
+  onSaveHandpanParams() {
+    this.setData({ handpanSaveParamsVisible: true, handpanSaveParamsName: '' });
+  },
+
+  /**
+   * 关闭保存参数弹窗
+   */
+  onCloseHandpanSaveParams() {
+    this.setData({ handpanSaveParamsVisible: false });
+  },
+
+  /**
+   * 参数名称输入
+   */
+  onHandpanSaveParamsNameInput(e) {
+    this.setData({ handpanSaveParamsName: e.detail.value });
+  },
+
+  /**
+   * 确认保存参数
+   */
+  onConfirmSaveHandpanParams() {
+    const name = this.data.handpanSaveParamsName.trim();
+    if (!name) {
+      wx.showToast({ title: '请输入参数名称', icon: 'none' });
+      return;
+    }
+    
+    const notes = this.data.editorNotes.map(n => ({
+      id: n.id,
+      note: n.note,
+      jianpu: n.jianpu || '',
+      shuzipu: n.shuzipu || '',
+      cx: n.cx,
+      cy: n.cy,
+      rx: n.rx,
+      ry: n.ry,
+      angle: n.angle
+    }));
+    
+    const newParams = {
+      id: Date.now().toString(),
+      name,
+      notes,
+      noteCount: notes.length,
+      createTime: Date.now()
+    };
+    
+    const library = [...this.data.handpanParamsLibrary, newParams];
+    this.setData({ handpanParamsLibrary: library, handpanSaveParamsVisible: false });
+    this.saveHandpanParamsLibrary();
+    
+    wx.showToast({ title: '保存成功', icon: 'success' });
+  },
+
+  // ========== 导入参数 ==========
+
+  /**
+   * 打开导入弹窗
+   */
+  onImportHandpanParams() {
+    this.setData({ handpanImportVisible: true, handpanImportJson: '', handpanImportError: '' });
+  },
+
+  /**
+   * 关闭导入弹窗
+   */
+  onCloseHandpanImport() {
+    this.setData({ handpanImportVisible: false });
+  },
+
+  /**
+   * 导入JSON输入
+   */
+  onHandpanImportJsonInput(e) {
+    this.setData({ handpanImportJson: e.detail.value, handpanImportError: '' });
+  },
+
+  /**
+   * 确认导入
+   */
+  onConfirmHandpanImport() {
+    const jsonStr = this.data.handpanImportJson.trim();
+    if (!jsonStr) {
+      this.setData({ handpanImportError: '请输入JSON数据' });
+      return;
+    }
+    
+    try {
+      const notes = JSON.parse(jsonStr);
+      
+      if (!Array.isArray(notes)) throw new Error('数据必须是数组格式');
+      if (notes.length === 0) throw new Error('数组不能为空');
+      
+      notes.forEach((note, index) => {
+        if (typeof note.cx !== 'number' || typeof note.cy !== 'number') {
+          throw new Error(`第${index + 1}个音符缺少cx或cy字段`);
+        }
+        if (typeof note.rx !== 'number' || typeof note.ry !== 'number') {
+          throw new Error(`第${index + 1}个音符缺少rx或ry字段`);
+        }
+      });
+      
+      const editorNotes = this.convertNotesToRenderData(notes);
+      this.setData({
+        editorNotes,
+        editorSelectedId: null,
+        editorSelectedNote: null,
+        editorHistory: [JSON.stringify(editorNotes)],
+        handpanImportVisible: false
+      });
+      
+      wx.showToast({ title: '导入成功', icon: 'success' });
+    } catch (e) {
+      this.setData({ handpanImportError: '解析失败: ' + e.message });
+    }
+  },
+
+  // ========== 帮助 ==========
+
+  onCloseHelp() {
+    this.setData({ helpVisible: false });
+  },
+
+  onInputFocus() {},
+  onInputBlur() {}
 });

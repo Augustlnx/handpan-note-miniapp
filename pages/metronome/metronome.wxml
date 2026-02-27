@@ -618,10 +618,12 @@
   <!-- 开始演奏按钮 -->
   <view class="start-play-section">
     <view class="start-play-btn" bindtap="onStartRhythmGame">
-      <view class="start-play-icon">🎮</view>
+      <view class="start-play-icon">
+        <image class="start-play-icon-img" src="/subpackages/resources/icons/metronome/game.svg" mode="aspectFit"></image>
+      </view>
       <view class="start-play-content">
-        <text class="start-play-title">开始演奏</text>
-        <text class="start-play-desc">进入音游模式，配合谱面练习</text>
+        <text class="start-play-title">开始演奏（测试优化中）</text>
+        <text class="start-play-desc">音游模式谱面练习（当前只适合简单短曲谱）</text>
       </view>
       <view class="start-play-arrow">›</view>
     </view>

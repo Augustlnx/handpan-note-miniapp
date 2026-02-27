@@ -4,6 +4,8 @@
   background: #f5f7fa;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* 导航栏 */
@@ -21,10 +23,18 @@
 }
 
 .nav-bar-left, .nav-bar-right {
-  width: 100rpx;
+  width: 120rpx;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-left: 0rpx;
+  box-sizing: border-box;
+}
+
+.nav-bar-right {
+  justify-content: flex-end;
+  padding-left: 0;
+  padding-right: 15rpx;
 }
 
 .nav-back-icon {
@@ -47,7 +57,10 @@
 /* 主内容区域 */
 .main-content {
   flex: 1;
-  padding: 178rpx 24rpx 180rpx;
+  padding: 218rpx 32rpx 180rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* 曲谱信息卡片 */
@@ -91,6 +104,9 @@
   padding: 28rpx;
   margin-bottom: 20rpx;
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .section-header {
@@ -115,6 +131,7 @@
 .notation-type-tabs {
   display: flex;
   gap: 16rpx;
+  width: 100%;
 }
 
 .type-tab {
@@ -200,6 +217,8 @@
   background: #f0f4f7;
   border-radius: 12rpx;
   margin-bottom: 12rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mapping-col {
@@ -207,18 +226,22 @@
   font-size: 24rpx;
   color: #5c7a8c;
   font-weight: 600;
+  box-sizing: border-box;
 }
 
 .col-key {
   width: 25%;
+  flex-shrink: 0;
 }
 
 .col-simplified {
   width: 35%;
+  flex-shrink: 0;
 }
 
 .col-spn {
-  flex: 1;
+  width: 40%;
+  flex-shrink: 0;
 }
 
 .mapping-list {
@@ -232,6 +255,8 @@
   padding: 20rpx 12rpx;
   border-bottom: 1rpx solid #f0f4f7;
   transition: background 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mapping-row:last-child {
@@ -267,6 +292,18 @@
   font-size: 28rpx;
   color: #314D63;
   text-align: center;
+  box-sizing: border-box;
+}
+
+/* 映射表空状态 */
+.mapping-empty {
+  padding: 48rpx 24rpx;
+  text-align: center;
+}
+
+.mapping-empty .empty-text {
+  font-size: 28rpx;
+  color: #8a9aa8;
 }
 
 /* 底部占位 */

@@ -1,4 +1,4 @@
-﻿<wxs module="utils">
+<wxs module="utils">
 // 横屏缩放比例：18/28
 var LANDSCAPE_SCALE = 18 / 28;
 // 定义常用字符常量，避免WXS中引号嵌套问题
@@ -604,6 +604,10 @@ module.exports = {
           <image class="action-btn-icon" src="{{orientation === 'landscape' ? '/assets/icons/横屏.svg' : '/assets/icons/竖屏.svg'}}"></image>
           <text class="action-btn-text">{{orientation === 'landscape' ? '紧凑' : '宽松'}}</text>
         </view>
+        <view class="action-btn" bindtap="openGlobalLayoutModal">
+          <image class="action-btn-icon" src="/assets/icons/doc-detail.svg"></image>
+          <text class="action-btn-text">排版</text>
+        </view>
       </view>
     </view>
       <image class="action-collapse-icon" src="/assets/icons/internal-reduction.png" bindtap="toggleActionBar"></image>
@@ -854,6 +858,9 @@ module.exports = {
         <text class="countdown-number">{{countdownNumber > 0 ? countdownNumber : '♪'}}</text>
       </view>
       <view class="countdown-pulse"></view>
+    </view>
+    <view wx:if="{{countdownNumber > 0}}" class="countdown-cancel-btn" bind:tap="cancelPlaybackCountdown">
+      <text>取消</text>
     </view>
   </view>
 
@@ -1203,6 +1210,91 @@ module.exports = {
     </view>
   </view>
 
+  <!-- 全局排版设置模态框 -->
+  <view wx:if="{{showGlobalLayoutModal}}" class="modal-overlay" bindtap="closeGlobalLayoutModal">
+    <view class="modal-content module-settings-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <view class="modal-title">全局排版</view>
+        <image class="modal-close-icon" src="/assets/icons/delete.png" bindtap="closeGlobalLayoutModal"></image>
+      </view>
+      
+      <view class="module-settings-scrollable">
+      <view class="settings-item">
+        <view class="settings-item-header">
+          <image class="settings-icon" src="/assets/icons/paragraph.png"></image>
+          <text class="settings-label">全局样式</text>
+        </view>
+        <view class="settings-item-desc global-layout-desc">
+          <text>修改后将应用到所有模块（已单独设置样式的模块不受影响）</text>
+        </view>
+        <view class="settings-item-content style-settings-content">
+          <!-- 单行高度设置 -->
+          <view class="style-setting-row">
+            <text class="style-label">单行高度</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 103 : 160}}</text>
+              <input 
+                class="style-input"
+                type="number"
+                value="{{globalMeasureHeight}}" 
+                placeholder="{{orientation === 'landscape' ? '51-193' : '80-300'}}"
+                bindinput="onGlobalMeasureHeightInput"
+                bindconfirm="confirmGlobalMeasureHeight"
+                bindblur="confirmGlobalMeasureHeight"
+              />
+              <text class="style-unit">rpx</text>
+            </view>
+          </view>
+          <view wx:if="{{globalMeasureHeightError}}" class="error-message">{{globalMeasureHeightError}}</view>
+          
+          <!-- 音符字体大小设置 -->
+          <view class="style-setting-row">
+            <text class="style-label">音符字号</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 18 : 28}}</text>
+              <input 
+                class="style-input"
+                type="number"
+                value="{{globalNoteFontSize}}" 
+                placeholder="{{orientation === 'landscape' ? '9-32' : '14-50'}}"
+                bindinput="onGlobalNoteFontSizeInput"
+                bindconfirm="confirmGlobalNoteFontSize"
+                bindblur="confirmGlobalNoteFontSize"
+              />
+              <text class="style-unit">rpx</text>
+            </view>
+          </view>
+          <view wx:if="{{globalNoteFontSizeError}}" class="error-message">{{globalNoteFontSizeError}}</view>
+          
+          <!-- 行间距设置 -->
+          <view class="style-setting-row">
+            <text class="style-label">行间距</text>
+            <view class="style-input-area">
+              <text class="style-default-hint">默认{{orientation === 'landscape' ? 42 : 65}}</text>
+              <input 
+                class="style-input"
+                type="number"
+                value="{{globalLineSpacing}}" 
+                placeholder="{{orientation === 'landscape' ? '19-96' : '30-150'}}"
+                bindinput="onGlobalLineSpacingInput"
+                bindconfirm="confirmGlobalLineSpacing"
+                bindblur="confirmGlobalLineSpacing"
+              />
+              <text class="style-unit">rpx</text>
+            </view>
+          </view>
+          <view wx:if="{{globalLineSpacingError}}" class="error-message">{{globalLineSpacingError}}</view>
+        </view>
+      </view>
+      </view>
+
+      <view class="modal-buttons">
+        <button class="btn-secondary" bindtap="resetGlobalLayout">恢复默认</button>
+        <button class="btn-primary" bindtap="applyGlobalLayout">应用</button>
+      </view>
+    </view>
+  </view>
+
   <!-- 模块设置模态框 -->
   <view wx:if="{{showModuleSettingsModal}}" class="modal-overlay" bindtap="closeModuleSettingsModal">
     <view class="modal-content module-settings-modal" catchtap="stopPropagation">
@@ -1237,7 +1329,7 @@ module.exports = {
           <view class="style-setting-row">
             <text class="style-label">单行高度</text>
             <view class="style-input-area">
-              <text class="style-default-hint">默认{{orientation === 'landscape' ? 103 : 160}}</text>
+              <text class="style-default-hint">全局{{moduleDefaultMeasureHeight}}</text>
               <input 
                 class="style-input"
                 type="number"
@@ -1256,7 +1348,7 @@ module.exports = {
           <view class="style-setting-row">
             <text class="style-label">音符字号</text>
             <view class="style-input-area">
-              <text class="style-default-hint">默认{{orientation === 'landscape' ? 18 : 28}}</text>
+              <text class="style-default-hint">全局{{moduleDefaultNoteFontSize}}</text>
               <input 
                 class="style-input"
                 type="number"
@@ -1275,7 +1367,7 @@ module.exports = {
           <view class="style-setting-row">
             <text class="style-label">行间距</text>
             <view class="style-input-area">
-              <text class="style-default-hint">默认{{orientation === 'landscape' ? 42 : 65}}</text>
+              <text class="style-default-hint">全局{{moduleDefaultLineSpacing}}</text>
               <input 
                 class="style-input"
                 type="number"
@@ -2395,15 +2487,11 @@ module.exports = {
         </view>
         <view class="update-item">
           <text class="update-icon">⌨️</text>
-          <text class="update-text">虚拟键盘新增附点、琶音记号</text>
+          <text class="update-text">菜单栏“布局”新增全局字号排版设置</text>
         </view>
         <view class="update-item">
           <text class="update-icon">📖</text>
-          <text class="update-text">新手教程更新时值说明</text>
-        </view>
-        <view class="update-item">
-          <text class="update-icon">note：</text>
-          <text class="update-text">修复谱式转换错误的bug</text>
+          <text class="update-text">修复更改module后的空白问题</text>
         </view>
       </view>
 

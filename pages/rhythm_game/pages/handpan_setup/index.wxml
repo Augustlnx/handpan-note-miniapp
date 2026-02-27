@@ -3,100 +3,111 @@
   <!-- 自定义导航栏 -->
   <view class="custom-nav-bar">
     <view class="nav-bar-left" bindtap="onBack">
-      <image class="nav-back-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
+      <image class="nav-back-icon" src="/assets/icons/back.svg" mode="aspectFit"></image>
     </view>
     <view class="nav-bar-content">
       <text class="nav-bar-title">手碟设置</text>
     </view>
-    <view class="nav-bar-right">
-      <view class="display-mode-btn" bindtap="onToggleDisplayMode">
-        <text>{{displayModeLabels[displayMode]}}</text>
-      </view>
-    </view>
+    <view class="nav-bar-right"></view>
   </view>
 
-  <!-- 主内容区域 -->
+  <!-- 主内容区域 - 复用电子手碟编辑器布局风格 -->
   <view class="main-content">
-    <!-- 手碟区域 -->
-    <view class="handpan-section">
-      <view class="handpan-container">
-        <view class="handpan-bg">
-          <!-- 音符区域 -->
-          <view wx:for="{{handpanNotes}}" wx:key="id"
-                class="handpan-note {{item.active ? 'active' : ''}} {{item.id === 0 ? 'ding' : ''}}"
-                style="left: {{item.renderX}}%; top: {{item.renderY}}%; width: {{item.renderW}}%; height: {{item.renderH}}%; transform: rotate({{item.angle + 90}}deg);"
-                data-id="{{item.id}}"
-                data-note="{{item.note}}"
-                bindtouchstart="onNoteTouchStart"
-                bindtouchend="onNoteTouchEnd">
-            <view class="note-inner">
-              <view class="note-outer"></view>
-              <view class="note-inner-ring {{item.id === 0 ? 'ding-convex' : ''}}"></view>
-              <view class="note-display" style="transform: rotate({{-(item.angle + 90)}}deg);">
-                <text class="note-name">{{item.displayText || item.note}}</text>
+    <!-- 顶部悬浮控制按钮 -->
+    <view class="setup-floating-controls">
+      <view class="floating-btn" bindtap="onToggleDisplayMode">
+        <image class="floating-icon" src="/subpackages/resources/icons/metronome/change.svg" mode="aspectFit"></image>
+        <text class="floating-text">{{displayModeLabels[displayMode]}}</text>
+      </view>
+      <view class="floating-btn" bindtap="onOpenHandpanEditor">
+        <image class="floating-icon" src="/subpackages/resources/icons/metronome/edit.svg" mode="aspectFit"></image>
+        <text class="floating-text">编辑布局</text>
+      </view>
+    </view>
+
+    <!-- 手碟画布区域 -->
+    <view class="handpan-canvas-area">
+      <view class="handpan-canvas-bg">
+        <!-- 参考线（装饰性） -->
+        <view class="guide-line-v"></view>
+        <view class="guide-line-h"></view>
+        
+        <!-- 手碟容器 -->
+        <view class="handpan-container">
+          <view class="handpan-bg">
+            <!-- 音符区域 -->
+            <view wx:for="{{handpanNotes}}" wx:key="id"
+                  class="handpan-note {{item.active ? 'active' : ''}} {{item.id === 0 ? 'ding' : ''}}"
+                  style="left: {{item.renderX}}%; top: {{item.renderY}}%; width: {{item.renderW}}%; height: {{item.renderH}}%; transform: rotate({{item.angle + 90}}deg);"
+                  data-id="{{item.id}}"
+                  data-note="{{item.note}}"
+                  bindtouchstart="onNoteTouchStart"
+                  bindtouchend="onNoteTouchEnd">
+              <view class="note-inner">
+                <view class="note-outer"></view>
+                <view class="note-inner-ring {{item.id === 0 ? 'ding-convex' : ''}}"></view>
+                <view class="note-display" style="transform: rotate({{-(item.angle + 90)}}deg);">
+                  <text class="note-name">{{item.displayText || item.note}}</text>
+                </view>
               </view>
             </view>
           </view>
         </view>
       </view>
-      
-      <!-- 音量控制 -->
-      <view class="volume-bar">
-        <image class="volume-icon" src="/assets/icons/volume.svg" mode="aspectFit"></image>
-        <slider class="volume-slider" 
-                min="0" max="100" 
-                value="{{handpanVolume}}" 
-                activeColor="#456781" 
-                backgroundColor="#1c3141"
-                block-size="20"
-                bindchange="onVolumeChange"/>
-      </view>
     </view>
 
-    <!-- 常驻按钮区域 -->
-    <view class="resident-buttons-section">
-      <view class="section-label">
-        <text class="label-text">常驻按钮</text>
-        <text class="label-hint">长按可编辑</text>
-      </view>
-      <view class="resident-buttons">
-        <view wx:for="{{residentButtons}}" wx:key="id"
-              class="resident-btn {{item.active ? 'active' : ''}}"
-              data-id="{{item.id}}"
-              bindtouchstart="onResidentBtnTouchStart"
-              bindtouchend="onResidentBtnTouchEnd"
-              bindlongpress="onResidentBtnLongPress">
-          <text class="btn-label">{{item.label}}</text>
+    <!-- 底部属性面板（iOS风格） -->
+    <view class="props-panel-ios">
+      <view class="props-card">
+        <!-- 常驻按钮配置 -->
+        <view class="props-section">
+          <view class="props-section-header">
+            <text class="props-section-title">常驻按钮</text>
+            <text class="props-section-hint">长按可编辑</text>
+          </view>
+          <view class="resident-buttons">
+            <view wx:for="{{residentButtons}}" wx:key="id"
+                  class="resident-btn {{item.active ? 'active' : ''}}"
+                  data-id="{{item.id}}"
+                  bindtouchstart="onResidentBtnTouchStart"
+                  bindtouchend="onResidentBtnTouchEnd"
+                  bindlongpress="onResidentBtnLongPress">
+              <text class="btn-label">{{item.label}}</text>
+            </view>
+          </view>
         </view>
-      </view>
-    </view>
 
-    <!-- 映射验证提示 -->
-    <view class="validation-section">
-      <view class="validation-card {{mappingValid ? 'valid' : 'invalid'}}">
-        <view class="validation-icon">
-          <text wx:if="{{mappingValid}}">✓</text>
-          <text wx:else>!</text>
-        </view>
-        <view class="validation-info">
-          <text class="validation-title">{{mappingValid ? '映射验证通过' : '映射不完整'}}</text>
-          <text class="validation-desc" wx:if="{{!mappingValid}}">
-            缺少音符: {{missingNotes.length > 0 ? missingNotes[0].spn : ''}} 等{{missingNotes.length}}个
-          </text>
-          <text class="validation-desc" wx:if="{{mappingValid}}">
-            所有谱面音符都已映射到手碟按键
-          </text>
+        <!-- 映射验证 -->
+        <view class="props-section validation-section">
+          <view class="validation-card {{mappingValid ? 'valid' : 'invalid'}}">
+            <view class="validation-icon">
+              <text wx:if="{{mappingValid}}">✓</text>
+              <text wx:else>!</text>
+            </view>
+            <view class="validation-info">
+              <text class="validation-title">{{mappingValid ? '映射验证通过' : '映射不完整'}}</text>
+              <text class="validation-desc" wx:if="{{!mappingValid}}">
+                缺少音符: {{missingNotes.length > 0 ? missingNotes[0].spn : ''}} 等{{missingNotes.length}}个
+              </text>
+              <text class="validation-desc" wx:if="{{mappingValid}}">
+                所有谱面音符都已映射到手碟按键
+              </text>
+            </view>
+          </view>
         </view>
       </view>
     </view>
   </view>
 
-  <!-- 底部操作栏 -->
-  <view class="footer-bar">
-    <view class="footer-btn cancel" bindtap="onBack">返回</view>
-    <view class="footer-btn confirm {{!mappingValid ? 'disabled' : ''}}" bindtap="onStartPlay">
-      <text>开始演奏</text>
-      <view class="loading-indicator" wx:if="{{audioLoading}}"></view>
+  <!-- 底部操作栏（iOS风格） -->
+  <view class="footer-ios">
+    <view class="btn-ios-footer secondary" bindtap="onBack">返回</view>
+    <view class="btn-ios-footer primary {{!mappingValid ? 'disabled' : ''}}" bindtap="onStartPlay">
+      <text wx:if="{{!audioLoading}}">开始演奏</text>
+      <view class="loading-content" wx:if="{{audioLoading}}">
+        <view class="loading-indicator"></view>
+        <text>加载中...</text>
+      </view>
     </view>
   </view>
 
@@ -121,5 +132,265 @@
         <view class="modal-btn confirm" bindtap="onConfirmButtonEdit">确定</view>
       </view>
     </view>
+  </view>
+
+  <!-- 电子手碟编辑器弹窗（全屏iOS风格） -->
+  <view class="he-fullscreen-modal {{handpanEditorVisible ? 'active' : ''}}" catchtap="onEditorBackgroundTap">
+    
+    <!-- 编辑画布区域 -->
+    <view class="he-canvas-area-fullscreen" catchtap="onEditorBackgroundTap">
+      <view class="he-canvas-bg-fullscreen" catchtap="stopPropagation">
+        <!-- 参考线 -->
+        <view class="he-guide-v"></view>
+        <view class="he-guide-h"></view>
+        <!-- 音符节点 -->
+        <view wx:for="{{editorNotes}}" wx:key="id"
+              class="he-note-node-fullscreen {{editorSelectedId === item.id || editorSecondSelectedId === item.id ? 'selected' : ''}} {{item.id === 0 ? 'ding' : ''}}"
+              style="left: {{item.renderX}}%; top: {{item.renderY}}%; width: {{item.renderW}}%; height: {{item.renderH}}%; transform: rotate({{item.angle + 90}}deg);"
+              data-id="{{item.id}}"
+              catchtouchstart="onEditorNoteTouchStart"
+              catchtouchmove="onEditorNoteTouchMove"
+              catchtouchend="onEditorNoteTouchEnd">
+          <text class="he-note-label-fullscreen" style="transform: rotate({{-(item.angle + 90)}}deg);">{{item.note}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 右侧工具栏 -->
+    <view class="he-sidebar-tools">
+      <view class="he-sidebar-btn" catchtap="onOpenHandpanParamsLibrary">
+        <image src="/assets/icons/folder-rename.png" mode="aspectFit"></image>
+        <text>参数库</text>
+      </view>
+      <view class="he-sidebar-btn" catchtap="onImportHandpanParams">
+        <image src="/assets/icons/import.svg" mode="aspectFit"></image>
+        <text>导入</text>
+      </view>
+      <view class="he-sidebar-btn" catchtap="onCopyPositionJSON">
+        <image src="/assets/icons/share.svg" mode="aspectFit"></image>
+        <text>导出</text>
+      </view>
+      <view class="he-sidebar-divider"></view>
+      <view class="he-sidebar-btn" catchtap="onSaveHandpanParams">
+        <image src="/assets/icons/save.svg" mode="aspectFit"></image>
+        <text>保存</text>
+      </view>
+      <view class="he-sidebar-btn" catchtap="onResetHandpanParams">
+        <image src="/assets/icons/clear.png" mode="aspectFit"></image>
+        <text>重置</text>
+      </view>
+      <view class="he-sidebar-btn" catchtap="onUndoHandpanEdit">
+        <image src="/assets/icons/undo.svg" mode="aspectFit"></image>
+        <text>撤销</text>
+      </view>
+    </view>
+
+    <!-- 单选模式：属性面板 -->
+    <view class="he-props-panel-ios" wx:if="{{editorSelectedId !== null && editorSecondSelectedId === null}}" catchtap="stopPropagation">
+      <view class="he-props-card">
+        <view class="he-prop-header-ios">
+          <view class="he-prop-note-badge">{{editorSelectedNote.note}}</view>
+          <view class="he-prop-coord-ios">
+            <text class="he-coord-label">X</text><text class="he-coord-val">{{editorSelectedNote.cx}}</text>
+            <text class="he-coord-label">Y</text><text class="he-coord-val">{{editorSelectedNote.cy}}</text>
+          </view>
+        </view>
+        
+        <!-- 音名/简谱/数字谱输入行 -->
+        <view class="he-prop-row-ios note-names-row">
+          <view class="he-note-input-group">
+            <text class="he-note-input-label">音名</text>
+            <input class="he-note-input" value="{{editorSelectedNote.note}}" bindinput="onEditorNoteNameChange" placeholder="C4" />
+          </view>
+          <view class="he-note-input-group">
+            <text class="he-note-input-label">简谱</text>
+            <input class="he-note-input" value="{{editorSelectedNote.jianpu}}" bindinput="onEditorJianpuChange" placeholder="5'" />
+          </view>
+          <view class="he-note-input-group">
+            <text class="he-note-input-label">数字谱</text>
+            <input class="he-note-input" value="{{editorSelectedNote.shuzipu}}" bindinput="onEditorShuzipuChange" placeholder="9" />
+          </view>
+        </view>
+        
+        <view class="he-prop-row-ios">
+          <text class="he-prop-label-ios">X 坐标</text>
+          <slider class="he-slider-ios" min="50" max="950" value="{{editorSelectedNote.cx}}" bindchanging="onEditorPropChange" data-prop="cx" activeColor="#314D63" block-size="16" block-color="#314D63" />
+          <input class="he-prop-value-input-ios" type="number" value="{{editorSelectedNote.cx}}" bindinput="onEditorValueInput" bindblur="onEditorValueBlur" data-prop="cx" />
+        </view>
+        
+        <view class="he-prop-row-ios">
+          <text class="he-prop-label-ios">Y 坐标</text>
+          <slider class="he-slider-ios" min="50" max="950" value="{{editorSelectedNote.cy}}" bindchanging="onEditorPropChange" data-prop="cy" activeColor="#314D63" block-size="16" block-color="#314D63" />
+          <input class="he-prop-value-input-ios" type="number" value="{{editorSelectedNote.cy}}" bindinput="onEditorValueInput" bindblur="onEditorValueBlur" data-prop="cy" />
+        </view>
+        
+        <view class="he-prop-row-ios">
+          <text class="he-prop-label-ios">宽度</text>
+          <slider class="he-slider-ios" min="20" max="200" value="{{editorSelectedNote.rx}}" bindchanging="onEditorPropChange" data-prop="rx" activeColor="#314D63" block-size="16" block-color="#314D63" />
+          <input class="he-prop-value-input-ios" type="number" value="{{editorSelectedNote.rx}}" bindinput="onEditorValueInput" bindblur="onEditorValueBlur" data-prop="rx" />
+        </view>
+        
+        <view class="he-prop-row-ios">
+          <text class="he-prop-label-ios">高度</text>
+          <slider class="he-slider-ios" min="20" max="200" value="{{editorSelectedNote.ry}}" bindchanging="onEditorPropChange" data-prop="ry" activeColor="#314D63" block-size="16" block-color="#314D63" />
+          <input class="he-prop-value-input-ios" type="number" value="{{editorSelectedNote.ry}}" bindinput="onEditorValueInput" bindblur="onEditorValueBlur" data-prop="ry" />
+        </view>
+        
+        <view class="he-prop-row-ios">
+          <text class="he-prop-label-ios">角度</text>
+          <slider class="he-slider-ios" min="-180" max="180" value="{{editorSelectedNote.angle}}" bindchanging="onEditorPropChange" data-prop="angle" activeColor="#314D63" block-size="16" block-color="#314D63" />
+          <view class="he-prop-value-wrapper-ios">
+            <input class="he-prop-value-input-ios" type="number" value="{{editorSelectedNote.angle}}" bindinput="onEditorValueInput" bindblur="onEditorValueBlur" data-prop="angle" />
+            <text class="he-prop-value-unit-ios"></text>
+          </view>
+        </view>
+
+        <view class="he-prop-actions-ios">
+          <view class="he-btn-ios secondary" catchtap="onEditorResetNote">恢复默认</view>
+          <view class="he-btn-ios danger" catchtap="onEditorDeleteNote">删除音符</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 双选模式：对齐面板 -->
+    <view class="he-props-panel-ios" wx:elif="{{editorSelectedId !== null && editorSecondSelectedId !== null}}" catchtap="stopPropagation">
+      <view class="he-props-card">
+        <view class="he-align-header" catchtap="onSwapBaseNote">
+          <view class="he-align-notes">
+            <view class="he-align-note-badge primary">{{editorSelectedNote.note}}</view>
+            <text class="he-align-arrow">⟷</text>
+            <view class="he-align-note-badge secondary">{{editorSecondNote.note}}</view>
+          </view>
+          <text class="he-align-hint">以左侧为基准（点击交换）</text>
+        </view>
+        
+        <!-- 胶囊切换按钮组 -->
+        <view class="he-align-capsule-group">
+          <view class="he-align-capsule" bindtap="onAlignHorizontalSymmetry">
+            <view class="he-capsule-icon">↔</view>
+            <text class="he-capsule-text">水平对称</text>
+          </view>
+          <view class="he-align-capsule" bindtap="onAlignVerticalFlat">
+            <view class="he-capsule-icon">═</view>
+            <text class="he-capsule-text">垂直齐平</text>
+          </view>
+          <view class="he-align-capsule" bindtap="onAlignMatchSize">
+            <view class="he-capsule-icon">⊡</view>
+            <text class="he-capsule-text">对齐大小</text>
+          </view>
+        </view>
+
+        <view class="he-prop-actions-ios">
+          <view class="he-btn-ios secondary" bindtap="onClearSecondSelection">取消多选</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 未选中时的提示 -->
+    <view class="he-props-panel-ios placeholder" wx:else catchtap="stopPropagation">
+      <view class="he-props-card">
+        <view class="he-placeholder-content">
+          <text class="he-placeholder-text">点击画布中的音符进行编辑</text>
+          <text class="he-placeholder-hint">连续点击两个音符可进行对齐操作</text>
+        </view>
+        <view class="he-btn-ios primary add" bindtap="onEditorAddNote">+ 添加音符</view>
+      </view>
+    </view>
+
+    <!-- 底部操作栏（iOS风格） -->
+    <view class="he-footer-ios" catchtap="stopPropagation">
+      <view class="he-btn-ios-footer secondary" catchtap="onCloseHandpanEditor">取消</view>
+      <view class="he-btn-ios-footer primary" catchtap="onApplyHandpanEditor">应用</view>
+    </view>
+  </view>
+
+  <!-- 参数库弹窗 -->
+  <view class="modal {{handpanParamsLibraryVisible ? 'active' : ''}}" catchtap="onCloseHandpanParamsLibrary">
+    <view class="modal-content he-params-library-modal" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">参数库</text>
+        <text class="close-modal" bindtap="onCloseHandpanParamsLibrary">×</text>
+      </view>
+      <scroll-view class="he-params-list" scroll-y>
+        <!-- 默认参数（不可删除） -->
+        <view class="he-params-item {{currentHandpanParamsId === 'default' ? 'active' : ''}}" 
+              bindtap="onSelectHandpanParams" 
+              data-id="default">
+          <view class="he-params-item-info">
+            <text class="he-params-item-name">D-Kurd 12音 (默认)</text>
+            <text class="he-params-item-desc">标准手碟布局</text>
+          </view>
+        </view>
+        <!-- 预设参数和用户保存的参数 -->
+        <view wx:for="{{handpanParamsLibrary}}" wx:key="id" 
+              class="he-params-item {{currentHandpanParamsId === item.id ? 'active' : ''}}">
+          <view class="he-params-item-info" bindtap="onSelectHandpanParams" data-id="{{item.id}}">
+            <text class="he-params-item-name">{{item.name}}</text>
+            <text class="he-params-item-desc">{{item.notes.length}}个音符</text>
+          </view>
+          <!-- 只有非预设参数才显示删除按钮 -->
+          <view class="he-params-item-delete" catchtap="onDeleteHandpanParams" data-id="{{item.id}}" wx:if="{{!item.isPreset}}">
+            删除
+          </view>
+          <view class="he-params-item-preset-tag" wx:if="{{item.isPreset}}">
+            预设
+          </view>
+        </view>
+      </scroll-view>
+      <view class="modal-buttons">
+        <view class="edit-btn secondary" bindtap="onCloseHandpanParamsLibrary">关闭</view>
+        <view class="edit-btn primary" bindtap="onApplySelectedHandpanParams">应用</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 保存参数弹窗 -->
+  <view class="modal {{handpanSaveParamsVisible ? 'active' : ''}}" catchtap="onCloseHandpanSaveParams">
+    <view class="modal-content save-modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">保存参数</text>
+        <text class="close-modal" bindtap="onCloseHandpanSaveParams">×</text>
+      </view>
+      <view class="save-dialog">
+        <input class="save-input" 
+               placeholder="请输入参数名称 (如: 我的手碟1)" 
+               value="{{handpanSaveParamsName}}"
+               bindinput="onHandpanSaveParamsNameInput"
+               bindfocus="onInputFocus"
+               bindblur="onInputBlur"/>
+        <view class="save-btn" bindtap="onConfirmSaveHandpanParams">保存</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导入参数弹窗 -->
+  <view class="modal {{handpanImportVisible ? 'active' : ''}}" catchtap="onCloseHandpanImport">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">导入位置参数</text>
+        <text class="close-modal" bindtap="onCloseHandpanImport">×</text>
+      </view>
+      <view class="he-import-content">
+        <text class="he-import-hint">请粘贴JSON格式的参数数据：</text>
+        <textarea class="he-import-textarea" 
+                  placeholder='[{"id":0,"note":"D3","cx":500,"cy":500,"rx":118,"ry":104,"angle":-90},...]'
+                  value="{{handpanImportJson}}"
+                  bindinput="onHandpanImportJsonInput"
+                  maxlength="-1"></textarea>
+        <text class="he-import-error" wx:if="{{handpanImportError}}">{{handpanImportError}}</text>
+      </view>
+      <view class="modal-buttons">
+        <view class="edit-btn secondary" bindtap="onCloseHandpanImport">取消</view>
+        <view class="edit-btn primary" bindtap="onConfirmHandpanImport">导入</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 帮助提示弹窗 -->
+  <view class="help-overlay {{helpVisible ? 'active' : ''}}" bindtap="onCloseHelp"></view>
+  <view class="help-tooltip {{helpVisible ? 'active' : ''}}">
+    <view class="help-tooltip-title">{{helpTitle}}</view>
+    <view class="help-tooltip-content">{{helpContent}}</view>
+    <view class="help-tooltip-close" bindtap="onCloseHelp">知道了</view>
   </view>
 </view>

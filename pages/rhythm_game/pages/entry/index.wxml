@@ -3,51 +3,48 @@
   <!-- 自定义导航栏 -->
   <view class="custom-nav-bar">
     <view class="nav-bar-left" bindtap="onBack">
-      <image class="nav-back-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
+      <image class="nav-back-icon" src="/assets/icons/back.svg" mode="aspectFit"></image>
     </view>
     <view class="nav-bar-content">
-      <text class="nav-bar-title">开始演奏</text>
+      <text class="nav-bar-title">选择曲谱来源</text>
     </view>
     <view class="nav-bar-right"></view>
   </view>
 
-  <!-- 来源选择弹窗（必选） -->
-  <view class="modal-overlay {{showSourceModal ? 'active' : ''}}" catchtap="stopPropagation">
-    <view class="source-modal" catchtap="stopPropagation">
-      <view class="modal-header">
-        <text class="modal-title">选择曲谱来源</text>
-        <text class="modal-subtitle">请选择要演奏的曲谱</text>
+  <!-- 来源选择区域（直接显示在页面上） -->
+  <view class="source-section" wx:if="{{showSourceModal && !showLibraryBrowser}}">
+    <view class="source-header">
+      <text class="source-subtitle">请选择要演奏的曲谱</text>
+    </view>
+    
+    <view class="source-options">
+      <!-- 当前谱面选项 -->
+      <view class="source-option {{!hasCurrentNotation ? 'disabled' : ''}}" bindtap="{{hasCurrentNotation ? 'onSelectCurrentNotation' : ''}}">
+        <view class="option-icon-wrap">
+          <image class="option-icon" src="/assets/icons/notation.png" mode="aspectFit"></image>
+        </view>
+        <view class="option-info">
+          <text class="option-title">当前记谱页面</text>
+          <text class="option-desc">{{hasCurrentNotation ? '读取记谱页面中的谱面' : '当前无可用谱面'}}</text>
+        </view>
+        <view class="option-arrow">›</view>
       </view>
       
-      <view class="source-options">
-        <!-- 当前谱面选项 -->
-        <view class="source-option {{!hasCurrentNotation ? 'disabled' : ''}}" bindtap="{{hasCurrentNotation ? 'onSelectCurrentNotation' : ''}}">
-          <view class="option-icon-wrap">
-            <image class="option-icon" src="/assets/icons/notation.png" mode="aspectFit"></image>
-          </view>
-          <view class="option-info">
-            <text class="option-title">当前记谱页面</text>
-            <text class="option-desc">{{hasCurrentNotation ? '读取记谱页面中的谱面' : '当前无可用谱面'}}</text>
-          </view>
-          <view class="option-arrow">›</view>
+      <!-- 曲库选项 -->
+      <view class="source-option" bindtap="onSelectFromLibrary">
+        <view class="option-icon-wrap">
+          <image class="option-icon" src="/assets/icons/library.png" mode="aspectFit"></image>
         </view>
-        
-        <!-- 曲库选项 -->
-        <view class="source-option" bindtap="onSelectFromLibrary">
-          <view class="option-icon-wrap">
-            <image class="option-icon" src="/assets/icons/library.png" mode="aspectFit"></image>
-          </view>
-          <view class="option-info">
-            <text class="option-title">从曲库选择</text>
-            <text class="option-desc">浏览个人曲库中的曲谱</text>
-          </view>
-          <view class="option-arrow">›</view>
+        <view class="option-info">
+          <text class="option-title">从曲库选择</text>
+          <text class="option-desc">浏览个人曲库中的曲谱</text>
         </view>
+        <view class="option-arrow">›</view>
       </view>
-      
-      <view class="modal-footer">
-        <view class="modal-btn cancel" bindtap="onBack">取消</view>
-      </view>
+    </view>
+    
+    <view class="source-footer">
+      <view class="source-btn cancel" bindtap="onBack">取消</view>
     </view>
   </view>
 
@@ -64,8 +61,16 @@
       </view>
       <view class="toolbar-actions">
         <view class="action-btn" wx:if="{{currentPath.length > 0}}" bindtap="onNavigateBack">
-          <image class="action-icon" src="/assets/icons/上一步_back.png" mode="aspectFit"></image>
+          <image class="action-icon" src="/assets/icons/back.svg" mode="aspectFit"></image>
         </view>
+      </view>
+    </view>
+    
+    <!-- 底部操作栏（始终显示） -->
+    <view class="browser-footer">
+      <view class="footer-btn cancel" bindtap="onCancel">取消</view>
+      <view class="footer-btn confirm {{!selectedSheet ? 'disabled' : ''}}" bindtap="onConfirmSelection">
+        确认选择
       </view>
     </view>
     
@@ -108,14 +113,6 @@
         </view>
       </block>
     </scroll-view>
-    
-    <!-- 底部操作栏 -->
-    <view class="browser-footer">
-      <view class="footer-btn cancel" bindtap="onCancel">取消</view>
-      <view class="footer-btn confirm {{!selectedSheet ? 'disabled' : ''}}" bindtap="onConfirmSelection">
-        确认选择
-      </view>
-    </view>
   </view>
 
   <!-- 加载遮罩 -->

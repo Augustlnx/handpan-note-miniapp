@@ -60,6 +60,9 @@ Page({
     // 从谱面提取的音符
     extractedNotes: [],
     
+    // 过滤后的映射列表（只显示谱面使用的音符）
+    filteredMappings: [],
+    
     // 编辑状态
     editingIndex: null,
     editingField: null,
@@ -114,6 +117,45 @@ Page({
       conversionTable: table,
       conversionMappings: mappings
     });
+    
+    // 初始化时更新过滤列表
+    this.updateFilteredMappings();
+  },
+
+  /**
+   * 更新过滤后的映射列表
+   */
+  updateFilteredMappings() {
+    const { conversionMappings, extractedNotes } = this.data;
+    
+    let filtered = [];
+    
+    if (extractedNotes.length > 0) {
+      // 有提取的音符时，只显示匹配的
+      conversionMappings.forEach((item, index) => {
+        if (extractedNotes.includes(item.key)) {
+          filtered.push({
+            ...item,
+            originalIndex: index
+          });
+        }
+      });
+    }
+    
+    // 如果没有匹配到任何音符，显示数字谱常用的音符(1-11)
+    if (filtered.length === 0) {
+      const commonKeys = ['D', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
+      conversionMappings.forEach((item, index) => {
+        if (commonKeys.includes(item.key)) {
+          filtered.push({
+            ...item,
+            originalIndex: index
+          });
+        }
+      });
+    }
+    
+    this.setData({ filteredMappings: filtered });
   },
 
   /**
@@ -132,13 +174,31 @@ Page({
         for (const beat of measure.beats) {
           if (!beat.subdivisions) continue;
           for (const sub of beat.subdivisions) {
-            if (sub.right && sub.right !== '-' && sub.right !== '') {
-              // 提取基础音符（去除修饰符）
-              const baseNote = this.extractBaseNote(sub.right);
+            // 处理右手音符 - 支持数组格式和字符串格式
+            const rightHand = sub.rightHand || sub.right || [];
+            if (Array.isArray(rightHand)) {
+              for (const note of rightHand) {
+                if (note && note !== '-' && note !== '') {
+                  const baseNote = this.extractBaseNote(note);
+                  if (baseNote) notesSet.add(baseNote);
+                }
+              }
+            } else if (rightHand && rightHand !== '-' && rightHand !== '') {
+              const baseNote = this.extractBaseNote(rightHand);
               if (baseNote) notesSet.add(baseNote);
             }
-            if (sub.left && sub.left !== '-' && sub.left !== '') {
-              const baseNote = this.extractBaseNote(sub.left);
+            
+            // 处理左手音符 - 支持数组格式和字符串格式
+            const leftHand = sub.leftHand || sub.left || [];
+            if (Array.isArray(leftHand)) {
+              for (const note of leftHand) {
+                if (note && note !== '-' && note !== '') {
+                  const baseNote = this.extractBaseNote(note);
+                  if (baseNote) notesSet.add(baseNote);
+                }
+              }
+            } else if (leftHand && leftHand !== '-' && leftHand !== '') {
+              const baseNote = this.extractBaseNote(leftHand);
               if (baseNote) notesSet.add(baseNote);
             }
           }
@@ -149,6 +209,9 @@ Page({
     this.setData({
       extractedNotes: Array.from(notesSet).sort()
     });
+    
+    // 更新过滤后的映射列表
+    this.updateFilteredMappings();
   },
 
   /**

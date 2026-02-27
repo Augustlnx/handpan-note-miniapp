@@ -4054,27 +4054,40 @@ slider {
   display: flex;
   align-items: center;
   padding: 32rpx 28rpx;
-  background: linear-gradient(135deg, #F4D096 0%, #e6c080 100%);
+  background: linear-gradient(135deg, #FDEEC1 0%, #E6D5AC 50%, #D6BC9C 100%);
   border-radius: 24rpx;
-  box-shadow: 0 8rpx 32rpx rgba(244, 208, 150, 0.3);
+  box-shadow: 
+    0 8rpx 32rpx rgba(180, 150, 100, 0.35),
+    inset 0 2rpx 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2rpx 0 rgba(160, 130, 80, 0.3);
   transition: all 0.3s ease;
+  border: 1rpx solid rgba(200, 170, 120, 0.5);
 }
 
 .start-play-btn:active {
   transform: scale(0.98);
-  box-shadow: 0 4rpx 16rpx rgba(244, 208, 150, 0.4);
+  box-shadow: 
+    0 4rpx 16rpx rgba(180, 150, 100, 0.4),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.3);
 }
 
 .start-play-icon {
   width: 80rpx;
   height: 80rpx;
-  background: linear-gradient(135deg, #314D63 0%, #456781 100%);
+  background: linear-gradient(135deg, #403C36 0%, #131311 100%);
   border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
   margin-right: 24rpx;
+  box-shadow: 
+    0 4rpx 12rpx rgba(49, 77, 99, 0.4),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.15);
+}
+
+.start-play-icon-img {
+  width: 44rpx;
+  height: 44rpx;
 }
 
 .start-play-content {
@@ -4087,12 +4100,13 @@ slider {
 .start-play-title {
   font-size: 34rpx;
   font-weight: 700;
-  color: #5a4520;
+  color: #3d3224;
+  text-shadow: 0 1rpx 0 rgba(255, 255, 255, 0.5);
 }
 
 .start-play-desc {
   font-size: 24rpx;
-  color: #8b7355;
+  color: #5a4a35;
 }
 
 .start-play-arrow {
