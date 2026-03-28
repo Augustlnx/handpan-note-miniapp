@@ -361,6 +361,36 @@ class WebAudioManager {
   }
 
   /**
+   * 预加载手碟音频文件
+   * @param {Array<string>} notes - 需要加载的音符SPN列表，如 ['D3', 'A4', 'Bb3']
+   * @returns {Promise<boolean>}
+   */
+  async preloadHandpanAudio(notes = null) {
+    // 默认手碟音符集合
+    const defaultNotes = ['D3', 'A3', 'Bb3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'C5', 'D5', 'E5', 'SLAP'];
+    const notesToLoad = notes || defaultNotes;
+    
+    const audioUrls = {};
+    for (const note of notesToLoad) {
+      audioUrls[`handpan_${note}`] = `/subpackages/audio/sound/${note}.mp3`;
+    }
+    
+    return await this.loadSounds(audioUrls);
+  }
+
+  /**
+   * 播放手碟音符
+   * @param {string} spn - SPN音名 (如 D3, A4, Bb3)
+   * @param {number} volume - 音量 (0-1)，默认0.8
+   * @returns {boolean} 是否成功触发播放
+   */
+  playNote(spn, volume = 0.8) {
+    if (!spn) return false;
+    const audioId = `handpan_${spn}`;
+    return this.play(audioId, volume);
+  }
+
+  /**
    * 检查是否已初始化并预加载
    * @returns {boolean}
    */

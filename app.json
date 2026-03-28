@@ -76,12 +76,22 @@
       "pages": [
         "placeholder/index"
       ]
+    },
+    {
+      "root": "pages/rhythm_game",
+      "name": "rhythm_game",
+      "pages": [
+        "pages/entry/index",
+        "pages/audio_mapping/index",
+        "pages/handpan_setup/index",
+        "pages/gameplay/index"
+      ]
     }
   ],
   "preloadRule": {
     "pages/metronome/metronome": {
       "network": "all",
-      "packages": ["resources"]
+      "packages": ["resources", "rhythm_game"]
     },
     "pages/library/library": {
       "network": "all",

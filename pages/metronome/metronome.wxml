@@ -614,6 +614,20 @@
       <view class="pan-swiper-dot-large {{panSwiperIndex === 1 ? 'active' : ''}}"></view>
     </view>
   </view>
+
+  <!-- 开始演奏按钮 -->
+  <view class="start-play-section">
+    <view class="start-play-btn" bindtap="onStartRhythmGame">
+      <view class="start-play-icon">
+        <image class="start-play-icon-img" src="/subpackages/resources/icons/metronome/game.svg" mode="aspectFit"></image>
+      </view>
+      <view class="start-play-content">
+        <text class="start-play-title">开始演奏（测试优化中）</text>
+        <text class="start-play-desc">音游模式谱面练习（当前只适合简单短曲谱）</text>
+      </view>
+      <view class="start-play-arrow">›</view>
+    </view>
+  </view>
 </scroll-view>
 
   <!-- 电子手碟编辑器弹窗（全屏iOS风格） -->

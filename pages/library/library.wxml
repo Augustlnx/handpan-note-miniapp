@@ -410,6 +410,21 @@
     </view>
   </view>
 
+  <!-- 打开确认弹窗（覆盖当前谱面） -->
+  <view class="modal-mask" wx:if="{{showOpenConfirmModal}}" bindtap="closeOpenConfirmModal">
+    <view class="input-modal open-confirm-modal" catchtap="stopPropagation">
+      <text class="modal-title">覆盖当前谱面？</text>
+      <text class="open-confirm-content">打开该乐谱会覆盖记谱页当前内容，请在切换前及时保存当前谱面数据，是否继续？</text>
+      <view class="open-confirm-capsule {{saveThenOpen ? 'active' : ''}}" bindtap="toggleSaveThenOpen">
+        <text class="open-confirm-capsule-text">保存当前谱面后打开</text>
+      </view>
+      <view class="modal-buttons">
+        <button class="modal-btn cancel-btn" bindtap="closeOpenConfirmModal">取消</button>
+        <button class="modal-btn confirm-btn" bindtap="confirmOpenFile">继续</button>
+      </view>
+    </view>
+  </view>
+
   <!-- 导入JSON曲谱弹窗 -->
   <view class="modal-mask" wx:if="{{showImportJsonModal}}" bindtap="closeImportJsonModal">
     <view class="import-json-modal" catchtap="stopPropagation">

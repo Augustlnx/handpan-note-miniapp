@@ -1,0 +1,125 @@
+<!-- 音游入口页面 -->
+<view class="entry-container">
+  <!-- 自定义导航栏 -->
+  <view class="custom-nav-bar">
+    <view class="nav-bar-left" bindtap="onBack">
+      <image class="nav-back-icon" src="/assets/icons/back.svg" mode="aspectFit"></image>
+    </view>
+    <view class="nav-bar-content">
+      <text class="nav-bar-title">选择曲谱来源</text>
+    </view>
+    <view class="nav-bar-right"></view>
+  </view>
+
+  <!-- 来源选择区域（直接显示在页面上） -->
+  <view class="source-section" wx:if="{{showSourceModal && !showLibraryBrowser}}">
+    <view class="source-header">
+      <text class="source-subtitle">请选择要演奏的曲谱</text>
+    </view>
+    
+    <view class="source-options">
+      <!-- 当前谱面选项 -->
+      <view class="source-option {{!hasCurrentNotation ? 'disabled' : ''}}" bindtap="{{hasCurrentNotation ? 'onSelectCurrentNotation' : ''}}">
+        <view class="option-icon-wrap">
+          <image class="option-icon" src="/assets/icons/notation.png" mode="aspectFit"></image>
+        </view>
+        <view class="option-info">
+          <text class="option-title">当前记谱页面</text>
+          <text class="option-desc">{{hasCurrentNotation ? '读取记谱页面中的谱面' : '当前无可用谱面'}}</text>
+        </view>
+        <view class="option-arrow">›</view>
+      </view>
+      
+      <!-- 曲库选项 -->
+      <view class="source-option" bindtap="onSelectFromLibrary">
+        <view class="option-icon-wrap">
+          <image class="option-icon" src="/assets/icons/library.png" mode="aspectFit"></image>
+        </view>
+        <view class="option-info">
+          <text class="option-title">从曲库选择</text>
+          <text class="option-desc">浏览个人曲库中的曲谱</text>
+        </view>
+        <view class="option-arrow">›</view>
+      </view>
+    </view>
+    
+    <view class="source-footer">
+      <view class="source-btn cancel" bindtap="onBack">取消</view>
+    </view>
+  </view>
+
+  <!-- 曲库浏览界面 -->
+  <view class="library-browser {{showLibraryBrowser ? 'active' : ''}}">
+    <!-- 工具栏 -->
+    <view class="browser-toolbar">
+      <view class="breadcrumb">
+        <text class="breadcrumb-item" bindtap="onNavigateToRoot">主目录</text>
+        <block wx:for="{{breadcrumbs}}" wx:key="index">
+          <text class="breadcrumb-separator">/</text>
+          <text class="breadcrumb-item" bindtap="onBreadcrumbTap" data-index="{{index}}">{{item.name}}</text>
+        </block>
+      </view>
+      <view class="toolbar-actions">
+        <view class="action-btn" wx:if="{{currentPath.length > 0}}" bindtap="onNavigateBack">
+          <image class="action-icon" src="/assets/icons/back.svg" mode="aspectFit"></image>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部操作栏（始终显示） -->
+    <view class="browser-footer">
+      <view class="footer-btn cancel" bindtap="onCancel">取消</view>
+      <view class="footer-btn confirm {{!selectedSheet ? 'disabled' : ''}}" bindtap="onConfirmSelection">
+        确认选择
+      </view>
+    </view>
+    
+    <!-- 文件列表 -->
+    <scroll-view class="file-list" scroll-y>
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{displayItems.length === 0 && !isLoading}}">
+        <image class="empty-icon" src="/assets/img/logo.png" mode="aspectFit"></image>
+        <text class="empty-text">暂无内容</text>
+      </view>
+      
+      <!-- 文件夹和文件列表 -->
+      <block wx:for="{{displayItems}}" wx:key="id">
+        <!-- 文件夹 -->
+        <view class="list-item folder-item" wx:if="{{item.type === 'folder'}}" bindtap="onEnterFolder" data-item="{{item}}">
+          <image class="item-icon-img" src="{{subpkgImgs.folderClose}}" mode="aspectFit"></image>
+          <view class="item-info">
+            <text class="item-name">{{item.name}}</text>
+            <text class="item-detail">{{item.fileCount || 0}} 个项目</text>
+          </view>
+          <view class="item-arrow">›</view>
+        </view>
+        
+        <!-- 文件 -->
+        <view class="list-item file-item {{selectedSheet && selectedSheet.id === item.id ? 'selected' : ''}}" 
+              wx:if="{{item.type === 'file'}}" 
+              bindtap="onSelectFile" 
+              data-item="{{item}}">
+          <view class="file-icon">♪</view>
+          <view class="item-info">
+            <text class="item-name">{{item.file_name || item.title}}</text>
+            <text class="item-detail">{{item.tempo || 80}} BPM | {{item.composer || 'Unknown'}} | {{item.rootNote || 'D'}}-{{item.scaleType || 'Kurd'}}</text>
+          </view>
+          <view class="item-star" wx:if="{{item.starred}}">
+            <image class="star-icon-img" src="{{subpkgImgs.star}}" mode="aspectFit"></image>
+          </view>
+          <view class="select-indicator" wx:if="{{selectedSheet && selectedSheet.id === item.id}}">
+            <view class="check-icon">✓</view>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+  </view>
+
+  <!-- 加载遮罩 -->
+  <view class="loading-overlay" wx:if="{{isLoading}}">
+    <view class="loading-content">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">{{loadingText || '加载中...'}}</text>
+    </view>
+  </view>
+</view>

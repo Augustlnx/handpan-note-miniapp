@@ -1,0 +1,1157 @@
+/* 音游主界面样式 - 白色背景 + metronome风格 */
+.gameplay-container {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(180deg, #f2f4f8 0%, #e8ecf2 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 顶部状态栏 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  padding: 60rpx 24rpx 16rpx;
+  background: linear-gradient(135deg, #314D63 0%, #456781 100%);
+  position: relative;
+  z-index: 100;
+}
+
+.menu-btn {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 12rpx;
+}
+
+.menu-line {
+  width: 100%;
+  height: 4rpx;
+  background: #ffffff;
+  border-radius: 2rpx;
+}
+
+.status-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.song-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.bpm-display {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.score-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4rpx;
+}
+
+.score-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #F4D096;
+  text-shadow: 0 2rpx 8rpx rgba(244, 208, 150, 0.4);
+}
+
+.combo-value {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  animation: pulse 0.5s ease;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* 谱面区域 - 白色背景 */
+.score-section {
+  height: 240rpx;
+  position: relative;
+  background: #ffffff;
+  border-bottom: 1rpx solid rgba(49, 77, 99, 0.12);
+  overflow: hidden;
+  box-shadow: 0 4rpx 16rpx rgba(49, 77, 99, 0.08);
+}
+
+.score-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* 图片滚动模式样式 */
+.score-image-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  /* GPU加速 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.score-image-chunk {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  /* 防止图片被压缩变形 */
+  object-fit: cover;
+}
+
+/* 播放光标覆盖层（复用notation的样式）*/
+.playback-cursor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* 播放光标 - 高级设计感的圆角矩形光标 */
+.playback-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* 主色调渐变 #8FB9AB */
+  background: linear-gradient(
+    180deg,
+    rgba(143, 185, 171, 0.12) 0%,
+    rgba(143, 185, 171, 0.25) 30%,
+    rgba(143, 185, 171, 0.28) 70%,
+    rgba(143, 185, 171, 0.12) 100%
+  );
+  /* 圆角设计 */
+  border-radius: 12rpx;
+  /* 左右两侧高亮边框 */
+  border-left: 4rpx solid rgba(143, 185, 171, 0.8);
+  border-right: 4rpx solid rgba(143, 185, 171, 0.8);
+  border-top: none;
+  border-bottom: none;
+  /* 初始隐藏 */
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: transform 60ms cubic-bezier(0.25, 0.1, 0.25, 1), opacity 150ms ease-out;
+  /* 高级发光效果 */
+  box-shadow: 
+    0 0 12rpx rgba(143, 185, 171, 0.5),
+    0 0 24rpx rgba(143, 185, 171, 0.3);
+}
+
+/* 光标可见状态 */
+.playback-cursor.visible {
+  opacity: 1;
+}
+
+/* 光标隐藏状态 */
+.playback-cursor.hidden {
+  opacity: 0;
+}
+
+/* 播放时光标有呼吸动画 */
+.playback-cursor.playing {
+  animation: cursor-breathe 1.5s ease-in-out infinite;
+}
+
+@keyframes cursor-breathe {
+  0%, 100% {
+    box-shadow: 
+      0 0 12rpx rgba(143, 185, 171, 0.5),
+      0 0 24rpx rgba(143, 185, 171, 0.3);
+  }
+  50% {
+    box-shadow: 
+      0 0 16rpx rgba(143, 185, 171, 0.7),
+      0 0 32rpx rgba(143, 185, 171, 0.4),
+      0 0 48rpx rgba(143, 185, 171, 0.2);
+  }
+}
+
+/* 光标内部扫光装饰线 */
+.playback-cursor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6rpx;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 100%
+  );
+  border-radius: 12rpx 12rpx 0 0;
+}
+
+/* 光标底部装饰线 */
+.playback-cursor::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6rpx;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(143, 185, 171, 0.8) 50%,
+    transparent 100%
+  );
+  border-radius: 0 0 12rpx 12rpx;
+}
+
+/* 判定反馈文字 */
+.feedback-text {
+  position: absolute;
+  top: 10rpx;
+  font-size: 40rpx;
+  font-weight: 800;
+  text-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 100;
+  transition: all 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+}
+
+.feedback-text.perfect {
+  color: #F4D096;
+  text-shadow: 
+    0 0 20rpx rgba(244, 208, 150, 0.8),
+    0 4rpx 12rpx rgba(0, 0, 0, 0.2);
+}
+
+.feedback-text.good {
+  color: #8FB9AB;
+  text-shadow: 
+    0 0 16rpx rgba(143, 185, 171, 0.7),
+    0 4rpx 12rpx rgba(0, 0, 0, 0.2);
+}
+
+.feedback-text.miss {
+  color: #a0aab5;
+  text-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.15);
+}
+
+/* 节拍器控制条 - 复用metronome的notation-metronome-bar风格 */
+.metronome-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 32rpx;
+  margin: 0;
+  background: linear-gradient(135deg, rgba(49, 77, 99, 0.08) 0%, rgba(73, 106, 129, 0.08) 100%);
+  border-bottom: 1rpx solid rgba(49, 77, 99, 0.1);
+}
+
+.metronome-bar-beats {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.metronome-bar-beats .beat-dot {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: #e0e0e0;
+  transition: all 0.15s;
+}
+
+.metronome-bar-beats .beat-dot.active {
+  background: #314D63;
+  transform: scale(1.3);
+  box-shadow: 0 0 20rpx rgba(49, 77, 99, 0.5);
+}
+
+.metronome-bar-beats .beat-dot.strong {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.metronome-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12rpx;
+}
+
+.metronome-bar-info text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #314D63;
+}
+
+.metronome-bar-speed {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.speed-btn-mini {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #314D63;
+  color: white;
+  border-radius: 50%;
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.speed-btn-mini:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+.speed-input-mini {
+  width: 80rpx;
+  height: 48rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #314D63;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12rpx;
+  border: 1rpx solid rgba(49, 77, 99, 0.15);
+}
+
+/* 手碟区域 - 白色背景风格 */
+.handpan-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx;
+  min-height: 0;
+  position: relative;
+}
+
+/* 节拍器开关（手碟右上方） */
+.metronome-toggle {
+  position: absolute;
+  top: 20rpx;
+  right: 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  z-index: 100;
+  padding: 12rpx;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.1);
+  border: 1rpx solid rgba(49, 77, 99, 0.1);
+}
+
+.toggle-icon {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  border-radius: 50%;
+  background: rgba(49, 77, 99, 0.1);
+  transition: all 0.2s ease;
+}
+
+.toggle-icon.active {
+  background: rgba(143, 185, 171, 0.3);
+}
+
+.toggle-label {
+  font-size: 18rpx;
+  color: #666;
+}
+
+.handpan-container {
+  width: 80%;
+  max-width: 580rpx;
+  aspect-ratio: 1;
+  position: relative;
+}
+
+/* 手碟主体 - 复用metronome风格 */
+.handpan-bg {
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(ellipse 60% 60% at 40% 35%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 40% at 60% 65%, rgba(255, 255, 255, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at center, #3d5d73 0%, #314D63 30%, #263d4f 60%, #1a2d3a 100%);
+  border-radius: 50%;
+  position: relative;
+  border: 2rpx solid #000000;
+  box-shadow: 
+    0 8rpx 60rpx rgba(0,0,0,0.35),
+    0 2rpx 20rpx rgba(0,0,0,0.25),
+    inset 0 -4rpx 30rpx rgba(0,0,0,0.3),
+    inset 0 4rpx 30rpx rgba(255, 255, 255, 0.05);
+}
+
+/* 手碟音符 - 复用metronome的e-pan风格 */
+.handpan-note {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.08s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.handpan-note:active,
+.handpan-note.active {
+  transform: rotate(var(--rotate, 0deg)) scale(0.93);
+}
+
+.note-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 外椭圆 - #3B576C + 黑色轮廓 */
+.note-outer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #3B576C;
+  border: 3rpx solid #1a2a35;
+  box-sizing: border-box;
+}
+
+/* 内椭圆 */
+.note-inner-ring {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+  background: #1e3444;
+  box-shadow: inset 0 2rpx 8rpx rgba(0, 0, 0, 0.6);
+}
+
+.note-inner-ring.ding-convex {
+  background: linear-gradient(145deg, #3a5a6e 0%, #1a2a35 100%);
+  box-shadow: 
+    2rpx 2rpx 6rpx rgba(0, 0, 0, 0.5),
+    -2rpx -2rpx 6rpx rgba(80, 120, 150, 0.3),
+    0 0 12rpx rgba(60, 100, 130, 0.2);
+}
+
+.note-display {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.note-name {
+  font-size: 24rpx;
+  font-weight: bold;
+  color: #fffaf0;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.5);
+}
+
+.handpan-note.ding .note-name {
+  font-size: 32rpx;
+  color: #fffaf0;
+}
+
+/* 激活状态 */
+.handpan-note.active .note-outer {
+  background: #5a7a8f;
+  box-shadow: 
+    0 0 30rpx rgba(90, 140, 180, 0.6),
+    0 0 60rpx rgba(90, 140, 180, 0.3);
+}
+
+.handpan-note.active .note-inner-ring {
+  background: #2a4a5a;
+  box-shadow: inset 0 2rpx 8rpx rgba(0, 0, 0, 0.4);
+}
+
+.handpan-note.active .note-inner-ring.ding-convex {
+  background: linear-gradient(145deg, #4a7a9e 0%, #2a4a5a 100%);
+  box-shadow: 
+    2rpx 2rpx 6rpx rgba(0, 0, 0, 0.4),
+    -2rpx -2rpx 6rpx rgba(120, 180, 220, 0.4),
+    0 0 20rpx rgba(90, 150, 200, 0.3);
+}
+
+/* 虚影提示动画（椭圆形式，从大到小收缩到按键轮廓）*/
+.hint-ring-ellipse {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border: 5rpx solid #F4D096;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 
+    0 0 30rpx rgba(244, 208, 150, 0.7),
+    0 0 60rpx rgba(244, 208, 150, 0.4),
+    inset 0 0 20rpx rgba(244, 208, 150, 0.3);
+  /* 使用transform-origin确保从中心缩放 */
+  transform-origin: center center;
+}
+
+@keyframes hint-pulse {
+  0% {
+    box-shadow: 
+      0 0 30rpx rgba(244, 208, 150, 0.8),
+      inset 0 0 20rpx rgba(244, 208, 150, 0.4);
+  }
+  100% {
+    box-shadow: 
+      0 0 10rpx rgba(244, 208, 150, 0.3),
+      inset 0 0 5rpx rgba(244, 208, 150, 0.1);
+  }
+}
+
+/* 保留旧的圆形虚影作为fallback */
+.hint-ring {
+  position: absolute;
+  width: 120%;
+  height: 120%;
+  border: 4rpx solid #F4D096;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 20rpx rgba(244, 208, 150, 0.5);
+}
+
+/* 水波纹效果 */
+.ripple-effect {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3rpx solid;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 常驻按钮 */
+.resident-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top:100rpx;
+  gap: 26rpx;
+  padding: 16rpx 0;
+}
+
+.resident-btn {
+  width: 90rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #3B576C 0%, #314D63 100%);
+  border: 2rpx solid #1a2a35;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.1s ease;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.15);
+}
+
+.resident-btn:active,
+.resident-btn.active {
+  background: linear-gradient(135deg, #5a7a8f 0%, #4a6a80 100%);
+  border-color: #DBCC97;
+  transform: scale(0.95);
+  box-shadow: 0 0 20rpx rgba(219, 204, 151, 0.4);
+}
+
+.btn-label {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #fffaf0;
+}
+
+.btn-hint-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3rpx solid #F4D096;
+  border-radius: 14rpx;
+  pointer-events: none;
+  box-shadow: 0 0 15rpx rgba(244, 208, 150, 0.5);
+}
+
+/* 底部控制栏 */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+  border-top: 1rpx solid rgba(49, 77, 99, 0.1);
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.control-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-icon {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8rpx;
+  background: rgba(49, 77, 99, 0.1);
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #314D63 0%, #F4D096 100%);
+  border-radius: 4rpx;
+  transition: width 0.1s linear;
+}
+
+.time-display {
+  min-width: 120rpx;
+  text-align: right;
+}
+
+.time-display text {
+  font-size: 24rpx;
+  color: #8a9cad;
+}
+
+/* 侧边菜单 - 浅色风格 */
+.side-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 32, 0.42);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+  backdrop-filter: blur(2rpx);
+  -webkit-backdrop-filter: blur(2rpx);
+}
+
+.side-menu-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.side-menu {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 74%;
+  max-width: 520rpx;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 248, 252, 0.96) 100%);
+  transform: translateX(-100%) scale(0.985);
+  transition: transform 0.35s cubic-bezier(0.22, 0.8, 0.2, 1), box-shadow 0.35s ease;
+  display: flex;
+  flex-direction: column;
+  border-top-right-radius: 28rpx;
+  border-bottom-right-radius: 28rpx;
+  box-shadow: 20rpx 0 60rpx rgba(15, 23, 32, 0.18);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.side-menu-overlay.active .side-menu {
+  transform: translateX(0) scale(1);
+}
+
+.menu-header {
+  padding: 80rpx 32rpx 32rpx;
+  border-bottom: 1rpx solid rgba(49, 77, 99, 0.08);
+  background: linear-gradient(180deg, rgba(49, 77, 99, 0.06) 0%, rgba(255, 255, 255, 0) 100%);
+  box-sizing: border-box;
+}
+
+.menu-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #314D63;
+  margin-bottom: 12rpx;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.difficulty-badge {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  background: rgba(49, 77, 99, 0.08);
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: #314D63;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-items {
+  flex: 1;
+  padding: 16rpx 0 24rpx;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  gap: 16rpx;
+  transition: background 0.2s ease, transform 0.2s ease;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.menu-item:active {
+  background: rgba(49, 77, 99, 0.06);
+  transform: scale(0.99);
+}
+
+.item-icon {
+  width: 44rpx;
+  height: 44rpx;
+  font-size: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.item-text {
+  flex: 1;
+  font-size: 30rpx;
+  color: #314D63;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-badge {
+  font-size: 24rpx;
+  color: #8a9cad;
+  padding: 6rpx 12rpx;
+  background: rgba(49, 77, 99, 0.06);
+  border-radius: 8rpx;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.menu-divider {
+  height: 1rpx;
+  background: rgba(49, 77, 99, 0.08);
+  margin: 12rpx 28rpx;
+}
+
+.menu-item.exit .item-text {
+  color: #B34540;
+}
+
+.menu-footer {
+  padding: 24rpx 40rpx 24rpx 32rpx;
+  margin-right: 54rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid rgba(49, 77, 99, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  box-sizing: border-box;
+}
+
+.resume-btn {
+  width: 100%;
+  padding: 28rpx;
+  background: linear-gradient(135deg, #314D63 0%, #456781 100%);
+  border-radius: 16rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
+  box-shadow: 0 10rpx 24rpx rgba(49, 77, 99, 0.2);
+}
+
+/* 加载遮罩 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #f2f4f8 0%, #e8ecf2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.loading-ring {
+  width: 80rpx;
+  height: 80rpx;
+  border: 4rpx solid rgba(49, 77, 99, 0.15);
+  border-top-color: #314D63;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #314D63;
+}
+
+.loading-detail {
+  font-size: 22rpx;
+  color: rgba(49, 77, 99, 0.6);
+  margin-top: -8rpx;
+}
+
+.loading-bar {
+  width: 400rpx;
+  height: 8rpx;
+  background: rgba(49, 77, 99, 0.1);
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.loading-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #314D63 0%, #F4D096 100%);
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+/* 开始游戏提示 */
+.start-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(242, 244, 248, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+}
+
+.start-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  padding: 60rpx;
+  background: #ffffff;
+  border-radius: 32rpx;
+  border: 1rpx solid rgba(49, 77, 99, 0.1);
+  box-shadow: 0 8rpx 40rpx rgba(49, 77, 99, 0.12);
+}
+
+.start-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #314D63;
+  text-align: center;
+}
+
+.start-hint {
+  font-size: 28rpx;
+  color: #8a9cad;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.start-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+
+.start-stats text {
+  font-size: 24rpx;
+  color: #8a9cad;
+}
+
+.start-speed-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 8rpx;
+}
+
+.start-speed-label {
+  font-size: 24rpx;
+  color: #8a9cad;
+}
+
+.start-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.start-speed-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 16rpx;
+  background: rgba(49, 77, 99, 0.08);
+  border: 1rpx solid rgba(49, 77, 99, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #314D63;
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.start-speed-input {
+  width: 140rpx;
+  height: 56rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(49, 77, 99, 0.18);
+  background: rgba(49, 77, 99, 0.04);
+  text-align: center;
+  color: #314D63;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.start-speed-unit {
+  font-size: 22rpx;
+  color: #8a9cad;
+}
+
+.start-action {
+  margin-top: 24rpx;
+  padding: 20rpx 80rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #314D63 0%, #4B6C87 100%);
+  box-shadow: 0 12rpx 24rpx rgba(49, 77, 99, 0.2);
+}
+
+.start-action-text {
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+}
+
+/* 循环模式控制 */
+.loop-controls {
+  position: absolute;
+  left: 16rpx;
+  top: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  z-index: 30;
+}
+
+.loop-check-btn {
+  width: 56rpx;
+  height: 56rpx;
+  background: rgba(49, 77, 99, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid rgba(49, 77, 99, 0.3);
+  transition: all 0.2s ease;
+}
+
+.loop-check-btn.locked {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: #4CAF50;
+}
+
+.loop-check-btn text {
+  font-size: 28rpx;
+  color: #314D63;
+}
+
+.loop-check-btn.locked text {
+  color: #4CAF50;
+}
+
+.loop-action-btns {
+  display: flex;
+  gap: 8rpx;
+}
+
+.loop-btn {
+  width: 48rpx;
+  height: 48rpx;
+  background: rgba(49, 77, 99, 0.1);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.loop-btn.play {
+  background: rgba(244, 208, 150, 0.2);
+}
+
+.loop-btn.reset {
+  background: rgba(49, 77, 99, 0.08);
+}
+
+.loop-btn text {
+  font-size: 24rpx;
+  color: #314D63;
+}
+
+.loop-btn:active {
+  transform: scale(0.9);
+}
+
+/* 循环标记线 */
+.loop-start-line,
+.loop-end-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4rpx;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.loop-start-line {
+  background: linear-gradient(180deg, transparent 0%, #4CAF50 20%, #4CAF50 80%, transparent 100%);
+}
+
+.loop-end-line {
+  background: linear-gradient(180deg, transparent 0%, #F44336 20%, #F44336 80%, transparent 100%);
+}
+
+.loop-line-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+}
+
+.loop-line-indicator.start {
+  left: -8rpx;
+  background: #4CAF50;
+  box-shadow: 0 0 12rpx rgba(76, 175, 80, 0.6);
+}
+
+.loop-line-indicator.end {
+  right: -8rpx;
+  background: #F44336;
+  box-shadow: 0 0 12rpx rgba(244, 67, 54, 0.6);
+}
+
+/* 速度控制 */
+.speed-control {
+  padding: 16rpx 28rpx 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.speed-slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.speed-value {
+  min-width: 80rpx;
+  font-size: 26rpx;
+  color: #8a9cad;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* 伴奏模式提示 */
+.accompaniment-indicator {
+  position: absolute;
+  right: 16rpx;
+  top: 16rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(244, 208, 150, 0.2);
+  border-radius: 12rpx;
+  z-index: 30;
+}
+
+.accompaniment-indicator text {
+  font-size: 22rpx;
+  color: #c7a44e;
+}

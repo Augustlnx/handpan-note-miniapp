@@ -85,6 +85,11 @@ const BUILTIN_EXAMPLE = {
         noteFontSize: 28,
         lineSpacing: 65
       },
+      globalStyle: {
+        measureHeight: 160,
+        noteFontSize: 28,
+        lineSpacing: 65
+      },
       code: "\\begin{module}{Intro}\n[(8)/(4)+ -+-+ (6)/()| (8)/(4) +-+(6)/()+-| (8)/(4) +-+-+-|-+-+-+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3)+ -+ (5)/()+-| (7)/(3) +-+-+-|-+-+-+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+ (4)/()+-| (6)/(2) +-+-+-|-+-+-+-]\\\\\n[(5)/(1) +-+-+ (3)/()|(5)/(1) +-+ (3)/()+-| (5)/(1) +-+-+-|-+-+-+-]\\\\\n[(8)/(4)+ -+-+ (6)/()| (8)/(4)+ -+(6)/()+-| (8)/(4) +-+-+-|()/(4)+(7)/()+()/(8)+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3) +-+ (5)/()+-| (7)/(3) +-+-+-|()/(3)+-+(5)/()+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+ (4)/()+-| (6)/(2) +-+-+-|()/(8)+(7)/()+()/(6)+-]\\\\\n[(5)/(1) +-+-+ (3)/()|(5)/(1) +-+ (3)/()+-| (5)/(1) +-+-+-|()/(1)+-+(3)/()+-]\\\\\n[(6)/(2) +-+-+ (4)/()|(6)/(2)+ -+ (4)/()+-| (6)/(2) +-+-+-|()/(4)+-+-+-]\\\\\n[(7)/(3) +-+-+ (5)/()|(7)/(3) +-+ (5)/()+-| (7)/(3) +-+-+-|()/(3)+-+(5)/()+-]\\\\\n[(8)/(4)+ -+-+-|- +-+-+ -|-+-+-+-|-+-+-+-]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{A-1}\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\\\\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(6)/(D)+-+ ()/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|(7)/(D)+-+ ()/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(8)/(D)+-+ ()/(1)+-]\\\\\n[(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-]\\\\\n[8+ -+-+-|7+-+6+-|5+ -+-+ -|6+-+ 5+-]\\\\\n\\end{module}\n\\begin{module}{A-2}\n[6/D -/1(d)/()|/D-6/1-|6/D -/1(d)/()|/D-6/1-]\\\\\n[6/D -/1(d)/()|/D-6/1-|7/D -/1(d)/()|6/D-/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|5/D -/1(d)/()|/D-5/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|6/D -/1(d)/()|7/D-/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|8/D -/1(d)/()|/D-8/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|7/D -/1(d)/()|8/D-/1-]\\\\\n[7/D -/1(d)/()|/D-7/1-|7/D -/1(d)/()|/D-7/1-]\\\\\n[8---|7-6-|5---|6-5-]\n\\end{module}\n\\begin{module}{B-1}\n[1/4-/x(1)/()|/4-1/4-|1/4-/x(1)/()|/4-1/4-]\\\\\n[1/5-/x(1)/()|/5-1/5-|1/5-/x(1)/()|/5-1/5-]\\\\\n[1/6-/x(1)/()|/6-1/6-|1/6-/x(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|4-5-]\\\\\n\\end{module}\n\\begin{module}{B-2}\n[1/4-/x(1)/()|/4-1/4-|1/4-/x(1)/()|/4-1/4-]\\\\\n[1/5-/x(1)/()|/5-1/5-|1/5-/x(1)/()|/5-1/5-]\\\\\n[1/6-/x(1)/()|/6-1/6-|1/6-/x(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|6-5-]\\\\\n\\end{module}\n\\begin{module}{C-1}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n\\end{module}\n\\begin{module}{C-2}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-8/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[8/4---|----|----|----]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{A-3}\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-]\\\\\n[(6)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (6)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(6)/(D)+-+ ()/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-]\\\\\n[(5)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (5)/(1)+-|(6)/(D)+ -+()/(1)+ (d)/()|(7)/(D)+-+ ()/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-]\\\\\n[(8)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (8)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|(8)/(D)+-+ ()/(1)+-]\\\\\n[(7)/(D)+ -+(1)/()+ (d)/()|()/(D)+-+ (7)/(1)+-|(7)/(D)+ -+()/(1)+ (d)/()|()/(D)+-+ (7)/(1)+-]\\\\\n[8+ -+-+-|7+-+6+-|5+ -+-+ -|6+-+ 5+-]\\\\\n\\end{module}\n\\begin{module}{A-4}\n[6/D -/1(d)/()|/D-6/1-|6/D -/1(d)/()|/D-6/1-]\\\\\n[6/D -/1(d)/()|/D-6/1-|7/D -/1(d)/()|6/D-/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|5/D -/1(d)/()|/D-5/1-]\\\\\n[5/D -/1(d)/()|/D-5/1-|6/D -/1(d)/()|7/D-/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|8/D -/1(d)/()|/D-8/1-]\\\\\n[8/D -/1(d)/()|/D-8/1-|7/D -/1(d)/()|8/D-/1-]\\\\\n[7/D -/1(d)/()|/D-7/1-|7/D -/1(d)/()|/D-7/1-]\\\\\n[8---|7-6-|5---|6-5-]\n\\end{module}\n\\begin{module}{B-3}\n[1/4-/4(1)/()|/4-1/4-|1/4-/4(1)/()|/4-1/4-]\\\\\n[1/5-/5(1)/()|/5-1/5-|1/5-/5(1)/()|/5-1/5-]\\\\\n[1/6-/6(1)/()|/6-1/6-|1/6-/6(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|4-5-]\\\\\n\\end{module}\n\\begin{module}{B-4}\n[1/4-/4(1)/()|/4-1/4-|1/4-/4(1)/()|/4-1/4-]\\\\\n[1/5-/5(1)/()|/5-1/5-|1/5-/5(1)/()|/5-1/5-]\\\\\n[1/6-/6(1)/()|/6-1/6-|1/6-/6(1)/()|/6-1/6-]\\\\\n[1/7-/7(1)/()|/7-1/7-|8765|6-5-]\\\\\n\\end{module}\n\\begin{module}{C-3}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n\\end{module}\n\\begin{module}{C-4}\n[8/4-4(8)/()|4-8/4-|8/4-4(8)/()|4-8/4-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-8/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[5/1-/1(5)/()|/1-5/1-|5/1-/1(5)/()|/1-5/1-]\\\\\n[6/2-2(6)/()|2-6/2-|6/2-2(6)/()|2-6/2-]\\\\\n[7/3-/3(7)/()|/3-7/3-|7/3-/3(7)/()|/3-7/3-]\\\\\n[8/4---|----|----|----]\\\\\n[()/(s)+ -+-+-|()/(s)+-+-+ -|()/(s)+-+-+-|()/(s)+-+(D)/()+-]\\\\\n\\end{module}\n\\begin{module}{End}\n[8/4--6|4-8/-|6---|4(8)/()65]\\\\[7/3--/5|/3-7-|/5---|/3--7]\\\\\n[6/2--4|2-6/-|4---|2-6/-]\\\\[5/1--3|/1-5-|/3---|1-/5-]\\\\\n[8/4---|----|----|----]\n\\end{module}\n",
       createTime: Date.now(),
       modifyTime: Date.now(),
@@ -140,6 +145,25 @@ Page({
     labelEditName: '',
     labelEditRemark: '',
     
+    // 全局排版设置
+    showGlobalLayoutModal: false,
+    globalMeasureHeight: 160,
+    globalMeasureHeightError: '',
+    globalNoteFontSize: 28,
+    globalNoteFontSizeError: '',
+    globalLineSpacing: 65,
+    globalLineSpacingError: '',
+    // 全局排版存储值（竖屏基准）
+    globalStylePortrait: {
+      measureHeight: 160,
+      noteFontSize: 28,
+      lineSpacing: 65
+    },
+    // 模块设置弹窗中显示的全局默认值
+    moduleDefaultMeasureHeight: 160,
+    moduleDefaultNoteFontSize: 28,
+    moduleDefaultLineSpacing: 65,
+
     // 模块设置
     showModuleSettingsModal: false,
     currentModuleId: null,
@@ -497,6 +521,7 @@ Page({
     _pendingAudioMappings: null, // 待恢复的音频映射数据
     _pendingRootNote: null, // 待恢复的首调设置
     _pendingModalWasOpen: false, // 分包加载前音频映射弹窗是否打开
+    _pendingLoadAfterSave: false, // 从曲库「保存后打开」且当前未保存时，保存完成后需加载 pending_notation_load
     // 新建/编辑音频映射转换表相关
     showNewAudioMappingTableModal: false, // 显示新建转换表弹窗
     newAudioMappingTableName: '', // 新建转换表的名称
@@ -835,6 +860,7 @@ Page({
     // 这些是用户第一眼看到的内容，必须优先加载
     this.loadTitles();           // 标题和颜色
     this.loadNotationType();     // 谱式类型（影响渲染）
+    this.loadGlobalStyle();      // 全局排版样式（影响渲染）
     this.loadNotations();        // 谱面数据（核心内容）
     this.initOrientationListener(); // 屏幕方向（影响布局）
     this.calculatePages();       // 分页计算（影响显示）
@@ -931,7 +957,21 @@ Page({
 
     // 若有待加载的曲库数据则应用
     const pending = wx.getStorageSync('pending_notation_load');
-    if (pending && pending.code) {
+    const showSaveFirst = wx.getStorageSync('pending_notation_show_save_first');
+    if (pending && pending.code && showSaveFirst) {
+      // 曲库「保存后打开」且当前为未保存：先弹出保存到曲库，用户保存后再加载新曲谱
+      wx.removeStorageSync('pending_notation_show_save_first');
+      this.setData({
+        showSaveToLibraryModal: true,
+        saveFileName: this.data.mainTitle || '未命名',
+        saveTargetPath: [],
+        saveFolderOptions: [],
+        _pendingLoadAfterSave: true
+      });
+      this.refreshSaveFolderView([]);
+      wx.hideLoading();
+      this.updateStorageDisplay(false);
+    } else if (pending && pending.code) {
       // 先显示加载遮罩，等导入完成后再关闭
       this.showPageLoadingOverlay();
       wx.removeStorageSync('pending_notation_load');
@@ -1190,10 +1230,13 @@ Page({
       conversionRootNote: savedConversionRootNote,
       // 加载保存的音频映射（如果有）
       savedAudioMappings: payload.savedAudioMappings || null,
-      saveAudioMappingToScore: !!payload.savedAudioMappings // 如果有保存的映射，默认勾选
+      saveAudioMappingToScore: !!payload.savedAudioMappings, // 如果有保存的映射，默认勾选
+      // 加载全局排版样式
+      globalStylePortrait: payload.globalStyle || { measureHeight: 160, noteFontSize: 28, lineSpacing: 65 }
     }, () => {
       this.saveTitles();
       this.saveGlobalTempo();
+      this.saveGlobalStyle();
       wx.setStorageSync('notationType', payload.notationType || 'digital'); // 保存谱式类型到存储
       this.saveLibraryFileInfo(); // 保存库文件关联信息
       this.saveNotationsScoped([]);
@@ -1856,12 +1899,13 @@ Page({
       if (newNotation.collapsed === undefined) {
         newNotation.collapsed = false;
       }
-      // 确保有 style 属性（旧数据可能没有）
+      // 确保有 style 属性（旧数据可能没有），使用全局样式默认值
       if (!newNotation.style) {
+        const gs = this.getGlobalStyleDefaults();
         newNotation.style = {
-          measureHeight: 160, // 单行高度，默认160rpx
-          noteFontSize: 28, // 音符字体大小，默认28rpx
-          lineSpacing: 65 // 行间距，默认65rpx
+          measureHeight: gs.measureHeight,
+          noteFontSize: gs.noteFontSize,
+          lineSpacing: gs.lineSpacing
         };
       }
       return newNotation;
@@ -2055,11 +2099,7 @@ Page({
       collapsed: false, // 默认展开
       measuresPerRowPortrait: portraitRow,
       measuresPerRow: portraitRow * factor,
-      style: { // 默认样式参数
-        measureHeight: 160, // 单行高度，默认160rpx
-        noteFontSize: 28, // 音符字体大小，默认28rpx
-        lineSpacing: 65 // 行间距，默认65rpx
-      }
+      style: Object.assign({ measureHeight: 160, noteFontSize: 28, lineSpacing: 65 }, this.getGlobalStyleDefaults())
     };
   },
 
@@ -2098,9 +2138,9 @@ Page({
     const snapshotAction = this.createFullSnapshotAction('添加模块');
     this.backupCurrentState(snapshotAction);
 
-    // 提取前一个模块的字母前缀 (例如 "A-1" -> "A", "D-4" -> "D")
+    // 提取前一个模块的前缀 (例如 "A-1" -> "A", "Intro-2" -> "Intro")
     const prevLabel = notations[afterIndex].label;
-    const match = prevLabel.match(/^([A-Z]+)-/);
+    const match = prevLabel.match(/^(.+)-(\d+)$/);
     const prefix = match ? match[1] : 'A';
 
     // 获取当前模块的样式和拍号设置，用于继承
@@ -2183,10 +2223,11 @@ Page({
     }
 
     // 继承当前模块的样式设置
+    const gs = this.getGlobalStyleDefaults();
     newNotation.style = {
-      measureHeight: sourceStyle.measureHeight || 160,
-      noteFontSize: sourceStyle.noteFontSize || 28,
-      lineSpacing: sourceStyle.lineSpacing || 65
+      measureHeight: sourceStyle.measureHeight || gs.measureHeight,
+      noteFontSize: sourceStyle.noteFontSize || gs.noteFontSize,
+      lineSpacing: sourceStyle.lineSpacing || gs.lineSpacing
     };
     
     // 在指定位置后插入
@@ -2197,7 +2238,7 @@ Page({
 
     const withOffsets = this.updateMeasureOffsets(notations);
     this.saveNotationsScoped(withOffsets);
-    this.setNotations(withOffsets);
+    this.setNotations(withOffsets, true);
     wx.showToast({ title: '已添加谱面', icon: 'success' });
   },
 
@@ -2208,7 +2249,7 @@ Page({
     let sameGroupStart = startIndex;
     while (sameGroupStart > 0) {
       const label = notations[sameGroupStart - 1].label;
-      const match = label.match(/^([A-Z]+)-/);
+      const match = label.match(/^(.+)-(\d+)$/);
       if (match && match[1] === prefix) {
         sameGroupStart--;
       } else {
@@ -2219,7 +2260,7 @@ Page({
     // 从起始位置开始重新编号所有同前缀的模块
     for (let i = sameGroupStart; i < notations.length; i++) {
       const label = notations[i].label;
-      const match = label.match(/^([A-Z]+)-/);
+      const match = label.match(/^(.+)-(\d+)$/);
       // 如果没有匹配到前缀（新插入为空标签），默认视为当前前缀
       const currentPrefix = match ? match[1] : prefix;
       
@@ -2270,7 +2311,7 @@ Page({
           let prefix = 'A'; // 默认前缀
           if (deleteIndex !== -1) {
             const deleteLabel = that.data.notations[deleteIndex].label;
-            const match = deleteLabel.match(/^([A-Z]+)-/);
+            const match = deleteLabel.match(/^(.+)-(\d+)$/);
             if (match) {
               prefix = match[1];
             }
@@ -2286,7 +2327,7 @@ Page({
           
           const withOffsets = that.updateMeasureOffsets(filtered);
           that.saveNotationsScoped(withOffsets);
-          that.setNotations(withOffsets);
+          that.setNotations(withOffsets, true);
           
           wx.showToast({ title: '已删除', icon: 'success' });
         }
@@ -2384,15 +2425,17 @@ Page({
     const portraitRow = that.data.measuresPerRowPortrait || that.data.measuresPerRow || 1;
     const factor = that.data.orientation === 'landscape' ? 2 : 1;
 
-    // 清空时强制恢复全局拍号为4/4，并退出自定义模式
+    // 清空时强制恢复全局拍号为4/4，并退出自定义模式，重置全局排版
     that.setData({
       timeSignatureBeats: defaultBeats,
       timeSignatureBottom: 4,
       timeSignatureDisplay: '4/4',
       currentTimeSignatureType: 'standard',
       measuresPerRowPortrait: portraitRow,
-      measuresPerRow: portraitRow * factor
+      measuresPerRow: portraitRow * factor,
+      globalStylePortrait: { measureHeight: 160, noteFontSize: 28, lineSpacing: 65 }
     });
+    that.saveGlobalStyle();
     wx.setStorageSync('timeSignatureBeats', defaultBeats);
     wx.removeStorageSync('customTimeSignature');
     
@@ -2454,12 +2497,14 @@ Page({
       wx.setStorageSync('subTitle', subtitle);
       wx.setStorageSync('globalTempo', tempo);
       
-      // 更新页面数据
+      // 更新页面数据（含全局排版样式）
       that.setData({
         mainTitle: title,
         subTitle: subtitle,
-        globalTempo: tempo
+        globalTempo: tempo,
+        globalStylePortrait: exampleData.globalStyle || { measureHeight: 160, noteFontSize: 28, lineSpacing: 65 }
       });
+      that.saveGlobalStyle();
       that.loadTitles();
       
       // 导入谱面代码：直接覆盖所有module（不保留空module，直接用示例替换）
@@ -3649,9 +3694,10 @@ Page({
 
     // 获取样式设置的当前值（存储的是竖屏基准值）
     const style = notation.style || {};
-    let storedMeasureHeight = style.measureHeight || 160;
-    let storedNoteFontSize = style.noteFontSize || 28;
-    let storedLineSpacing = style.lineSpacing || 65;
+    const gs = this.getGlobalStyleDefaults();
+    let storedMeasureHeight = style.measureHeight || gs.measureHeight;
+    let storedNoteFontSize = style.noteFontSize || gs.noteFontSize;
+    let storedLineSpacing = style.lineSpacing || gs.lineSpacing;
 
     // 横竖屏切换时，始终以竖屏基准值为源，横屏显示时自动缩放
     const scaleRatio = 18 / 28; // 横屏缩放比例
@@ -3664,6 +3710,11 @@ Page({
       lineSpacing = Math.round(storedLineSpacing * scaleRatio);
     }
 
+    // 计算全局默认值用于模块设置弹窗提示
+    const gsMH = isLandscape ? Math.round(gs.measureHeight * scaleRatio) : gs.measureHeight;
+    const gsNF = isLandscape ? Math.round(gs.noteFontSize * scaleRatio) : gs.noteFontSize;
+    const gsLS = isLandscape ? Math.round(gs.lineSpacing * scaleRatio) : gs.lineSpacing;
+
     this.setData({
       showModuleSettingsModal: true,
       currentModuleId: id,
@@ -3674,6 +3725,9 @@ Page({
       moduleMeasureHeightError: '',
       moduleNoteFontSizeError: '',
       moduleLineSpacingError: '',
+      moduleDefaultMeasureHeight: gsMH,
+      moduleDefaultNoteFontSize: gsNF,
+      moduleDefaultLineSpacing: gsLS,
       moduleTimeSignatureBeats: showBeats,
       moduleCustomTemplate: moduleTemplate,
       exportModuleCode: '' // 打开模态框时不立即生成代码
@@ -3840,11 +3894,12 @@ Page({
       return;
     }
 
-    // 仅重置样式为默认设置
+    // 仅重置样式为全局默认设置
+    const gs = this.getGlobalStyleDefaults();
     notation.style = {
-      measureHeight: 160,
-      noteFontSize: 28,
-      lineSpacing: 65
+      measureHeight: gs.measureHeight,
+      noteFontSize: gs.noteFontSize,
+      lineSpacing: gs.lineSpacing
     };
 
     const normalized = this.normalizeBarLines(updated);
@@ -4135,6 +4190,230 @@ Page({
       return;
     }
     this.setData({ moduleLineSpacingError: '' });
+  },
+
+  // ============ 全局排版设置 ============
+
+  getGlobalStyleDefaults() {
+    const gs = this.data.globalStylePortrait || {};
+    return {
+      measureHeight: gs.measureHeight || 160,
+      noteFontSize: gs.noteFontSize || 28,
+      lineSpacing: gs.lineSpacing || 65
+    };
+  },
+
+  openGlobalLayoutModal() {
+    const isLandscape = this.data.orientation === 'landscape';
+    const scaleRatio = 18 / 28;
+    const gs = this.getGlobalStyleDefaults();
+
+    const measureHeight = isLandscape ? Math.round(gs.measureHeight * scaleRatio) : gs.measureHeight;
+    const noteFontSize = isLandscape ? Math.round(gs.noteFontSize * scaleRatio) : gs.noteFontSize;
+    const lineSpacing = isLandscape ? Math.round(gs.lineSpacing * scaleRatio) : gs.lineSpacing;
+
+    this.setData({
+      showGlobalLayoutModal: true,
+      showLayoutMenu: false,
+      globalMeasureHeight: measureHeight,
+      globalNoteFontSize: noteFontSize,
+      globalLineSpacing: lineSpacing,
+      globalMeasureHeightError: '',
+      globalNoteFontSizeError: '',
+      globalLineSpacingError: ''
+    });
+  },
+
+  closeGlobalLayoutModal() {
+    this.setData({ showGlobalLayoutModal: false });
+  },
+
+  onGlobalMeasureHeightInput(e) {
+    const value = parseInt(e.detail.value, 10);
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 51 : 80;
+    const maxVal = isLandscape ? 193 : 300;
+    let error = '';
+    if (e.detail.value !== '' && (isNaN(value) || value < minVal || value > maxVal)) {
+      error = `请输入${minVal}-${maxVal}之间的数值`;
+    }
+    this.setData({ globalMeasureHeight: value, globalMeasureHeightError: error });
+  },
+
+  confirmGlobalMeasureHeight() {
+    const value = this.data.globalMeasureHeight;
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 51 : 80;
+    const maxVal = isLandscape ? 193 : 300;
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      this.setData({ globalMeasureHeightError: `请输入${minVal}-${maxVal}之间的数值` });
+      return;
+    }
+    this.setData({ globalMeasureHeightError: '' });
+  },
+
+  onGlobalNoteFontSizeInput(e) {
+    const value = parseInt(e.detail.value, 10);
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 9 : 14;
+    const maxVal = isLandscape ? 32 : 50;
+    let error = '';
+    if (e.detail.value !== '' && (isNaN(value) || value < minVal || value > maxVal)) {
+      error = `请输入${minVal}-${maxVal}之间的数值`;
+    }
+    this.setData({ globalNoteFontSize: value, globalNoteFontSizeError: error });
+  },
+
+  confirmGlobalNoteFontSize() {
+    const value = this.data.globalNoteFontSize;
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 9 : 14;
+    const maxVal = isLandscape ? 32 : 50;
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      this.setData({ globalNoteFontSizeError: `请输入${minVal}-${maxVal}之间的数值` });
+      return;
+    }
+    this.setData({ globalNoteFontSizeError: '' });
+  },
+
+  onGlobalLineSpacingInput(e) {
+    const value = parseInt(e.detail.value, 10);
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 19 : 30;
+    const maxVal = isLandscape ? 96 : 150;
+    let error = '';
+    if (e.detail.value !== '' && (isNaN(value) || value < minVal || value > maxVal)) {
+      error = `请输入${minVal}-${maxVal}之间的数值`;
+    }
+    this.setData({ globalLineSpacing: value, globalLineSpacingError: error });
+  },
+
+  confirmGlobalLineSpacing() {
+    const value = this.data.globalLineSpacing;
+    const isLandscape = this.data.orientation === 'landscape';
+    const minVal = isLandscape ? 19 : 30;
+    const maxVal = isLandscape ? 96 : 150;
+    if (isNaN(value) || value < minVal || value > maxVal) {
+      this.setData({ globalLineSpacingError: `请输入${minVal}-${maxVal}之间的数值` });
+      return;
+    }
+    this.setData({ globalLineSpacingError: '' });
+  },
+
+  resetGlobalLayout() {
+    const isLandscape = this.data.orientation === 'landscape';
+    const scaleRatio = 18 / 28;
+    const measureHeight = isLandscape ? Math.round(160 * scaleRatio) : 160;
+    const noteFontSize = isLandscape ? Math.round(28 * scaleRatio) : 28;
+    const lineSpacing = isLandscape ? Math.round(65 * scaleRatio) : 65;
+
+    this.setData({
+      globalMeasureHeight: measureHeight,
+      globalNoteFontSize: noteFontSize,
+      globalLineSpacing: lineSpacing,
+      globalMeasureHeightError: '',
+      globalNoteFontSizeError: '',
+      globalLineSpacingError: ''
+    });
+  },
+
+  applyGlobalLayout() {
+    const {
+      globalMeasureHeight,
+      globalNoteFontSize,
+      globalLineSpacing
+    } = this.data;
+
+    const isLandscape = this.data.orientation === 'landscape';
+    const heightMin = isLandscape ? 51 : 80;
+    const heightMax = isLandscape ? 193 : 300;
+    const fontMin = isLandscape ? 9 : 14;
+    const fontMax = isLandscape ? 32 : 50;
+    const spacingMin = isLandscape ? 19 : 30;
+    const spacingMax = isLandscape ? 96 : 150;
+
+    if (isNaN(globalMeasureHeight) || globalMeasureHeight < heightMin || globalMeasureHeight > heightMax) {
+      this.setData({ globalMeasureHeightError: `单行高度请输入${heightMin}-${heightMax}之间的数值` });
+      return;
+    }
+    if (isNaN(globalNoteFontSize) || globalNoteFontSize < fontMin || globalNoteFontSize > fontMax) {
+      this.setData({ globalNoteFontSizeError: `音符字号请输入${fontMin}-${fontMax}之间的数值` });
+      return;
+    }
+    if (isNaN(globalLineSpacing) || globalLineSpacing < spacingMin || globalLineSpacing > spacingMax) {
+      this.setData({ globalLineSpacingError: `行间距请输入${spacingMin}-${spacingMax}之间的数值` });
+      return;
+    }
+
+    const reverseScaleRatio = 28 / 18;
+    const storedMeasureHeight = isLandscape ? Math.round(globalMeasureHeight * reverseScaleRatio) : globalMeasureHeight;
+    const storedNoteFontSize = isLandscape ? Math.round(globalNoteFontSize * reverseScaleRatio) : globalNoteFontSize;
+    const storedLineSpacing = isLandscape ? Math.round(globalLineSpacing * reverseScaleRatio) : globalLineSpacing;
+
+    const newGlobalStyle = {
+      measureHeight: storedMeasureHeight,
+      noteFontSize: storedNoteFontSize,
+      lineSpacing: storedLineSpacing
+    };
+
+    // 保存旧全局样式用于比较（setData后this.data会被更新）
+    const oldGlobalStyle = { ...this.data.globalStylePortrait };
+
+    this.setData({
+      globalStylePortrait: newGlobalStyle
+    });
+
+    // 将全局样式应用到所有未自定义样式的模块（与旧全局样式比较）
+    const updated = this.data.notations.map(notation => {
+      const clone = JSON.parse(JSON.stringify(notation));
+      const style = clone.style || {};
+      const hasCustomStyle = this._moduleHasCustomStyle(style, oldGlobalStyle);
+      if (!hasCustomStyle) {
+        clone.style = {
+          measureHeight: storedMeasureHeight,
+          noteFontSize: storedNoteFontSize,
+          lineSpacing: storedLineSpacing
+        };
+      }
+      return clone;
+    });
+
+    const normalized = this.normalizeBarLines(updated);
+    const withOffsets = this.updateMeasureOffsets(normalized);
+    this.saveNotationsScoped(withOffsets);
+    this.setNotations(withOffsets);
+
+    this.saveGlobalStyle();
+    this.closeGlobalLayoutModal();
+    this.markNotationChanged();
+    wx.showToast({ title: '全局排版已应用', icon: 'success' });
+  },
+
+  _moduleHasCustomStyle(moduleStyle, oldGlobalStyle) {
+    if (!moduleStyle) return false;
+    const gs = oldGlobalStyle || { measureHeight: 160, noteFontSize: 28, lineSpacing: 65 };
+    const mh = moduleStyle.measureHeight || 160;
+    const nf = moduleStyle.noteFontSize || 28;
+    const ls = moduleStyle.lineSpacing || 65;
+    return mh !== (gs.measureHeight || 160) || nf !== (gs.noteFontSize || 28) || ls !== (gs.lineSpacing || 65);
+  },
+
+  saveGlobalStyle() {
+    const gs = this.data.globalStylePortrait || {};
+    wx.setStorageSync('globalStylePortrait', gs);
+  },
+
+  loadGlobalStyle() {
+    const stored = wx.getStorageSync('globalStylePortrait');
+    if (stored && typeof stored === 'object') {
+      this.setData({
+        globalStylePortrait: {
+          measureHeight: stored.measureHeight || 160,
+          noteFontSize: stored.noteFontSize || 28,
+          lineSpacing: stored.lineSpacing || 65
+        }
+      });
+    }
   },
 
   // 同步 barLineAfter 标记与当前模板（根据模块或全局拍号）
@@ -5184,8 +5463,24 @@ Page({
       // 初始化Canvas
       renderer.init(canvas, width, height);
       
-      // 设置数据
+      // 设置数据（计算布局，getAllColumnRects 依赖此步骤）
       renderer.setData(notation, this.data.orientation, this.data.measuresPerRow);
+      
+      // 【优化】播放模式增量渲染：缓存命中时跳过 render + convertCanvasToImage
+      const cachedImagePath = this._cachedModuleImages && this._cachedModuleImages[notationId];
+      if (cachedImagePath) {
+        this._canvasRenderers[notationId] = renderer;
+        
+        const columnRects = renderer.getAllColumnRects();
+        this._columnRectsCache = this._columnRectsCache || {};
+        this._columnRectsCache[notationId] = columnRects;
+        
+        const updateData = {};
+        updateData[`notations[${notationIndex}].tempImagePath`] = cachedImagePath;
+        this.setData(updateData);
+        console.log('[Canvas] 缓存命中，跳过渲染:', notationId);
+        return;
+      }
       
       // 渲染
       renderer.render();
@@ -6913,14 +7208,15 @@ Page({
         tempo: this.data.globalTempo || 60,
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
-        notationType: this.data.notationType || 'digital', // 保存谱式类型
+        notationType: this.data.notationType || 'digital',
         composer: this.data.composer,
         rootNote: this.data.rootNote,
         scaleType: this.data.scaleType,
         noteCount: this.data.noteCount,
         difficulty: this.data.difficulty,
         introduction: this.data.introduction,
-        conversionRootNote: this.data.conversionRootNote || 'F3', // 【Bug修复】保存首调设置
+        conversionRootNote: this.data.conversionRootNote || 'F3',
+        globalStyle: this.data.globalStylePortrait,
         code
       };
 
@@ -6943,7 +7239,11 @@ Page({
 
   closeSaveToLibraryModal(silent) {
     const suppressToast = silent === true;
-    this.setData({ showSaveToLibraryModal: false, saveFolderOptions: [], saveFileName: '', saveTargetPath: [], saveFolderItems: [], saveFolderBreadcrumbs: [], saveFolderCurrentPath: [] });
+    // 仅用户取消时清除「保存后打开」的待加载数据；来自 confirmSaveToLibrary 的关闭不清除，以便保存后应用
+    if (this.data._pendingLoadAfterSave && !suppressToast) {
+      wx.removeStorageSync('pending_notation_load');
+    }
+    this.setData({ showSaveToLibraryModal: false, saveFolderOptions: [], saveFileName: '', saveTargetPath: [], saveFolderItems: [], saveFolderBreadcrumbs: [], saveFolderCurrentPath: [], _pendingLoadAfterSave: false });
     if (!suppressToast) {
       wx.showToast({ title: '已取消保存', icon: 'none' });
     }
@@ -6969,14 +7269,15 @@ Page({
         tempo: this.data.globalTempo || 60,
         rotation: this.data.orientation === 'landscape' ? '手机横屏/平板模式' : '手机竖屏（默认）',
         timing: `${this.data.timeSignatureBeats || 4}/${this.data.timeSignatureBottom || 4}`,
-        notationType: this.data.notationType || 'digital', // 保存谱式类型
+        notationType: this.data.notationType || 'digital',
         composer: this.data.composer,
         rootNote: this.data.rootNote,
         scaleType: this.data.scaleType,
         noteCount: this.data.noteCount,
         difficulty: this.data.difficulty,
         introduction: this.data.introduction,
-        conversionRootNote: this.data.conversionRootNote || 'F3', // 【Bug修复】保存首调设置
+        conversionRootNote: this.data.conversionRootNote || 'F3',
+        globalStyle: this.data.globalStylePortrait,
         code
       };
 
@@ -6992,8 +7293,17 @@ Page({
       });
       this.saveLibraryFileInfo(); // 持久化库文件关联信息
       this.markNotationSaved(); // 标记为已保存
-      
+
       this.closeSaveToLibraryModal(true);
+
+      // 若为曲库「保存后打开」流程（当前未保存）：保存完成后加载待打开的曲谱
+      const pendingLoad = wx.getStorageSync('pending_notation_load');
+      if (pendingLoad && pendingLoad.code && this.data._pendingLoadAfterSave) {
+        wx.removeStorageSync('pending_notation_load');
+        this.setData({ _pendingLoadAfterSave: false });
+        this.showPageLoadingOverlay();
+        this.applyLibraryPayload(pendingLoad);
+      }
     } catch (err) {
       wx.showToast({ title: '保存失败: ' + err.message, icon: 'none' });
     }
@@ -7103,18 +7413,19 @@ Page({
   },
 
   // 生成排版样式参数字符串
-  // 返回 {h:160,f:28,s:65} 格式，如果没有自定义样式则返回空字符串
+  // 返回 {h:160,f:28,s:65} 格式，如果与全局样式相同则返回空字符串
   generateStyleParam(style) {
     if (!style) return '';
     
+    const gs = this.getGlobalStyleDefaults();
     const parts = [];
-    if (style.measureHeight && style.measureHeight !== 160) {
+    if (style.measureHeight && style.measureHeight !== gs.measureHeight) {
       parts.push(`h:${style.measureHeight}`);
     }
-    if (style.noteFontSize && style.noteFontSize !== 28) {
+    if (style.noteFontSize && style.noteFontSize !== gs.noteFontSize) {
       parts.push(`f:${style.noteFontSize}`);
     }
-    if (style.lineSpacing && style.lineSpacing !== 65) {
+    if (style.lineSpacing && style.lineSpacing !== gs.lineSpacing) {
       parts.push(`s:${style.lineSpacing}`);
     }
     
@@ -9513,12 +9824,13 @@ Page({
     };
     const inferredTemplate = this.inferTemplateFromNotation(tempNotation);
     
-    // 处理样式参数：如果解析出了排版参数则使用，否则使用默认值
+    // 处理样式参数：如果解析出了排版参数则使用，否则使用全局样式
     const moduleStyle = parsedModule.style || {};
+    const gs = this.getGlobalStyleDefaults();
     const style = {
-      measureHeight: moduleStyle.measureHeight || 160,
-      noteFontSize: moduleStyle.noteFontSize || 28,
-      lineSpacing: moduleStyle.lineSpacing || 65
+      measureHeight: moduleStyle.measureHeight || gs.measureHeight,
+      noteFontSize: moduleStyle.noteFontSize || gs.noteFontSize,
+      lineSpacing: moduleStyle.lineSpacing || gs.lineSpacing
     };
     
     return {
@@ -11304,7 +11616,7 @@ Page({
 
   // 加载谱式设置
   // 设置 notations 数据并自动更新分页
-  setNotations(notations) {
+  setNotations(notations, forceReinit = false) {
     const normalized = this.normalizeBarLines(notations);
     const withOffsets = this.updateMeasureOffsets(normalized);
     
@@ -11318,14 +11630,25 @@ Page({
       canvasHeight: this.calculateCanvasHeight(notation)
     }));
     
+    // 模块增删等结构性变动时，销毁所有旧渲染器，避免持有已失效的Canvas DOM引用
+    if (forceReinit && this._canvasRenderers) {
+      Object.keys(this._canvasRenderers).forEach(id => {
+        if (this._canvasRenderers[id]) {
+          this._canvasRenderers[id].destroy();
+        }
+      });
+      this._canvasRenderers = {};
+    }
+    
     this.setData({ notations: withCanvasHeight });
     this.calculatePages();
     
     // 【Canvas模式迁移】延迟初始化所有Canvas渲染器
-    // 使用较长延迟确保DOM完全渲染（拍号切换等场景需要更长时间）
+    // 结构性变动使用更长延迟确保DOM完全重建
+    const delay = forceReinit ? 500 : 300;
     setTimeout(() => {
       this.initAllCanvasRenderers();
-    }, 300);
+    }, delay);
   },
   
   /**
@@ -11659,10 +11982,11 @@ Page({
       const measuresPerRow = notation.measuresPerRow || this.data.measuresPerRow || 1;
       const isMultiMeasure = measuresPerRow > 1;
       
-      // 计算基础样式值
-      const baseFontSize = style.noteFontSize || 28;
-      const baseMeasureHeight = style.measureHeight || (isMultiMeasure ? 110 : 160);
-      const baseLineSpacing = style.lineSpacing || 65;
+      // 计算基础样式值（优先模块级样式，fallback到全局样式）
+      const gs = this.getGlobalStyleDefaults();
+      const baseFontSize = style.noteFontSize || gs.noteFontSize;
+      const baseMeasureHeight = style.measureHeight || (isMultiMeasure ? 110 : gs.measureHeight);
+      const baseLineSpacing = style.lineSpacing || gs.lineSpacing;
       
       // 根据横竖屏计算实际显示值
       const fontSize = isLandscape ? Math.round(baseFontSize * LANDSCAPE_SCALE) : baseFontSize;
@@ -17902,11 +18226,11 @@ Page({
   
   /**
    * 为播放模式收起所有notations（单页模式）
-   * 【Bug修复】播放模式下必须为所有 module 初始化 Canvas 渲染器，否则切页后再次进入播放时
-   * 非本页 module 无渲染器，导致无法点击定位、光标不出现（渲染器不存在）。
+   * 所有 module 的 canvas 初始均在 DOM 中（tempImagePath = null），保证渲染器可初始化。
+   * 缓存命中的 module 在渲染器初始化后跳过 render() + convertCanvasToImage()，
    * 原因：切页后仅当前页在 DOM 中，退出播放恢复分页时非当前页 canvas 被销毁；再次进入播放时
    * 若仅对 toRender 初始化，则“来自缓存”的 module 未初始化渲染器，且其 canvas 被 tempImagePath 隐藏不在 DOM，
-   * 无法后续初始化。因此播放模式下统一不使用缓存显示，所有 module 显示 canvas 并全部初始化渲染器。
+   * 无法后续初始化。直接复用上次的缓存图片，仅未命中的 module 做完整绘制，从而实现增量渲染。
    */
   collapseAllNotationsForPlayback() {
     // 确保 _canvasRenderers 存在
@@ -17929,15 +18253,20 @@ Page({
       measuresPerRow
     );
     
-    // 【Bug修复】播放模式下不使用缓存图片显示（tempImagePath 一律为 null），
-    // 使所有 module 的 canvas 都在 DOM 中，从而能为每个 module 初始化渲染器，保证光标与点击定位可用
+    // 所有 module 的 canvas 都在 DOM 中（tempImagePath 初始为 null），保证渲染器可初始化
+    // 缓存命中的 module 会在渲染器初始化后跳过 render + convertCanvasToImage，直接设置缓存图片
+    this._cachedModuleImages = {};
+    fromCache.forEach(c => {
+      this._cachedModuleImages[c.moduleId] = c.imagePath;
+    });
+    
     const notations = this.data.notations.map((notation, index) => {
       const cachedInfo = fromCache.find(c => c.moduleId === notation.id);
       return {
         ...notation,
         collapsed: true,
         canvasHeight: this.calculateCanvasHeight(notation),
-        tempImagePath: null, // 播放模式统一不用缓存图，保证 canvas 存在并初始化渲染器
+        tempImagePath: null,
         isCanvasEditing: false,
         cursorVisible: false,
         _contentHash: cachedInfo ? cachedInfo.hash :
@@ -17951,7 +18280,7 @@ Page({
       this._moduleHashes[n.id] = PlaybackCanvasCacheManager.generateModuleHash(n, orientation, measuresPerRow);
     });
     
-    console.log(`[Playback] 播放模式：为全部 ${notations.length} 个 module 初始化渲染器（含原缓存 ${fromCache.length} 个）`);
+    console.log(`[Playback] 增量渲染：${notations.length} 个 module，缓存命中 ${fromCache.length} 个（跳过渲染），需重绘 ${toRender.length} 个`);
     
     this.setData({ notations }, () => {
       setTimeout(() => {
@@ -18133,6 +18462,9 @@ Page({
     if (this._columnRectsCache) {
       this._columnRectsCache = {};
     }
+    
+    // 清除播放模式增量渲染缓存映射
+    this._cachedModuleImages = null;
 
     // 恢复之前的状态
     const savedState = this._savedPaginationState || {};
@@ -18314,6 +18646,16 @@ Page({
       this.setData({ showPlaybackLoading: false, isPlaying: false, isPaused: false });
       this.exitPlaybackMode();
     }
+  },
+
+  /**
+   * 取消播放倒计时，立即开始播放
+   */
+  cancelPlaybackCountdown() {
+    if (sheetPlaybackManager) {
+      sheetPlaybackManager.skipCountdown();
+    }
+    this.setData({ showPlaybackCountdown: false });
   },
 
   /**

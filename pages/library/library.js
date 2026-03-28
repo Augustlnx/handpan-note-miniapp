@@ -16,8 +16,11 @@ Page({
     showFabMenu: false, // 悬浮按钮菜单
     showImportModal: false, // 导入弹窗
     showNewFileModal: false, // 新建文件弹窗
+    showOpenConfirmModal: false, // 打开文件确认弹窗（覆盖当前谱面）
+    openConfirmItem: null, // 待打开的文件项
+    saveThenOpen: false, // 胶囊「保存后打开」状态
     showImportJsonModal: false, // 导入JSON曲谱弹窗
-    importJsonCode: '', // 导入的JSON代码
+    importJsonCode: '', // 导入的JSON代码 // 导入的JSON代码
     importJsonError: '', // JSON解析错误
     importJsonPreview: null, // 解析预览数据
     
@@ -449,18 +452,61 @@ Page({
   // ========== 文件操作 ==========
   openFile(e) {
     if (this.data.editMode) return;
-    
+
     const item = e.currentTarget.dataset.item;
-    wx.showModal({
-      title: '覆盖当前谱面？',
-      content: '打开该乐谱会覆盖记谱页当前内容，请在切换前及时保存当前谱面数据，是否继续？',
-      confirmText: '继续',
-      cancelText: '取消',
-      success: (res) => {
-        if (!res.confirm) return;
-        this._loadFileToNotation(item);
-      }
+    this.setData({
+      showOpenConfirmModal: true,
+      openConfirmItem: item,
+      saveThenOpen: false
     });
+  },
+
+  closeOpenConfirmModal() {
+    this.setData({
+      showOpenConfirmModal: false,
+      openConfirmItem: null,
+      saveThenOpen: false
+    });
+  },
+
+  toggleSaveThenOpen() {
+    this.setData({ saveThenOpen: !this.data.saveThenOpen });
+  },
+
+  confirmOpenFile() {
+    const item = this.data.openConfirmItem;
+    const saveThenOpen = this.data.saveThenOpen;
+    this.setData({ showOpenConfirmModal: false, openConfirmItem: null, saveThenOpen: false });
+
+    if (saveThenOpen) {
+      const pages = getCurrentPages();
+      const notationPage = pages.find(p => p.route === 'pages/notation/notation');
+      const hasLibraryFile = notationPage && notationPage.data && notationPage.data.libraryFileId;
+      if (hasLibraryFile && typeof notationPage.saveToOriginalFile === 'function') {
+        notationPage.saveToOriginalFile();
+        this._loadFileToNotation(item);
+        return;
+      }
+      // 当前记谱为「未保存」：先切到 notation 并弹出「保存到曲库」，保存后再加载新曲谱
+      const payload = this._buildFilePayload(item);
+      wx.setStorageSync('pending_notation_load', payload);
+      wx.setStorageSync('pending_notation_show_save_first', true);
+      wx.showLoading({ title: '加载谱面...', mask: true });
+      wx.switchTab({
+        url: '/pages/notation/notation',
+        success: () => {
+          libraryManager.addRecentFile(item);
+          this.loadLibraryData();
+        },
+        fail: () => {
+          wx.removeStorageSync('pending_notation_show_save_first');
+          wx.showToast({ title: '打开失败，请重试', icon: 'none' });
+          wx.hideLoading();
+        }
+      });
+      return;
+    }
+    this._loadFileToNotation(item);
   },
 
   openRecentFile(e) {
